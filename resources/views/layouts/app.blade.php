@@ -109,7 +109,7 @@
                 <!-- PROFESORES -->
 
                 <a
-                    href="#"
+                    href="{{ route('profesores.index') }}"
                     class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition mb-1"
                 >
 
