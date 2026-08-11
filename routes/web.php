@@ -9,3 +9,7 @@ Route::get('/', function () {
 Route::get('/profesores', function () {
     return view('profesores.index');
 })->name('profesores.index');
+
+Route::get('/cursos', function () {
+    return view('cursos.index');
+})->name('cursos.index');

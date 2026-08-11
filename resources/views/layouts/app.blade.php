@@ -92,7 +92,7 @@
 
                 <a
                     href="/"
-                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg bg-indigo-600 text-white mb-2"
+                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-2 {{ request()->is('/') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
                     <span class="text-lg">
@@ -110,7 +110,7 @@
 
                 <a
                     href="{{ route('profesores.index') }}"
-                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition mb-1"
+                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('profesores.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
                     <span class="text-lg">
@@ -127,8 +127,8 @@
                 <!-- CURSOS -->
 
                 <a
-                    href="#"
-                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition mb-1"
+                    href="{{ route('cursos.index') }}"
+                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('cursos.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
                     <span class="text-lg">

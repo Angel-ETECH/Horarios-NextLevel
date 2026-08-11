@@ -1178,4 +1178,87 @@
         </div>
 
     </div>
+
+    <!-- MODAL ELIMINAR PROFESOR -->
+
+    <div
+        id="eliminar-profesor-modal"
+        class="fixed inset-0 z-[100] hidden"
+        aria-hidden="true"
+    >
+
+        <div
+            id="eliminar-profesor-modal-overlay"
+            class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+        ></div>
+
+
+        <div class="relative flex min-h-full items-center justify-center p-4">
+
+            <div class="relative w-full max-w-md rounded-2xl bg-white shadow-2xl">
+
+                <div class="flex items-start justify-between px-6 py-5">
+
+                    <div class="flex items-start gap-4">
+
+                        <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-xl">
+                            🗑️
+                        </div>
+
+                        <div>
+
+                            <h2 class="text-lg font-semibold text-slate-900">
+                                Eliminar profesor
+                            </h2>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                ¿Estás seguro de eliminar a
+                                <span
+                                    id="eliminar-profesor-nombre"
+                                    class="font-medium text-slate-700"
+                                ></span>
+                                ? Esta acción no se puede deshacer.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    <button
+                        id="close-eliminar-profesor-modal"
+                        type="button"
+                        class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    >
+                        ✕
+                    </button>
+
+                </div>
+
+
+                <div class="flex flex-col-reverse gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row sm:justify-end">
+
+                    <button
+                        id="cancel-eliminar-profesor-modal"
+                        type="button"
+                        class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        id="confirm-eliminar-profesor"
+                        type="button"
+                        class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
+                    >
+                        Eliminar profesor
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
 @endsection
