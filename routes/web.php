@@ -13,3 +13,7 @@ Route::get('/profesores', function () {
 Route::get('/cursos', function () {
     return view('cursos.index');
 })->name('cursos.index');
+
+Route::get('/aulas', function () {
+    return view('aulas.index');
+})->name('aulas.index');

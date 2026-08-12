@@ -1277,3 +1277,589 @@ document.addEventListener('DOMContentLoaded', () => {
     filtrarCursos();
 
 });
+// ==========================================
+// AULAS
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    const buscador = document.getElementById('buscar-aula');
+    const filtro = document.getElementById('filtro-aula-estado');
+
+    const emptyState = document.getElementById('aulas-empty');
+    const resultados = document.getElementById('resultados-aulas');
+
+    const totalAulas = document.getElementById('total-aulas');
+    const aulasDisponibles = document.getElementById('aulas-disponibles');
+    const aulasNoDisponibles = document.getElementById('aulas-no-disponibles');
+
+    const modal = document.getElementById('aula-modal');
+    const abrirModalBtn = document.getElementById('open-aula-modal');
+    const cerrarModalBtn = document.getElementById('close-aula-modal');
+    const cancelarModalBtn = document.getElementById('cancel-aula-modal');
+    const overlay = document.getElementById('aula-modal-overlay');
+
+    const formulario = document.getElementById('aula-form');
+
+    const nombreInput = document.getElementById('aula-nombre');
+    const capacidadInput = document.getElementById('aula-capacidad');
+    const tipoInput = document.getElementById('aula-tipo');
+    const estadoInput = document.getElementById('aula-estado');
+
+    const modalTitle = document.getElementById('aula-modal-title');
+    const submitButton = document.getElementById('aula-submit-button');
+
+    let aulaEditando = null;
+
+
+    const eliminarModal = document.getElementById('delete-aula-modal');
+    const eliminarModalOverlay = document.getElementById('delete-aula-overlay');
+    const eliminarAulaNombre = document.getElementById('delete-aula-name');
+    const cancelEliminarModal = document.getElementById('cancel-delete-aula');
+    const confirmEliminarBoton = document.getElementById('confirm-delete-aula');
+
+    let aulaAEliminar = null;
+
+
+    // Si no estamos en la página de Aulas, no hacemos nada.
+
+    if (!buscador || !filtro || !modal || !formulario) {
+        return;
+    }
+
+
+    // ==========================================
+    // MODAL AGREGAR / EDITAR
+    // ==========================================
+
+    function abrirAulaModal() {
+
+        modal.classList.remove('hidden');
+
+        modal.setAttribute('aria-hidden', 'false');
+
+        document.body.classList.add('overflow-hidden');
+
+        setTimeout(() => {
+            nombreInput.focus();
+        }, 100);
+
+    }
+
+
+    function cerrarAulaModal() {
+
+        modal.classList.add('hidden');
+
+        modal.setAttribute('aria-hidden', 'true');
+
+        document.body.classList.remove('overflow-hidden');
+
+        formulario.reset();
+
+        aulaEditando = null;
+
+        modalTitle.textContent = 'Agregar aula';
+
+        submitButton.textContent = 'Guardar aula';
+
+    }
+
+
+    abrirModalBtn.addEventListener('click', abrirAulaModal);
+
+    cerrarModalBtn.addEventListener('click', cerrarAulaModal);
+
+    cancelarModalBtn.addEventListener('click', cerrarAulaModal);
+
+    overlay.addEventListener('click', cerrarAulaModal);
+
+
+    document.addEventListener('keydown', (event) => {
+
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            cerrarAulaModal();
+        }
+
+    });
+
+
+    // ==========================================
+    // ESTADÍSTICAS
+    // ==========================================
+
+    function actualizarEstadisticas() {
+
+        const filas = document.querySelectorAll('.aula-row');
+
+        let disponibles = 0;
+        let noDisponibles = 0;
+
+        filas.forEach((aula) => {
+
+            if (aula.dataset.estado === 'disponible') {
+                disponibles++;
+            } else {
+                noDisponibles++;
+            }
+
+        });
+
+        totalAulas.textContent = filas.length;
+
+        aulasDisponibles.textContent = disponibles;
+
+        aulasNoDisponibles.textContent = noDisponibles;
+
+    }
+
+
+    // ==========================================
+    // FILTRAR
+    // ==========================================
+
+    function filtrarAulas() {
+
+        const texto = buscador.value
+            .toLowerCase()
+            .trim();
+
+        const estadoSeleccionado = filtro.value;
+
+        const filas = document.querySelectorAll('.aula-row');
+
+        let encontrados = 0;
+
+
+        filas.forEach((aula) => {
+
+            const nombre = aula.dataset.nombre.toLowerCase();
+
+            const estado = aula.dataset.estado;
+
+
+            const coincideNombre =
+                nombre.includes(texto);
+
+            const coincideEstado =
+                estadoSeleccionado === '' ||
+                estado === estadoSeleccionado;
+
+
+            if (coincideNombre && coincideEstado) {
+
+                aula.classList.remove('hidden');
+
+                encontrados++;
+
+            } else {
+
+                aula.classList.add('hidden');
+
+            }
+
+        });
+
+
+        resultados.textContent = encontrados;
+
+
+        if (encontrados === 0) {
+
+            emptyState.classList.remove('hidden');
+
+        } else {
+
+            emptyState.classList.add('hidden');
+
+        }
+
+    }
+
+
+    buscador.addEventListener('input', filtrarAulas);
+
+    filtro.addEventListener('change', filtrarAulas);
+
+
+    // ==========================================
+    // AGREGAR / EDITAR AULA
+    // ==========================================
+
+    formulario.addEventListener('submit', (event) => {
+
+        event.preventDefault();
+
+
+        const nombre = nombreInput.value.trim();
+
+        const capacidad = capacidadInput.value.trim();
+
+        const tipo = tipoInput.value;
+
+        const estado = estadoInput.value;
+
+
+        // Validación básica
+
+        if (!nombre || !capacidad || !tipo) {
+
+            alert('Completa todos los campos.');
+
+            return;
+
+        }
+
+
+        // ==========================================
+        // MODO EDICIÓN
+        // ==========================================
+
+        if (aulaEditando) {
+
+            const fila = aulaEditando;
+
+
+            fila.dataset.nombre = nombre;
+
+            fila.dataset.estado = estado;
+
+
+            const nombreElemento =
+                fila.querySelector('td:first-child p');
+
+
+            const celdas =
+                fila.querySelectorAll('td');
+
+
+            nombreElemento.textContent = nombre;
+
+
+            celdas[1].textContent = `${capacidad} alumnos`;
+
+            celdas[2].textContent = tipo;
+
+
+            // Actualizar estado
+
+            celdas[3].innerHTML =
+                estado === 'disponible'
+
+                    ? `
+                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                            Disponible
+                        </span>
+                      `
+
+                    : `
+                        <span class="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
+                            No disponible
+                        </span>
+                      `;
+
+
+            // Actualizar botones
+
+            const botonEditar =
+                fila.querySelector('.editar-aula');
+
+
+            botonEditar.dataset.nombre = nombre;
+
+            botonEditar.dataset.capacidad = capacidad;
+
+            botonEditar.dataset.tipo = tipo;
+
+            botonEditar.dataset.estado = estado;
+
+
+            const botonEliminar =
+                fila.querySelector('.eliminar-aula');
+
+
+            botonEliminar.dataset.nombre = nombre;
+
+
+            cerrarAulaModal();
+
+            actualizarEstadisticas();
+
+            filtrarAulas();
+
+
+            return;
+
+        }
+
+
+        // ==========================================
+        // MODO AGREGAR
+        // ==========================================
+
+        const tbody = document.querySelector('table tbody');
+
+        const fila = document.createElement('tr');
+
+        fila.className =
+            'aula-row transition hover:bg-slate-50';
+
+        fila.dataset.nombre = nombre;
+
+        fila.dataset.estado = estado;
+
+
+        const estadoHTML = estado === 'disponible'
+
+            ? `
+                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    Disponible
+                </span>
+              `
+
+            : `
+                <span class="inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
+                    No disponible
+                </span>
+              `;
+
+
+        const icono = tipo === 'Laboratorio'
+            ? '💻'
+            : tipo === 'Sala'
+                ? '🪑'
+                : '🏫';
+
+
+        fila.innerHTML = `
+
+            <td class="whitespace-nowrap px-6 py-4">
+
+                <div class="flex items-center gap-3">
+
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-lg">
+                        ${icono}
+                    </div>
+
+                    <div>
+
+                        <p class="font-medium text-slate-900">
+                            ${nombre}
+                        </p>
+
+                        <p class="text-xs text-slate-500">
+                            ${tipo}
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </td>
+
+
+            <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
+                ${capacidad} alumnos
+            </td>
+
+
+            <td class="whitespace-nowrap px-6 py-4 text-sm text-slate-600">
+                ${tipo}
+            </td>
+
+
+            <td class="whitespace-nowrap px-6 py-4">
+
+                ${estadoHTML}
+
+            </td>
+
+
+            <td class="whitespace-nowrap px-6 py-4 text-right">
+
+                <button
+                    type="button"
+                    class="editar-aula rounded-lg p-2 text-slate-500 transition hover:bg-indigo-50 hover:text-indigo-600"
+                    data-nombre="${nombre}"
+                    data-capacidad="${capacidad}"
+                    data-tipo="${tipo}"
+                    data-estado="${estado}"
+                    title="Editar"
+                >
+                    ✏️
+                </button>
+
+
+                <button
+                    type="button"
+                    class="eliminar-aula rounded-lg p-2 text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                    data-nombre="${nombre}"
+                    title="Eliminar"
+                >
+                    🗑️
+                </button>
+
+            </td>
+
+        `;
+
+
+        tbody.insertBefore(fila, emptyState);
+
+
+        cerrarAulaModal();
+
+        actualizarEstadisticas();
+
+        filtrarAulas();
+
+    });
+
+
+    // ==========================================
+    // EDITAR AULA
+    // ==========================================
+
+    document.addEventListener('click', (event) => {
+
+        const botonEditar =
+            event.target.closest('.editar-aula');
+
+
+        if (!botonEditar) {
+            return;
+        }
+
+
+        aulaEditando =
+            botonEditar.closest('.aula-row');
+
+
+        const nombre = botonEditar.dataset.nombre;
+        const capacidad = botonEditar.dataset.capacidad;
+        const tipo = botonEditar.dataset.tipo;
+        const estado = botonEditar.dataset.estado;
+
+
+        nombreInput.value = nombre;
+
+        capacidadInput.value = capacidad;
+
+        tipoInput.value = tipo;
+
+        estadoInput.value = estado;
+
+
+        modalTitle.textContent = 'Editar aula';
+
+        submitButton.textContent = 'Guardar cambios';
+
+
+        abrirAulaModal();
+
+    });
+
+
+    // ==========================================
+    // ELIMINAR AULA
+    // ==========================================
+
+    function abrirEliminarModal() {
+
+        eliminarModal.classList.remove('hidden');
+
+        eliminarModal.setAttribute('aria-hidden', 'false');
+
+        document.body.classList.add('overflow-hidden');
+
+    }
+
+
+    function cerrarEliminarModal() {
+
+        eliminarModal.classList.add('hidden');
+
+        eliminarModal.setAttribute('aria-hidden', 'true');
+
+        document.body.classList.remove('overflow-hidden');
+
+        aulaAEliminar = null;
+
+    }
+
+
+    document.addEventListener('click', (event) => {
+
+        const botonEliminar =
+            event.target.closest('.eliminar-aula');
+
+
+        if (!botonEliminar) {
+            return;
+        }
+
+
+        aulaAEliminar =
+            botonEliminar.closest('.aula-row');
+
+
+        const nombre = botonEliminar.dataset.nombre;
+
+
+        eliminarAulaNombre.textContent = `"${nombre}"`;
+
+
+        abrirEliminarModal();
+
+    });
+
+
+    cancelEliminarModal.addEventListener(
+        'click',
+        cerrarEliminarModal
+    );
+
+    eliminarModalOverlay.addEventListener(
+        'click',
+        cerrarEliminarModal
+    );
+
+
+    document.addEventListener('keydown', (event) => {
+
+        if (
+            event.key === 'Escape' &&
+            !eliminarModal.classList.contains('hidden')
+        ) {
+            cerrarEliminarModal();
+        }
+
+    });
+
+
+    confirmEliminarBoton.addEventListener('click', () => {
+
+        if (!aulaAEliminar) {
+            return;
+        }
+
+        aulaAEliminar.remove();
+
+        cerrarEliminarModal();
+
+        actualizarEstadisticas();
+
+        filtrarAulas();
+
+    });
+
+
+    // ==========================================
+    // ESTADO INICIAL
+    // ==========================================
+
+    actualizarEstadisticas();
+
+    filtrarAulas();
+
+});
