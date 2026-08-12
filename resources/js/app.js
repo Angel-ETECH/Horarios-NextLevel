@@ -1863,3 +1863,553 @@ document.addEventListener('DOMContentLoaded', () => {
     filtrarAulas();
 
 });
+
+// ==========================================
+// DISPONIBILIDAD
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    const profesorSelect = document.getElementById('profesor-select');
+    const slots = document.querySelectorAll('.availability-slot');
+
+    const selectAllButton = document.getElementById('select-all-availability');
+    const clearButton = document.getElementById('clear-availability');
+    const saveButton = document.getElementById('save-availability');
+
+    const countElement =
+        document.getElementById('availability-count');
+
+    const daysElement =
+        document.getElementById('availability-days');
+
+    const hoursElement =
+        document.getElementById('availability-hours');
+
+    const dayButtons =
+        document.querySelectorAll('.select-day');
+
+    const mobileDayTabs =
+        document.querySelectorAll('.mobile-day-tab');
+
+    const mobileDayPanels =
+        document.querySelectorAll('.mobile-day-panel');
+
+    if (!profesorSelect || !slots.length) {
+        return;
+    }
+
+
+    // ==========================================
+    // DATOS TEMPORALES DE LOS PROFESORES
+    // ==========================================
+
+    const disponibilidades = {};
+
+
+    // ==========================================
+    // OBTENER BLOQUES SELECCIONADOS (SIN DUPLICADOS)
+    // ==========================================
+    // Nota: cada bloque existe hasta 2 veces en el DOM
+    // (versión escritorio + versión móvil), por eso
+    // usamos un Set para no contar el mismo horario dos veces.
+
+    function obtenerSeleccionados() {
+
+        const identificadoresUnicos = new Set();
+
+        document.querySelectorAll(
+            '.availability-slot.selected'
+        ).forEach((slot) => {
+
+            identificadoresUnicos.add(
+                `${slot.dataset.dia}-${slot.dataset.hora}`
+            );
+
+        });
+
+        return Array.from(identificadoresUnicos);
+
+    }
+
+
+    // ==========================================
+    // ACTUALIZAR RESUMEN
+    // ==========================================
+
+    function actualizarResumen() {
+
+        const identificadoresUnicos =
+            obtenerSeleccionados();
+
+
+        const cantidad =
+            identificadoresUnicos.length;
+
+
+        const dias =
+            new Set(
+                identificadoresUnicos.map(
+                    (id) => id.split('-')[0]
+                )
+            );
+
+
+        countElement.textContent =
+            cantidad;
+
+
+        daysElement.textContent =
+            dias.size;
+
+
+        hoursElement.textContent =
+            cantidad;
+
+    }
+
+
+    // ==========================================
+    // LIMPIAR VISUALMENTE LA CUADRÍCULA
+    // ==========================================
+
+    function limpiarGrid() {
+
+        slots.forEach((slot) => {
+
+            slot.classList.remove(
+                'bg-indigo-600',
+                'selected'
+            );
+
+            slot.classList.add(
+                'bg-white',
+                'hover:bg-indigo-50'
+            );
+
+        });
+
+    }
+
+
+    // ==========================================
+    // CARGAR DISPONIBILIDAD DEL PROFESOR
+    // ==========================================
+
+    function cargarDisponibilidad(profesorId) {
+
+        limpiarGrid();
+
+
+        const datos =
+            disponibilidades[profesorId] || [];
+
+
+        slots.forEach((slot) => {
+
+            const identificador =
+                `${slot.dataset.dia}-${slot.dataset.hora}`;
+
+
+            if (datos.includes(identificador)) {
+
+                slot.classList.remove(
+                    'bg-white',
+                    'hover:bg-indigo-50'
+                );
+
+                slot.classList.add(
+                    'bg-indigo-600',
+                    'selected'
+                );
+
+            }
+
+        });
+
+        actualizarResumen();
+
+    }
+
+
+    // ==========================================
+    // CLICK EN BLOQUE
+    // ==========================================
+    // Como cada horario puede existir 2 veces (grid de
+    // escritorio + lista móvil), al hacer clic buscamos
+    // TODAS las copias con el mismo día y hora, y las
+    // sincronizamos juntas.
+
+    slots.forEach((slot) => {
+
+        slot.addEventListener('click', () => {
+
+            if (!profesorSelect.value) {
+
+                alert(
+                    'Primero selecciona un profesor.'
+                );
+
+                profesorSelect.focus();
+
+                return;
+
+            }
+
+
+            const dia = slot.dataset.dia;
+            const hora = slot.dataset.hora;
+
+            const seleccionando =
+                !slot.classList.contains('selected');
+
+
+            const copiasDelBloque =
+                document.querySelectorAll(
+                    `.availability-slot[data-dia="${dia}"][data-hora="${hora}"]`
+                );
+
+
+            copiasDelBloque.forEach((copia) => {
+
+                if (seleccionando) {
+
+                    copia.classList.remove(
+                        'bg-white',
+                        'hover:bg-indigo-50'
+                    );
+
+                    copia.classList.add(
+                        'bg-indigo-600',
+                        'selected'
+                    );
+
+                } else {
+
+                    copia.classList.remove(
+                        'bg-indigo-600',
+                        'selected'
+                    );
+
+                    copia.classList.add(
+                        'bg-white',
+                        'hover:bg-indigo-50'
+                    );
+
+                }
+
+            });
+
+
+            disponibilidades[
+                profesorSelect.value
+            ] = obtenerSeleccionados();
+
+
+            actualizarResumen();
+
+        });
+
+    });
+
+
+    // ==========================================
+    // SELECCIONAR DÍA COMPLETO
+    // ==========================================
+
+    dayButtons.forEach((button) => {
+
+        button.addEventListener('click', () => {
+
+            if (!profesorSelect.value) {
+
+                alert(
+                    'Primero selecciona un profesor.'
+                );
+
+                profesorSelect.focus();
+
+                return;
+            }
+
+
+            const dia =
+                button.dataset.dia;
+
+
+            const bloquesDelDia =
+                document.querySelectorAll(
+                    `.availability-slot[data-dia="${dia}"]`
+                );
+
+
+            const todosSeleccionados =
+                Array.from(bloquesDelDia).every(
+                    (slot) =>
+                        slot.classList.contains(
+                            'selected'
+                        )
+                );
+
+
+            bloquesDelDia.forEach((slot) => {
+
+                if (todosSeleccionados) {
+
+                    slot.classList.remove(
+                        'bg-indigo-600',
+                        'selected'
+                    );
+
+                    slot.classList.add(
+                        'bg-white',
+                        'hover:bg-indigo-50'
+                    );
+
+                } else {
+
+                    slot.classList.remove(
+                        'bg-white',
+                        'hover:bg-indigo-50'
+                    );
+
+                    slot.classList.add(
+                        'bg-indigo-600',
+                        'selected'
+                    );
+
+                }
+
+            });
+
+
+            disponibilidades[
+                profesorSelect.value
+            ] = obtenerSeleccionados();
+
+
+            actualizarResumen();
+
+        });
+
+    });
+
+
+    // ==========================================
+    // PESTAÑAS DE DÍA (VISTA MÓVIL)
+    // ==========================================
+
+    mobileDayTabs.forEach((tab) => {
+
+        tab.addEventListener('click', () => {
+
+            const dia =
+                tab.dataset.dia;
+
+
+            mobileDayPanels.forEach((panel) => {
+
+                panel.classList.toggle(
+                    'hidden',
+                    panel.dataset.diaPanel !== dia
+                );
+
+            });
+
+
+            mobileDayTabs.forEach((otraTab) => {
+
+                const activa =
+                    otraTab === tab;
+
+
+                otraTab.classList.toggle(
+                    'bg-indigo-600',
+                    activa
+                );
+
+                otraTab.classList.toggle(
+                    'text-white',
+                    activa
+                );
+
+                otraTab.classList.toggle(
+                    'bg-slate-100',
+                    !activa
+                );
+
+                otraTab.classList.toggle(
+                    'text-slate-600',
+                    !activa
+                );
+
+            });
+
+        });
+
+    });
+
+
+    // ==========================================
+    // CAMBIAR PROFESOR
+    // ==========================================
+
+    profesorSelect.addEventListener(
+        'change',
+        () => {
+
+            const profesorId =
+                profesorSelect.value;
+
+
+            if (!profesorId) {
+
+                limpiarGrid();
+
+                actualizarResumen();
+
+                return;
+
+            }
+
+
+            cargarDisponibilidad(
+                profesorId
+            );
+
+        }
+    );
+
+
+    // ==========================================
+    // SELECCIONAR TODO
+    // ==========================================
+
+    selectAllButton.addEventListener(
+        'click',
+        () => {
+
+            if (!profesorSelect.value) {
+
+                alert(
+                    'Primero selecciona un profesor.'
+                );
+
+                profesorSelect.focus();
+
+                return;
+
+            }
+
+
+            slots.forEach((slot) => {
+
+                slot.classList.remove(
+                    'bg-white',
+                    'hover:bg-indigo-50'
+                );
+
+                slot.classList.add(
+                    'bg-indigo-600',
+                    'selected'
+                );
+
+            });
+
+
+            disponibilidades[
+                profesorSelect.value
+            ] = obtenerSeleccionados();
+
+
+            actualizarResumen();
+
+        }
+    );
+
+
+    // ==========================================
+    // LIMPIAR
+    // ==========================================
+
+    clearButton.addEventListener(
+        'click',
+        () => {
+
+            if (!profesorSelect.value) {
+
+                alert(
+                    'Primero selecciona un profesor.'
+                );
+
+                profesorSelect.focus();
+
+                return;
+
+            }
+
+
+            limpiarGrid();
+
+
+            disponibilidades[
+                profesorSelect.value
+            ] = [];
+
+
+            actualizarResumen();
+
+        }
+    );
+
+
+    // ==========================================
+    // GUARDAR
+    // ==========================================
+
+    saveButton.addEventListener(
+        'click',
+        () => {
+
+            const profesorId =
+                profesorSelect.value;
+
+
+            if (!profesorId) {
+
+                alert(
+                    'Primero selecciona un profesor.'
+                );
+
+                profesorSelect.focus();
+
+                return;
+
+            }
+
+
+            const disponibilidad =
+                disponibilidades[profesorId] || [];
+
+
+            console.log({
+                profesor_id: profesorId,
+                disponibilidad: disponibilidad
+            });
+
+
+            alert(
+                `Disponibilidad guardada correctamente.\n\nBloques seleccionados: ${disponibilidad.length}`
+            );
+
+        }
+    );
+
+
+    // ==========================================
+    // ESTADO INICIAL
+    // ==========================================
+
+    actualizarResumen();
+
+});

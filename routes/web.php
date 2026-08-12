@@ -17,3 +17,7 @@ Route::get('/cursos', function () {
 Route::get('/aulas', function () {
     return view('aulas.index');
 })->name('aulas.index');
+
+Route::get('/disponibilidades', function () {
+    return view('disponibilidades.index');
+})->name('disponibilidades.index');
