@@ -146,7 +146,7 @@
 
                 <a
                     href="{{ route('aulas.index') }}"
-                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition mb-1"
+                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('aulas.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}
                 >
 
                     <span class="text-lg">
@@ -171,7 +171,7 @@
 
                 <a
                     href="{{ route('disponibilidades.index') }}"
-                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition mb-1"
+                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('disponibilidades.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
                     <span class="text-lg">
@@ -188,8 +188,8 @@
                 <!-- ASIGNACIONES -->
 
                 <a
-                    href="#"
-                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition mb-1"
+                    href="{{ route('asignaciones.index') }}"
+    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('asignaciones.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
                     <span class="text-lg">

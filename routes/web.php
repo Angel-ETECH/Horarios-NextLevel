@@ -21,3 +21,7 @@ Route::get('/aulas', function () {
 Route::get('/disponibilidades', function () {
     return view('disponibilidades.index');
 })->name('disponibilidades.index');
+
+Route::get('/asignaciones', function () {
+    return view('asignaciones.index');
+})->name('asignaciones.index');

@@ -2413,3 +2413,429 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarResumen();
 
 });
+// ==========================================
+// ASIGNACIONES
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    const profesorSelect =
+        document.getElementById('asignacion-profesor');
+
+    const cursoSelect =
+        document.getElementById('asignacion-curso');
+
+    const gradoSelect =
+        document.getElementById('asignacion-grado');
+
+    const aulaSelect =
+        document.getElementById('asignacion-aula');
+
+    const horasInput =
+        document.getElementById('horas-semanales');
+
+    const bloqueSelect =
+        document.getElementById('horas-bloque');
+
+    const estadoSelect =
+        document.getElementById('asignacion-estado');
+
+    const guardarButton =
+        document.getElementById('guardar-asignacion');
+
+    const limpiarButton =
+        document.getElementById('limpiar-asignacion');
+
+    const buscarInput =
+        document.getElementById('buscar-asignacion');
+
+    const tabla =
+        document.getElementById('asignaciones-body');
+
+
+    // ==========================================
+    // VERIFICAR PÁGINA
+    // ==========================================
+
+    if (
+        !profesorSelect ||
+        !cursoSelect ||
+        !gradoSelect ||
+        !aulaSelect ||
+        !horasInput ||
+        !bloqueSelect ||
+        !estadoSelect ||
+        !guardarButton ||
+        !limpiarButton ||
+        !tabla
+    ) {
+        return;
+    }
+
+
+    // ==========================================
+    // LIMPIAR FORMULARIO
+    // ==========================================
+
+    function limpiarFormulario() {
+
+        profesorSelect.value = '';
+        cursoSelect.value = '';
+        gradoSelect.value = '';
+        aulaSelect.value = '';
+        horasInput.value = '';
+        bloqueSelect.value = '1';
+        estadoSelect.value = 'activo';
+
+    }
+
+
+    // ==========================================
+    // CREAR ASIGNACIÓN
+    // ==========================================
+
+    guardarButton.addEventListener('click', () => {
+
+        const profesorId =
+            profesorSelect.value;
+
+        const cursoId =
+            cursoSelect.value;
+
+        const gradoId =
+            gradoSelect.value;
+
+        const aulaId =
+            aulaSelect.value;
+
+        const horas =
+            horasInput.value;
+
+        const bloque =
+            bloqueSelect.value;
+
+        const estado =
+            estadoSelect.value;
+
+
+        // ==========================================
+        // VALIDACIÓN
+        // ==========================================
+
+        if (!profesorId) {
+
+            alert('Selecciona un profesor.');
+
+            profesorSelect.focus();
+
+            return;
+        }
+
+
+        if (!cursoId) {
+
+            alert('Selecciona un curso.');
+
+            cursoSelect.focus();
+
+            return;
+        }
+
+
+        if (!gradoId) {
+
+            alert('Selecciona un grado.');
+
+            gradoSelect.focus();
+
+            return;
+        }
+
+
+        if (!aulaId) {
+
+            alert('Selecciona un aula.');
+
+            aulaSelect.focus();
+
+            return;
+        }
+
+
+        if (!horas || horas < 1) {
+
+            alert(
+                'Ingresa una cantidad válida de horas semanales.'
+            );
+
+            horasInput.focus();
+
+            return;
+        }
+
+
+        // ==========================================
+        // OBTENER TEXTOS
+        // ==========================================
+
+        const profesor =
+            profesorSelect.options[
+                profesorSelect.selectedIndex
+            ].text;
+
+        const curso =
+            cursoSelect.options[
+                cursoSelect.selectedIndex
+            ].text;
+
+        const grado =
+            gradoSelect.options[
+                gradoSelect.selectedIndex
+            ].text;
+
+        const aula =
+            aulaSelect.options[
+                aulaSelect.selectedIndex
+            ].text;
+
+
+        // ==========================================
+        // INICIALES
+        // ==========================================
+
+        const partesNombre =
+            profesor.split(' ');
+
+        let iniciales = '';
+
+        if (partesNombre.length >= 2) {
+
+            iniciales =
+                partesNombre[0].charAt(0) +
+                partesNombre[1].charAt(0);
+
+        } else {
+
+            iniciales =
+                profesor.substring(0, 2);
+
+        }
+
+        iniciales =
+            iniciales.toUpperCase();
+
+
+        // ==========================================
+        // ESTADO VISUAL
+        // ==========================================
+
+        let estadoHTML = '';
+
+        if (estado === 'activo') {
+
+            estadoHTML = `
+                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    Activo
+                </span>
+            `;
+
+        } else {
+
+            estadoHTML = `
+                <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">
+                    Inactivo
+                </span>
+            `;
+
+        }
+
+
+        // ==========================================
+        // CREAR FILA
+        // ==========================================
+
+        const fila =
+            document.createElement('tr');
+
+        fila.className =
+            'asignacion-row hover:bg-slate-50';
+
+
+        fila.innerHTML = `
+
+            <td class="px-5 py-4">
+
+                <div class="flex items-center gap-3">
+
+                    <div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700">
+                        ${iniciales}
+                    </div>
+
+                    <span class="text-sm font-medium text-slate-800">
+                        ${profesor}
+                    </span>
+
+                </div>
+
+            </td>
+
+
+            <td class="px-5 py-4 text-sm text-slate-600">
+                ${curso}
+            </td>
+
+
+            <td class="px-5 py-4 text-sm text-slate-600">
+                ${grado}
+            </td>
+
+
+            <td class="px-5 py-4 text-sm text-slate-600">
+                ${aula}
+            </td>
+
+
+            <td class="px-5 py-4 text-sm text-slate-600">
+                ${horas} h
+            </td>
+
+
+            <td class="px-5 py-4">
+
+                ${estadoHTML}
+
+            </td>
+
+
+            <td class="px-5 py-4 text-right">
+
+                <button
+                    type="button"
+                    class="eliminar-asignacion text-sm font-medium text-red-600 hover:text-red-800"
+                >
+                    Eliminar
+                </button>
+
+            </td>
+
+        `;
+
+
+        tabla.appendChild(fila);
+
+
+        // ==========================================
+        // LIMPIAR FORMULARIO
+        // ==========================================
+
+        limpiarFormulario();
+
+
+        alert(
+            'Asignación creada correctamente.'
+        );
+
+    });
+
+
+    // ==========================================
+    // BOTÓN LIMPIAR
+    // ==========================================
+
+    limpiarButton.addEventListener('click', () => {
+
+        limpiarFormulario();
+
+    });
+
+
+    // ==========================================
+    // ELIMINAR ASIGNACIÓN
+    // ==========================================
+
+    tabla.addEventListener('click', (event) => {
+
+        const boton =
+            event.target.closest(
+                '.eliminar-asignacion'
+            );
+
+
+        if (!boton) {
+            return;
+        }
+
+
+        const confirmar =
+            confirm(
+                '¿Deseas eliminar esta asignación?'
+            );
+
+
+        if (!confirmar) {
+            return;
+        }
+
+
+        const fila =
+            boton.closest('tr');
+
+
+        fila.remove();
+
+    });
+
+
+    // ==========================================
+    // BUSCADOR
+    // ==========================================
+
+    if (buscarInput) {
+
+        buscarInput.addEventListener(
+            'input',
+            () => {
+
+                const texto =
+                    buscarInput.value
+                        .toLowerCase()
+                        .trim();
+
+
+                const filas =
+                    tabla.querySelectorAll(
+                        '.asignacion-row'
+                    );
+
+
+                filas.forEach((fila) => {
+
+                    const contenido =
+                        fila.textContent
+                            .toLowerCase();
+
+
+                    if (
+                        contenido.includes(texto)
+                    ) {
+
+                        fila.classList.remove(
+                            'hidden'
+                        );
+
+                    } else {
+
+                        fila.classList.add(
+                            'hidden'
+                        );
+
+                    }
+
+                });
+
+            }
+        );
+
+    }
+
+});
