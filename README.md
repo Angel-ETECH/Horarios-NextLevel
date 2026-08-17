@@ -7,53 +7,128 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
-## About Laravel
+# 📚 Academia Next Level School - Gestor de Horarios
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Sistema integral para la generación y gestión de horarios académicos, desarrollado específicamente para el Colegio Academia Next Level School.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📋 Acerca del Proyecto
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Este sistema permite gestionar eficientemente la asignación de horarios, aulas y profesores, resolviendo el problema de **asignación de restricciones** (evitar cruces de horarios, aulas y profesores) mediante un motor inteligente de generación de horarios.
 
-## Learning Laravel
+### 🎯 Módulos Principales
+- **Gestión de Disponibilidad:** Panel para que los profesores marquen bloques de horas disponibles
+- **Asignación de Cursos y Aulas:** Vinculación de docentes con materias, grupos y salones
+- **Motor de Generación de Horarios:** Algoritmo que cruza disponibilidades y genera la malla académica
+- **Buscador y Vista Individual:** Búsqueda dinámica por profesor con su ficha semanal
+- **Módulo de Exportación:** Excel, PNG y PDF con formato profesional
+- **Control de Aulas y Capacidad:** Validación de capacidad física de salones
+- **Historial y Control de Cambios:** Sistema de versionado para revertir modificaciones
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 🛠️ Stack Tecnológico
+- **Backend:** Laravel 10/11 (PHP 8.1+)
+- **Frontend:** Blade + Tailwind CSS + Alpine.js / Vue.js
+- **Base de Datos:** MySQL 5.7+ / MariaDB 10.3+
+- **Autenticación:** Laravel Sanctum
+- **Exportaciones:** PhpSpreadsheet (Excel), DomPDF (PDF), html2canvas (PNG)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## 🚀 Configuración Inicial del Proyecto
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 📋 Requisitos Previos
 
-### Premium Partners
+Antes de comenzar, asegúrate de tener instalado:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+php --version        # PHP 8.1 o superior
+composer --version   # Composer 2.x
+mysql --version      # MySQL 5.7 o superior / MariaDB 10.3+
+node --version       # Node.js 16+ (para assets)
+npm --version        # NPM 7+
 
-## Contributing
+Instalación
+1. Clonar el repositorio
+bash
+git clone [URL_DEL_REPOSITORIO]
+cd academia-horarios
+2. Instalar dependencias del backend
+bash
+composer install
+3. Instalar dependencias del frontend
+bash
+npm install
+4. Configurar variables de entorno
+bash
+cp .env.example .env
+# Editar el archivo .env con tus credenciales (ver sección de configuración)
+5. Generar clave de la aplicación
+bash
+php artisan key:generate
+6. Configurar la base de datos
+sql
+-- Crear la base de datos
+CREATE DATABASE IF NOT EXISTS academia_horarios 
+CHARACTER SET utf8mb4 
+COLLATE utf8mb4_unicode_ci;
+7. Ejecutar migraciones y seeders
+bash
+php artisan migrate
+php artisan db:seed  # Opcional: datos de prueba
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Estructura de Carpetas del Proyecto
+academia-horarios/
+├── app/
+│   ├── Console/         # Comandos Artisan
+│   ├── Enums/           # Enumeraciones (estados, roles, etc.)
+│   ├── Exceptions/      # Manejo de excepciones
+│   ├── Helpers/         # Funciones auxiliares
+│   ├── Http/
+│   │   ├── Controllers/ # Controladores
+│   │   ├── Middleware/  # Middlewares
+│   │   └── Resources/   # API Resources
+│   ├── Models/          # Modelos Eloquent
+│   ├── Services/        # Lógica de negocio
+│   └── Traits/          # Traits reutilizables
+├── config/              # Archivos de configuración
+├── database/
+│   ├── migrations/      # Migraciones de BD
+│   └── seeders/         # Datos de prueba
+├── public/              # Archivos públicos
+├── resources/
+│   ├── views/           # Plantillas Blade
+│   └── js/              # Assets frontend
+├── routes/              # Definición de rutas
+├── storage/             # Archivos generados
+└── tests/               # Pruebas unitarias
 
-## Code of Conduct
+🧪 Comandos Útiles de Desarrollo
+bash
+# Limpiar caché de la aplicación
+php artisan cache:clear
+php artisan config:clear
+php artisan view:clear
+php artisan route:clear
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# Optimizar para producción
+php artisan optimize
 
-## Security Vulnerabilities
+# Ejecutar pruebas
+php artisan test
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Crear un nuevo controlador
+php artisan make:controller ProfesorController --api
 
-## License
+# Crear un nuevo modelo con migración
+php artisan make:model Profesor -m
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Crear un nuevo seeder
+php artisan make:seeder ProfesorSeeder
+
+# Ejecutar migraciones
+php artisan migrate:fresh --seed  # Reinicia la BD con datos de prueba
+
+# Monitorear colas (si se usan)
+php artisan queue:work
+
+# Ver rutas disponibles
+php artisan route:list
