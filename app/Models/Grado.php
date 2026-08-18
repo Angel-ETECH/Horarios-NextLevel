@@ -11,6 +11,8 @@ class Grado extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'grados';
+
     protected $fillable = [
         'codigo',
         'nivel',

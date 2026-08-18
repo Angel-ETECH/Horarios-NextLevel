@@ -11,6 +11,8 @@ class Aula extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'aulas';
+
     protected $fillable = [
         'codigo',
         'nombre',

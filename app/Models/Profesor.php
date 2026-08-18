@@ -11,6 +11,8 @@ class Profesor extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'profesores';
+
     protected $fillable = [
         'codigo',
         'nombre',

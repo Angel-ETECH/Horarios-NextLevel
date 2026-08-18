@@ -11,6 +11,8 @@ class Horario extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'horarios';
+
     protected $fillable = [
         'profesor_id',
         'curso_id',

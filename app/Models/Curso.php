@@ -11,6 +11,8 @@ class Curso extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'cursos';
+
     protected $fillable = [
         'codigo',
         'nombre',
