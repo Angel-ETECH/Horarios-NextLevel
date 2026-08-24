@@ -4,6 +4,9 @@
 use App\Http\Controllers\Api\DisponibilidadController;
 use App\Http\Controllers\Api\AsignacionController;
 use App\Http\Controllers\Api\AulaController;
+use App\Http\Controllers\Api\HorarioGeneratorController;
+use App\Http\Controllers\Api\HorarioController;
+use App\Http\Controllers\Api\HistorialController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -70,4 +73,52 @@ Route::prefix('aulas')->group(function () {
 
     // DELETE
     Route::delete('/{id}', [AulaController::class, 'destroy']);
+});
+
+// ============================================
+// RUTAS DE GENERACIÓN DE HORARIOS
+// ============================================
+Route::prefix('horarios')->group(function () {
+    // POST - Generar horarios
+    Route::post('/generar', [HorarioGeneratorController::class, 'generar']);
+    Route::post('/generar/profesor/{profesorId}', [HorarioGeneratorController::class, 'generarPorProfesor']);
+
+    // GET - Estadísticas
+    Route::get('/estadisticas', [HorarioGeneratorController::class, 'estadisticas']);
+
+    // DELETE - Limpiar horarios
+    Route::delete('/limpiar', [HorarioGeneratorController::class, 'limpiar']);
+});
+
+// ============================================
+// RUTAS DE HORARIOS (Vista y Búsqueda)
+// ============================================
+Route::prefix('horarios')->group(function () {
+    // GET - Listar y buscar
+    Route::get('/', [HorarioController::class, 'index']);
+    Route::get('/profesor/{profesorId}', [HorarioController::class, 'getByProfesor']);
+    Route::get('/grado/{gradoId}', [HorarioController::class, 'getByGrado']);
+    Route::get('/dia/{dia}', [HorarioController::class, 'getByDia']);
+    Route::get('/{id}', [HorarioController::class, 'show']);
+
+    // PUT - Actualizar (con historial)
+    Route::put('/{id}', [HorarioController::class, 'update']);
+
+    // DELETE - Eliminar (con historial)
+    Route::delete('/{id}', [HorarioController::class, 'destroy']);
+});
+
+// ============================================
+// RUTAS DE HISTORIAL Y CONTROL DE CAMBIOS
+// ============================================
+Route::prefix('historial')->group(function () {
+    // GET - Listar historial
+    Route::get('/', [HistorialController::class, 'index']);
+    Route::get('/horario/{horarioId}', [HistorialController::class, 'getByHorario']);
+    Route::get('/versiones/{horarioId}', [HistorialController::class, 'getVersiones']);
+    Route::get('/estadisticas', [HistorialController::class, 'estadisticas']);
+    Route::get('/{id}', [HistorialController::class, 'show']);
+
+    // POST - Revertir cambios
+    Route::post('/revertir/{historialId}', [HistorialController::class, 'revertir']);
 });
