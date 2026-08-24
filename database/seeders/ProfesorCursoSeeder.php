@@ -12,11 +12,11 @@ class ProfesorCursoSeeder extends Seeder
     {
         $relaciones = [
             // Carlos García enseña Matemáticas
-            ['profesor_id' => 1, 'curso_id' => 1, 'grado_id' => 1, 'horas_asignadas' => 6, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Primaria A'],
-            ['profesor_id' => 1, 'curso_id' => 1, 'grado_id' => 2, 'horas_asignadas' => 6, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Primaria B'],
-            ['profesor_id' => 1, 'curso_id' => 1, 'grado_id' => 3, 'horas_asignadas' => 6, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 2do Primaria A'],
-            ['profesor_id' => 1, 'curso_id' => 7, 'grado_id' => 8, 'horas_asignadas' => 6, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Secundaria A'],
-            ['profesor_id' => 1, 'curso_id' => 7, 'grado_id' => 9, 'horas_asignadas' => 6, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Secundaria B'],
+            ['profesor_id' => 1, 'curso_id' => 1, 'grado_id' => 1, 'horas_asignadas' => 4, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Primaria A'],
+            ['profesor_id' => 1, 'curso_id' => 1, 'grado_id' => 2, 'horas_asignadas' => 4, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Primaria B'],
+            ['profesor_id' => 1, 'curso_id' => 1, 'grado_id' => 3, 'horas_asignadas' => 4, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 2do Primaria A'],
+            ['profesor_id' => 1, 'curso_id' => 7, 'grado_id' => 8, 'horas_asignadas' => 4, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Secundaria A'],
+            ['profesor_id' => 1, 'curso_id' => 7, 'grado_id' => 9, 'horas_asignadas' => 4, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas 1ro Secundaria B'],
             ['profesor_id' => 1, 'curso_id' => 12, 'grado_id' => 14, 'horas_asignadas' => 8, 'rol' => 'titular', 'activo' => 1, 'observaciones' => 'Matemáticas Pre Academia A'],
 
             // María Rodríguez enseña Comunicación
