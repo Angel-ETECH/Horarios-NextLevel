@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AulaController;
 use App\Http\Controllers\Api\HorarioGeneratorController;
 use App\Http\Controllers\Api\HorarioController;
 use App\Http\Controllers\Api\HistorialController;
+use App\Http\Controllers\Api\ExportController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -121,4 +122,23 @@ Route::prefix('historial')->group(function () {
 
     // POST - Revertir cambios
     Route::post('/revertir/{historialId}', [HistorialController::class, 'revertir']);
+});
+
+// ============================================
+// RUTAS DE EXPORTACIÓN
+// ============================================
+Route::prefix('exportar')->group(function () {
+    // Excel
+    Route::post('/excel', [ExportController::class, 'exportExcel']);
+    Route::get('/excel/download', [ExportController::class, 'downloadExcel']);
+
+    // PDF
+    Route::post('/pdf', [ExportController::class, 'exportPdf']);
+    Route::get('/pdf/download', [ExportController::class, 'downloadPdf']);
+
+    // Imagen (HTML para captura)
+    Route::get('/imagen/html', [ExportController::class, 'getHtmlForImage']);
+
+    // CSV
+    Route::post('/csv', [ExportController::class, 'exportCsv']);
 });
