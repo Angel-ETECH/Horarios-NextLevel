@@ -25,3 +25,7 @@ Route::get('/disponibilidades', function () {
 Route::get('/asignaciones', function () {
     return view('asignaciones.index');
 })->name('asignaciones.index');
+
+Route::get('/horarios', function () {
+    return view('horarios.index');
+})->name('horarios.index');

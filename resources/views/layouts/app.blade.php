@@ -9,7 +9,7 @@
 
     <title>@yield('title', 'Next Level School')</title>
 
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/schedule-engine.js', 'resources/js/app.js'])
 
 </head>
 
@@ -71,7 +71,10 @@
                     class="lg:hidden w-9 h-9 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition"
                     aria-label="Cerrar menú"
                 >
-                    ✕
+                    <!-- Icono SVG: X -->
+                    <svg class="w-5 h-5 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
                 </button>
 
             </div>
@@ -95,9 +98,10 @@
                     class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-2 {{ request()->is('/') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
-                    <span class="text-lg">
-                        🏠
-                    </span>
+                    <!-- Icono SVG: Home -->
+                    <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/>
+                    </svg>
 
                     <span class="font-medium">
                         Dashboard
@@ -113,9 +117,11 @@
                     class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('profesores.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
-                    <span class="text-lg">
-                        👨‍🏫
-                    </span>
+                    <!-- Icono SVG: User -->
+                    <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21V19C20 16.7909 18.2091 15 16 15H8C5.79086 15 4 16.7909 4 19V21"/>
+                        <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"/>
+                    </svg>
 
                     <span>
                         Profesores
@@ -131,9 +137,11 @@
                     class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('cursos.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
-                    <span class="text-lg">
-                        📚
-                    </span>
+                    <!-- Icono SVG: Book -->
+                    <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 6H20M4 12H20M4 18H14"/>
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                    </svg>
 
                     <span>
                         Cursos
@@ -146,12 +154,14 @@
 
                 <a
                     href="{{ route('aulas.index') }}"
-                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('aulas.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}
+                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('aulas.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
-                    <span class="text-lg">
-                        🏫
-                    </span>
+                    <!-- Icono SVG: Building -->
+                    <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="16" rx="1"/>
+                        <path d="M8 2V6M16 2V6M3 10H21"/>
+                    </svg>
 
                     <span>
                         Aulas
@@ -174,9 +184,11 @@
                     class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('disponibilidades.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
-                    <span class="text-lg">
-                        📅
-                    </span>
+                    <!-- Icono SVG: Calendar -->
+                    <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
+                        <path d="M3 10H21M8 2V6M16 2V6"/>
+                    </svg>
 
                     <span>
                         Disponibilidad
@@ -189,12 +201,14 @@
 
                 <a
                     href="{{ route('asignaciones.index') }}"
-    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('asignaciones.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
+                    class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg mb-1 {{ request()->routeIs('asignaciones.*') ? 'bg-indigo-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white transition' }}"
                 >
 
-                    <span class="text-lg">
-                        🔗
-                    </span>
+                    <!-- Icono SVG: Link -->
+                    <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
 
                     <span>
                         Asignaciones
@@ -206,13 +220,15 @@
                 <!-- HORARIOS -->
 
                 <a
-                    href="#"
+                    href="{{ route('horarios.index') }}"
                     class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition mb-1"
                 >
 
-                    <span class="text-lg">
-                        🗓️
-                    </span>
+                    <!-- Icono SVG: Clock -->
+                    <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
 
                     <span>
                         Horarios
@@ -232,7 +248,11 @@
 
 
                     <div class="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-semibold">
-                        A
+                        <!-- Icono SVG: User -->
+                        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21V19C20 16.7909 18.2091 15 16 15H8C5.79086 15 4 16.7909 4 19V21"/>
+                            <path d="M12 11C14.2091 11 16 9.20914 16 7C16 4.79086 14.2091 3 12 3C9.79086 3 8 4.79086 8 7C8 9.20914 9.79086 11 12 11Z"/>
+                        </svg>
                     </div>
 
 
@@ -260,119 +280,27 @@
 
         <!-- CONTENIDO PRINCIPAL -->
         <div class="lg:ml-72 min-h-screen flex flex-col">
-
-
-            <!-- NAVBAR -->
-            <header class="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-6">
-
-
-                <div class="flex items-center gap-3">
-
-
-                    <!-- BOTÓN MENÚ MÓVIL -->
-
-                    <button
-                        id="open-sidebar"
-                        type="button"
-                        class="lg:hidden w-10 h-10 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-700 transition"
-                        aria-label="Abrir menú"
+            <!-- BOTÓN DE MENÚ SOLO EN MÓVIL -->
+            <div class="lg:hidden bg-white border-b border-slate-200 px-4 py-3">
+                <button
+                    id="open-sidebar"
+                    type="button"
+                    class="w-10 h-10 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-700 transition"
+                    aria-label="Abrir menú"
+                >
+                    <svg
+                        class="w-6 h-6"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
                     >
-
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="w-6 h-6"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            stroke-width="2"
-                        >
-
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                d="M4 6h16M4 12h16M4 18h16"
-                            />
-
-                        </svg>
-
-                    </button>
-
-
-                    <!-- TÍTULO -->
-
-                    <div>
-
-                        <h2 class="text-lg sm:text-xl font-semibold text-slate-800">
-
-                            @yield('page-title', 'Dashboard')
-
-                        </h2>
-
-                        <p class="hidden sm:block text-sm text-slate-500">
-
-                            Sistema de gestión de horarios
-
-                        </p>
-
-                    </div>
-
-
-                </div>
-
-
-                <!-- PARTE DERECHA -->
-
-                <div class="flex items-center gap-2 sm:gap-4">
-
-
-                    <!-- NOTIFICACIONES -->
-
-                    <button
-                        type="button"
-                        class="relative w-10 h-10 rounded-lg hover:bg-slate-100 flex items-center justify-center transition"
-                        aria-label="Notificaciones"
-                    >
-
-                        <span class="text-lg">
-                            🔔
-                        </span>
-
-                        <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-
-                    </button>
-
-
-                    <!-- PERFIL -->
-
-                    <div class="flex items-center gap-3">
-
-
-                        <div class="hidden sm:block text-right">
-
-                            <p class="text-sm font-medium">
-                                Administrador
-                            </p>
-
-                            <p class="text-xs text-slate-500">
-                                Administrador
-                            </p>
-
-                        </div>
-
-
-                        <div class="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold">
-                            A
-                        </div>
-
-
-                    </div>
-
-
-                </div>
-
-
-            </header>
-
+                        <path d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
 
             <!-- CONTENIDO -->
 
