@@ -8,10 +8,54 @@ use App\Http\Controllers\Api\HorarioGeneratorController;
 use App\Http\Controllers\Api\HorarioController;
 use App\Http\Controllers\Api\HistorialController;
 use App\Http\Controllers\Api\ExportController;
+use App\Http\Controllers\Api\ProfesorController;
+use App\Http\Controllers\Api\CursoController;
+use App\Http\Controllers\Api\GradoController;
 
 use Illuminate\Support\Facades\Route;
 
-// Rutas de Disponibilidad
+// ============================================
+// RUTAS DE PROFESORES
+// ============================================
+Route::prefix('profesores')->group(function () {
+    Route::get('/', [ProfesorController::class, 'index']);
+    Route::get('/estadisticas', [ProfesorController::class, 'estadisticas']);
+    Route::get('/{id}', [ProfesorController::class, 'show']);
+    Route::post('/', [ProfesorController::class, 'store']);
+    Route::put('/{id}', [ProfesorController::class, 'update']);
+    Route::delete('/{id}', [ProfesorController::class, 'destroy']);
+    Route::post('/{id}/restore', [ProfesorController::class, 'restore']);
+});
+
+// ============================================
+// RUTAS DE CURSOS
+// ============================================
+Route::prefix('cursos')->group(function () {
+    Route::get('/', [CursoController::class, 'index']);
+    Route::get('/estadisticas', [CursoController::class, 'estadisticas']);
+    Route::get('/{id}', [CursoController::class, 'show']);
+    Route::post('/', [CursoController::class, 'store']);
+    Route::put('/{id}', [CursoController::class, 'update']);
+    Route::delete('/{id}', [CursoController::class, 'destroy']);
+    Route::post('/{id}/restore', [CursoController::class, 'restore']);
+});
+
+// ============================================
+// RUTAS DE GRADOS
+// ============================================
+Route::prefix('grados')->group(function () {
+    Route::get('/', [GradoController::class, 'index']);
+    Route::get('/estadisticas', [GradoController::class, 'estadisticas']);
+    Route::get('/{id}', [GradoController::class, 'show']);
+    Route::post('/', [GradoController::class, 'store']);
+    Route::put('/{id}', [GradoController::class, 'update']);
+    Route::delete('/{id}', [GradoController::class, 'destroy']);
+    Route::post('/{id}/restore', [GradoController::class, 'restore']);
+});
+
+// ============================================
+// RUTAS DE DISPONIBILIDADES
+// ============================================
 Route::prefix('disponibilidades')->group(function () {
     // GET
     Route::get('/', [DisponibilidadController::class, 'index']);
