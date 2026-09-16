@@ -104,20 +104,24 @@ Route::prefix('asignaciones')->group(function () {
 // RUTAS DE AULAS
 // ============================================
 Route::prefix('aulas')->group(function () {
-    // GET
+    // CRUD básico
     Route::get('/', [AulaController::class, 'index']);
-    Route::get('/disponibles/{dia}/{horaInicio}/{horaFin}', [AulaController::class, 'getDisponibles']);
-    Route::get('/estadisticas', [AulaController::class, 'estadisticas']);
-    Route::get('/{id}', [AulaController::class, 'show']);
-
-    // POST
     Route::post('/', [AulaController::class, 'store']);
-
-    // PUT
+    Route::get('/{id}', [AulaController::class, 'show']);
     Route::put('/{id}', [AulaController::class, 'update']);
-
-    // DELETE
     Route::delete('/{id}', [AulaController::class, 'destroy']);
+
+    // Consultas específicas
+    Route::get('/nivel/{nivel}', [AulaController::class, 'getByNivel']);
+    Route::get('/estadisticas', [AulaController::class, 'estadisticas']);
+
+    // Disponibilidad (query params - MÁS FLEXIBLE)
+    Route::get('/disponibilidad/disponibles', [AulaController::class, 'getDisponibles']);
+    Route::get('/disponibilidad/verificar', [AulaController::class, 'verificarDisponibilidad']);
+
+    // Disponibilidad (ruta RESTful - compatibilidad)
+    Route::get('/disponibles/{dia}/{horaInicio}/{horaFin}',
+        [AulaController::class, 'getDisponiblesPorRuta']);
 });
 
 // ============================================

@@ -7,7 +7,6 @@ use App\Models\ProfesorCurso;
 use App\Models\Profesor;
 use App\Models\Curso;
 use App\Models\Grado;
-use App\Models\Aula;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -33,7 +32,7 @@ class AsignacionService
         $profesor = Profesor::findOrFail($profesorId);
 
         return $profesor->cursos()
-            ->withPivot('grado_id', 'horas_asignadas', 'rol', 'activo', 'observaciones')
+            ->withPivot('grado_id', 'horas_asignadas', 'rol', 'activo', 'observaciones', 'institucion')
             ->with(['grados' => function($query) use ($profesorId) {
                 $query->wherePivot('profesor_id', $profesorId);
             }])
@@ -53,6 +52,7 @@ class AsignacionService
                     'rol' => $curso->pivot->rol,
                     'activo' => $curso->pivot->activo,
                     'observaciones' => $curso->pivot->observaciones,
+                    'institucion' => $curso->pivot->institucion ?? 'colegio'
                 ];
             });
     }
@@ -65,7 +65,7 @@ class AsignacionService
         $curso = Curso::findOrFail($cursoId);
 
         return $curso->profesores()
-            ->withPivot('grado_id', 'horas_asignadas', 'rol', 'activo', 'observaciones')
+            ->withPivot('grado_id', 'horas_asignadas', 'rol', 'activo', 'observaciones', 'institucion')
             ->wherePivot('activo', true)
             ->get();
     }
@@ -78,29 +78,190 @@ class AsignacionService
         $grado = Grado::findOrFail($gradoId);
 
         return $grado->profesores()
-            ->withPivot('curso_id', 'horas_asignadas', 'rol', 'activo', 'observaciones')
+            ->withPivot('curso_id', 'horas_asignadas', 'rol', 'activo', 'observaciones', 'institucion')
             ->wherePivot('activo', true)
+            ->get();
+    }
+
+    /**
+     * Obtener asignaciones por institución
+     */
+    public function getByInstitucion(string $institucion): Collection
+    {
+        return ProfesorCurso::with(['profesor', 'curso', 'grado'])
+            ->where('institucion', $institucion)
+            ->where('activo', true)
+            ->orderBy('profesor_id')
             ->get();
     }
 
     /**
      * Obtener profesores disponibles para un curso y grado
      */
-    public function getProfesoresDisponibles(int $cursoId, int $gradoId): Collection
+    public function getProfesoresDisponibles(int $cursoId, int $gradoId, ?string $institucion = null): Collection
     {
-        // Obtener profesores que pueden dictar el curso
-        $profesoresAsignados = ProfesorCurso::where('curso_id', $cursoId)
+        // Obtener profesores ya asignados a este curso-grado
+        $queryProfesoresAsignados = ProfesorCurso::where('curso_id', $cursoId)
             ->where('grado_id', $gradoId)
-            ->where('activo', true)
-            ->pluck('profesor_id')
-            ->toArray();
+            ->where('activo', true);
 
-        // Obtener todos los profesores que no están asignados a este curso-grado
-        return Profesor::whereNotIn('id', $profesoresAsignados)
-            ->where('estado', 'activo')
-            ->orderBy('apellido_paterno')
+        if ($institucion) {
+            $queryProfesoresAsignados->where('institucion', $institucion);
+        }
+
+        $profesoresAsignados = $queryProfesoresAsignados->pluck('profesor_id')->toArray();
+
+        // Obtener todos los profesores que no están asignados
+        $queryProfesores = Profesor::where('estado', 'activo');
+
+        if ($institucion) {
+            $queryProfesores->whereIn('institucion', [$institucion, 'ambos']);
+        }
+
+        if (!empty($profesoresAsignados)) {
+            $queryProfesores->whereNotIn('id', $profesoresAsignados);
+        }
+
+        return $queryProfesores->orderBy('apellido_paterno')
+            ->orderBy('nombre')
             ->get();
     }
+
+    /**
+     * ========================================
+     * VALIDACIONES PRIVADAS
+     * ========================================
+     */
+
+    /**
+     * Validar que no exista una asignación duplicada
+     */
+    private function validateUnique(array $data, ?int $excludeId = null): void
+    {
+        $query = ProfesorCurso::where('profesor_id', $data['profesor_id'])
+            ->where('curso_id', $data['curso_id'])
+            ->where('grado_id', $data['grado_id'])
+            ->where('institucion', $data['institucion'] ?? 'colegio');
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'asignacion' => 'Ya existe una asignación con el mismo Profesor, Curso, Grado e Institución'
+            ]);
+        }
+    }
+
+    /**
+     * Validar la carga horaria del profesor
+     */
+    private function validateCargaHoraria(int $profesorId, int $nuevasHoras, ?int $excludeId = null): void
+    {
+        $profesor = Profesor::findOrFail($profesorId);
+
+        // Obtener carga horaria actual (excluyendo la asignación a actualizar si existe)
+        $query = ProfesorCurso::where('profesor_id', $profesorId)
+            ->where('activo', true);
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        $cargaActual = $query->sum('horas_asignadas');
+        $total = $cargaActual + $nuevasHoras;
+
+        // Si la nueva carga excede la máxima permitida
+        if ($total > $profesor->carga_horaria_maxima) {
+            throw ValidationException::withMessages([
+                'horas_asignadas' => "El profesor excedería su carga horaria máxima ({$profesor->carga_horaria_maxima} horas). Actual: {$cargaActual}h + Nuevas: {$nuevasHoras}h = {$total}h"
+            ]);
+        }
+    }
+
+    /**
+     * Validar que el curso y grado existan y estén activos
+     */
+    private function validateCursoYGrado(int $cursoId, int $gradoId): void
+    {
+        // Validar curso
+        $curso = Curso::find($cursoId);
+        if (!$curso) {
+            throw ValidationException::withMessages([
+                'curso_id' => 'El curso seleccionado no existe'
+            ]);
+        }
+
+        if (!$curso->activo) {
+            throw ValidationException::withMessages([
+                'curso_id' => 'El curso seleccionado no está activo'
+            ]);
+        }
+
+        // Validar grado
+        $grado = Grado::find($gradoId);
+        if (!$grado) {
+            throw ValidationException::withMessages([
+                'grado_id' => 'El grado seleccionado no existe'
+            ]);
+        }
+
+        if (!$grado->activo) {
+            throw ValidationException::withMessages([
+                'grado_id' => 'El grado seleccionado no está activo'
+            ]);
+        }
+
+        // Validar compatibilidad de nivel (si el curso tiene nivel específico)
+        if ($curso->nivel && $curso->nivel !== 'todos' && $curso->nivel !== $grado->nivel) {
+            throw ValidationException::withMessages([
+                'curso_id' => "El curso es de nivel '{$curso->nivel}' pero el grado es de nivel '{$grado->nivel}'"
+            ]);
+        }
+    }
+
+    /**
+     * Validar compatibilidad profesor-curso
+     */
+    private function validateProfesorCurso(array $data): void
+    {
+        $profesor = Profesor::find($data['profesor_id']);
+        $curso = Curso::find($data['curso_id']);
+
+        if (!$profesor || !$curso) {
+            throw ValidationException::withMessages([
+                'profesor_id' => 'El profesor o curso no existe'
+            ]);
+        }
+
+        // Validar que el profesor esté activo
+        if ($profesor->estado !== 'activo') {
+            throw ValidationException::withMessages([
+                'profesor_id' => 'El profesor no está activo'
+            ]);
+        }
+    }
+
+    /**
+     * Actualizar la carga horaria actual de un profesor
+     */
+    private function actualizarCargaHorariaProfesor(int $profesorId): void
+    {
+        $totalHoras = ProfesorCurso::where('profesor_id', $profesorId)
+            ->where('activo', true)
+            ->sum('horas_asignadas');
+
+        Profesor::where('id', $profesorId)->update([
+            'carga_horaria_actual' => $totalHoras
+        ]);
+    }
+
+    /**
+     * ========================================
+     * CRUD PRINCIPAL
+     * ========================================
+     */
 
     /**
      * Crear una nueva asignación
@@ -108,35 +269,25 @@ class AsignacionService
     public function create(array $data): ProfesorCurso
     {
         return DB::transaction(function () use ($data) {
-            // Validar que no exista una asignación duplicada
-            $this->validateUnique($data);
-
-            // Validar que el profesor pueda dictar este curso (opcional)
+            // 1. Validar que el profesor existe y está activo
             $this->validateProfesorCurso($data);
 
-            // Validar que el profesor no exceda su carga horaria
+            // 2. Validar compatibilidad curso-grado
+            $this->validateCursoYGrado($data['curso_id'], $data['grado_id']);
+
+            // 3. Validar que no exista duplicado
+            $this->validateUnique($data);
+
+            // 4. Validar carga horaria del profesor
             $this->validateCargaHoraria($data['profesor_id'], $data['horas_asignadas']);
 
-            // Validar que el curso existe y está activo
-            $curso = Curso::findOrFail($data['curso_id']);
-            if (!$curso->activo) {
-                throw ValidationException::withMessages([
-                    'curso_id' => 'El curso no está activo'
-                ]);
-            }
-
-            // Validar que el grado existe y está activo
-            $grado = Grado::findOrFail($data['grado_id']);
-            if (!$grado->activo) {
-                throw ValidationException::withMessages([
-                    'grado_id' => 'El grado no está activo'
-                ]);
-            }
-
-            // Crear la asignación
+            // 5. Crear la asignación
             $asignacion = ProfesorCurso::create($data);
 
-            // Cargar relaciones
+            // 6. Actualizar carga horaria actual del profesor
+            $this->actualizarCargaHorariaProfesor($data['profesor_id']);
+
+            // 7. Cargar relaciones
             $asignacion->load(['profesor', 'curso', 'grado']);
 
             return $asignacion;
@@ -151,24 +302,65 @@ class AsignacionService
         return DB::transaction(function () use ($id, $data) {
             $asignacion = ProfesorCurso::findOrFail($id);
 
-            // Si se está cambiando el profesor, validar
-            if (isset($data['profesor_id']) && $data['profesor_id'] != $asignacion->profesor_id) {
-                $this->validateUnique($data, $id);
-                $this->validateCargaHoraria($data['profesor_id'], $data['horas_asignadas'] ?? 0);
+            // Obtener valores actuales
+            $profesorIdActual = $asignacion->profesor_id;
+            $cursoIdActual = $asignacion->curso_id;
+            $gradoIdActual = $asignacion->grado_id;
+            $horasActuales = $asignacion->horas_asignadas;
+            $institucionActual = $asignacion->institucion ?? 'colegio';
+
+            // Obtener valores finales (usar actuales si no se envían)
+            $nuevoProfesorId = $data['profesor_id'] ?? $profesorIdActual;
+            $nuevoCursoId = $data['curso_id'] ?? $cursoIdActual;
+            $nuevoGradoId = $data['grado_id'] ?? $gradoIdActual;
+            $nuevasHoras = $data['horas_asignadas'] ?? $horasActuales;
+            $nuevaInstitucion = $data['institucion'] ?? $institucionActual;
+
+            // 1. Validar que los IDs existan (si cambiaron)
+            if (isset($data['profesor_id']) && $data['profesor_id'] != $profesorIdActual) {
+                $this->validateProfesorCurso($data);
             }
 
-            // Si se cambian las horas, validar carga horaria
-            if (isset($data['horas_asignadas']) && $data['horas_asignadas'] != $asignacion->horas_asignadas) {
-                $diferencia = $data['horas_asignadas'] - $asignacion->horas_asignadas;
-                $this->validateCargaHoraria(
-                    $asignacion->profesor_id,
-                    $diferencia,
-                    true // es actualización
+            if (isset($data['curso_id']) || isset($data['grado_id'])) {
+                $this->validateCursoYGrado(
+                    $data['curso_id'] ?? $cursoIdActual,
+                    $data['grado_id'] ?? $gradoIdActual
                 );
             }
 
-            // Actualizar
+            // 2. VALIDACIÓN CRÍTICA: Verificar duplicados al actualizar
+            // IMPORTANTE: Si cambia profesor, curso, grado o institución,
+            // debemos verificar que no exista ya esa combinación
+            if ($nuevoProfesorId != $profesorIdActual ||
+                $nuevoCursoId != $cursoIdActual ||
+                $nuevoGradoId != $gradoIdActual ||
+                $nuevaInstitucion != $institucionActual) {
+
+                $this->validateUnique([
+                    'profesor_id' => $nuevoProfesorId,
+                    'curso_id' => $nuevoCursoId,
+                    'grado_id' => $nuevoGradoId,
+                    'institucion' => $nuevaInstitucion
+                ], $id);
+            }
+
+            // 3. Validar carga horaria (si cambia profesor o horas)
+            if ($nuevoProfesorId != $profesorIdActual || $nuevasHoras != $horasActuales) {
+                $this->validateCargaHoraria($nuevoProfesorId, $nuevasHoras, $id);
+            }
+
+            // 4. Actualizar la asignación
             $asignacion->update($data);
+
+            // 5. Actualizar carga horaria de ambos profesores (si cambió)
+            if ($nuevoProfesorId != $profesorIdActual) {
+                $this->actualizarCargaHorariaProfesor($profesorIdActual);
+                $this->actualizarCargaHorariaProfesor($nuevoProfesorId);
+            } else {
+                $this->actualizarCargaHorariaProfesor($nuevoProfesorId);
+            }
+
+            // 6. Cargar relaciones
             $asignacion->load(['profesor', 'curso', 'grado']);
 
             return $asignacion;
@@ -176,99 +368,90 @@ class AsignacionService
     }
 
     /**
-     * Eliminar una asignación (soft delete)
+     * Eliminar (desactivar) una asignación
      */
     public function delete(int $id): bool
     {
-        $asignacion = ProfesorCurso::findOrFail($id);
-        return $asignacion->delete();
+        return DB::transaction(function () use ($id) {
+            $asignacion = ProfesorCurso::findOrFail($id);
+
+            // En lugar de eliminar, desactivar
+            $asignacion->update(['activo' => false]);
+
+            // Actualizar carga horaria del profesor
+            $this->actualizarCargaHorariaProfesor($asignacion->profesor_id);
+
+            return true;
+        });
     }
 
     /**
-     * Desactivar una asignación (en lugar de eliminar)
-     */
-    public function desactivar(int $id): ProfesorCurso
-    {
-        $asignacion = ProfesorCurso::findOrFail($id);
-        $asignacion->update(['activo' => false]);
-        return $asignacion;
-    }
-
-    /**
-     * Activar una asignación desactivada
+     * Reactivar una asignación desactivada
      */
     public function activar(int $id): ProfesorCurso
     {
-        $asignacion = ProfesorCurso::findOrFail($id);
+        return DB::transaction(function () use ($id) {
+            $asignacion = ProfesorCurso::findOrFail($id);
 
-        // Validar que no haya conflicto al activar
-        $this->validateUnique($asignacion->toArray(), $id);
-        $this->validateCargaHoraria($asignacion->profesor_id, $asignacion->horas_asignadas);
+            // Verificar que no haya duplicado al activar
+            $this->validateUnique([
+                'profesor_id' => $asignacion->profesor_id,
+                'curso_id' => $asignacion->curso_id,
+                'grado_id' => $asignacion->grado_id,
+                'institucion' => $asignacion->institucion ?? 'colegio'
+            ], $id);
 
-        $asignacion->update(['activo' => true]);
-        return $asignacion;
+            // Verificar carga horaria
+            $this->validateCargaHoraria(
+                $asignacion->profesor_id,
+                $asignacion->horas_asignadas,
+                $id
+            );
+
+            // Reactivar
+            $asignacion->update(['activo' => true]);
+
+            // Actualizar carga horaria
+            $this->actualizarCargaHorariaProfesor($asignacion->profesor_id);
+
+            // Cargar relaciones
+            $asignacion->load(['profesor', 'curso', 'grado']);
+
+            return $asignacion;
+        });
     }
 
     /**
-     * Validar que no exista una asignación duplicada
+     * Desactivar una asignación (alias de delete)
      */
-    private function validateUnique(array $data, ?int $excludeId = null): void
+    public function desactivar(int $id): ProfesorCurso
     {
-        $query = ProfesorCurso::where('profesor_id', $data['profesor_id'])
-            ->where('curso_id', $data['curso_id'])
-            ->where('grado_id', $data['grado_id']);
-
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
-        }
-
-        if ($query->exists()) {
-            throw ValidationException::withMessages([
-                'asignacion' => 'Ya existe una asignación para este profesor, curso y grado'
-            ]);
-        }
+        $this->delete($id);
+        return ProfesorCurso::findOrFail($id);
     }
 
     /**
-     * Validar que el profesor pueda dictar este curso (si existe validación adicional)
+     * Eliminar todas las asignaciones de un profesor
      */
-    private function validateProfesorCurso(array $data): void
+    public function deleteByProfesor(int $profesorId): int
     {
-        // Aquí podrías agregar lógica adicional como:
-        // - Verificar especialidad del profesor
-        // - Verificar si el profesor tiene experiencia en el curso
-        // Por ahora, solo validamos que exista
-        $profesor = Profesor::find($data['profesor_id']);
-        $curso = Curso::find($data['curso_id']);
+        return DB::transaction(function () use ($profesorId) {
+            $count = ProfesorCurso::where('profesor_id', $profesorId)
+                ->where('activo', true)
+                ->update(['activo' => false]);
 
-        if (!$profesor || !$curso) {
-            throw ValidationException::withMessages([
-                'profesor_id' => 'El profesor o curso no existe'
-            ]);
-        }
+            // Actualizar carga horaria del profesor
+            $this->actualizarCargaHorariaProfesor($profesorId);
+
+            return $count;
+        });
     }
 
     /**
-     * Validar la carga horaria del profesor
+     * ========================================
+     * ESTADÍSTICAS
+     * ========================================
      */
-    private function validateCargaHoraria(int $profesorId, int $horasNuevas, bool $esActualizacion = false): void
-    {
-        $profesor = Profesor::findOrFail($profesorId);
-
-        // Obtener carga horaria actual (todas las asignaciones activas)
-        $cargaActual = ProfesorCurso::where('profesor_id', $profesorId)
-            ->where('activo', true)
-            ->sum('horas_asignadas');
-
-        $total = $cargaActual + $horasNuevas;
-
-        // Si la nueva carga excede la máxima permitida
-        if ($total > $profesor->carga_horaria_maxima) {
-            throw ValidationException::withMessages([
-                'horas_asignadas' => "El profesor excedería su carga horaria máxima ({$profesor->carga_horaria_maxima} horas). Actual: {$cargaActual}h, Nuevas: {$horasNuevas}h"
-            ]);
-        }
-    }
 
     /**
      * Obtener estadísticas de asignaciones
@@ -280,21 +463,42 @@ class AsignacionService
         $totalCursos = Curso::where('activo', true)->count();
         $totalGrados = Grado::where('activo', true)->count();
 
+        // Asignaciones por institución
+        $porInstitucion = ProfesorCurso::where('activo', true)
+            ->select('institucion', DB::raw('count(*) as total'))
+            ->groupBy('institucion')
+            ->get();
+
         // Asignaciones por nivel
-        $asignacionesPorNivel = ProfesorCurso::where('activo', true)
+        $porNivel = ProfesorCurso::where('activo', true)
             ->join('grados', 'profesor_curso.grado_id', '=', 'grados.id')
             ->select('grados.nivel', DB::raw('count(*) as total'))
             ->groupBy('grados.nivel')
             ->get();
+
+        // Asignaciones por rol
+        $porRol = ProfesorCurso::where('activo', true)
+            ->select('rol', DB::raw('count(*) as total'))
+            ->groupBy('rol')
+            ->get();
+
+        // Total de horas asignadas
+        $totalHoras = ProfesorCurso::where('activo', true)->sum('horas_asignadas');
 
         return [
             'total_asignaciones' => $totalAsignaciones,
             'total_profesores' => $totalProfesores,
             'total_cursos' => $totalCursos,
             'total_grados' => $totalGrados,
-            'asignaciones_por_nivel' => $asignacionesPorNivel,
+            'total_horas_asignadas' => $totalHoras,
+            'por_institucion' => $porInstitucion,
+            'por_nivel' => $porNivel,
+            'por_rol' => $porRol,
             'promedio_asignaciones_por_profesor' => $totalProfesores > 0
                 ? round($totalAsignaciones / $totalProfesores, 2)
+                : 0,
+            'promedio_horas_por_profesor' => $totalProfesores > 0
+                ? round($totalHoras / $totalProfesores, 2)
                 : 0
         ];
     }

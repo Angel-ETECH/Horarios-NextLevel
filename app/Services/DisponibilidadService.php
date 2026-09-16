@@ -542,16 +542,26 @@ class DisponibilidadService
         }
 
         // Para el resto de días, determinar por la hora
-        $hora = Carbon::parse($horaReferencia);
-        $horaNumero = (int) $hora->format('H');
-
-        // Si es antes de las 2:00 PM (14:00) = turno mañana
-        if ($horaNumero < 14) {
+        try {
+            $hora = Carbon::parse($horaReferencia);
+            $horaNumero = (int) $hora->format('H');
+            $minutos = (int) $hora->format('i');
+            $horaDecimal = $horaNumero + ($minutos / 60);
+        } catch (\Exception $e) {
             return 'mañana';
         }
 
-        // Si es después de las 2:00 PM = turno tarde
-        return 'tarde';
+        // Si es antes de las 2:00 PM (14:00) = turno mañana
+        if ($horaDecimal >= 6 && $horaDecimal < 14) {
+            return 'mañana';
+        }
+
+        if ($horaDecimal >= 14 && $horaDecimal < 23) {
+            return 'tarde';
+        }
+
+        // Por defecto, si está fuera de rango, asumir mañana
+        return 'mañana';
     }
 
     /**
