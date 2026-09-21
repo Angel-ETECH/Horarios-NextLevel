@@ -383,14 +383,14 @@ class DisponibilidadService
 
     /**
      * Obtener bloques disponibles para un profesor en un día específico
-     * (soporte para duración personalizada y por institución)
      */
     public function obtenerBloquesDisponibles(
         int $profesorId,
         string $dia,
         string $institucion = 'colegio',
-        int $duracionMinutos = 60
+        ?int $duracionMinutos = null
     ): array {
+        // Obtener disponibilidad del profesor
         $disponibilidades = DisponibilidadProfesor::where('profesor_id', $profesorId)
             ->where('dia_semana', $dia)
             ->where('institucion', $institucion)
@@ -398,191 +398,23 @@ class DisponibilidadService
             ->orderBy('hora_inicio')
             ->get();
 
+        if ($disponibilidades->isEmpty()) {
+            return [];
+        }
+
+        // Obtener la configuración de bloques de la BD
+        // (usa el primer grado del profesor como referencia para nivel/turno)
         $bloques = [];
-        $breaks = $this->obtenerBreaksPorInstitucion($institucion, $dia, $horaReferencia = null);
 
         foreach ($disponibilidades as $disponibilidad) {
-            $inicio = Carbon::parse($disponibilidad->hora_inicio);
-            $fin = Carbon::parse($disponibilidad->hora_fin);
-
-            $horaActual = $inicio->copy();
-
-            while ($horaActual->copy()->addMinutes($duracionMinutos) <= $fin) {
-                $horaInicioBloque = $horaActual->copy();
-                $horaFinBloque = $horaActual->copy()->addMinutes($duracionMinutos);
-
-                // Verificar si el bloque cae en un receso
-                if ($this->bloqueCaeEnReceso($horaInicioBloque, $horaFinBloque, $breaks)) {
-                    // Saltar este bloque y continuar
-                    $horaActual->addMinutes($duracionMinutos);
-                    continue;
-                }
-
-                $bloques[] = [
-                    'hora_inicio' => $horaInicioBloque->format('H:i:s'),
-                    'hora_fin' => $horaFinBloque->format('H:i:s'),
-                    'disponibilidad_id' => $disponibilidad->id,
-                    'duracion_minutos' => $duracionMinutos,
-                    'es_receso' => false,
-                    'disponibilidad_origen' => [
-                        'inicio' => $disponibilidad->hora_inicio,
-                        'fin' => $disponibilidad->hora_fin
-                    ]
-                ];
-
-                $horaActual->addMinutes($duracionMinutos);
-            }
-        }
-
-        return $bloques;
-    }
-
-    /**
-     * Obtener bloques disponibles con intervalos personalizados
-     * (soporte para intervalos más flexible)
-     */
-    public function obtenerBloquesConIntervalos(
-        int $profesorId,
-        string $dia,
-        string $institucion = 'colegio',
-        int $intervaloMinutos = 30
-    ): array {
-        $disponibilidades = DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
-            ->where('tipo', 'disponible')
-            ->orderBy('hora_inicio')
-            ->get();
-
-        $bloques = [];
-        $breaks = $this->obtenerBreaksPorInstitucion($institucion, $dia, $horaReferencia = null);
-
-        foreach ($disponibilidades as $disponibilidad) {
-            $inicio = Carbon::parse($disponibilidad->hora_inicio);
-            $fin = Carbon::parse($disponibilidad->hora_fin);
-
-            $horaActual = $inicio->copy();
-
-            while ($horaActual->addMinutes($intervaloMinutos) <= $fin) {
-                $horaInicioBloque = $horaActual->copy()->subMinutes($intervaloMinutos);
-                $horaFinBloque = $horaActual->copy();
-
-                // Verificar si el bloque cae en un receso
-                if ($this->bloqueCaeEnReceso($horaInicioBloque, $horaFinBloque, $breaks)) {
-                    continue;
-                }
-
-                $bloques[] = [
-                    'hora_inicio' => $horaInicioBloque->format('H:i:s'),
-                    'hora_fin' => $horaFinBloque->format('H:i:s'),
-                    'disponibilidad_id' => $disponibilidad->id,
-                    'es_receso' => false
-                ];
-            }
-        }
-
-        return $bloques;
-    }
-
-    /**
-     * Obtener los breaks/recesos según la institución y día
-     */
-    private function obtenerBreaksPorInstitucion(string $institucion, string $dia, string $horaReferencia = null): array
-    {
-        $turno = $this->determinarTurno($horaReferencia, $dia);
-
-        // Breaks para turno MAÑANA (7:00 AM - 1:15 PM)
-        if ($turno === 'mañana') {
-            $breaksPorInstitucion = [
-                'primaria' => [
-                    ['inicio' => '08:30', 'fin' => '08:50'],  // Recreo 1 (20 min)
-                    ['inicio' => '10:20', 'fin' => '10:40'],  // Recreo 2 (20 min)
-                ],
-                'secundaria' => [
-                    ['inicio' => '09:15', 'fin' => '09:35'],  // Recreo 1 (20 min)
-                    ['inicio' => '11:10', 'fin' => '11:25'],  // Recreo 2 (15 min)
-                ],
-                'academia' => [
-                    ['inicio' => '08:50', 'fin' => '09:10'],  // Recreo 1 (20 min)
-                    ['inicio' => '10:40', 'fin' => '10:50'],  // Recreo 2 (10 min)
-                ]
-            ];
-        }
-        // Breaks para turno TARDE (3:30 PM - 8:00 PM)
-        else {
-            $breaksPorInstitucion = [
-                'primaria' => [],  // Sin recesos en la tarde
-                'secundaria' => [], // Sin recesos en la tarde
-                'academia' => [
-                    ['inicio' => '17:00', 'fin' => '17:10'],  // Recreo 1 (10 min)
-                    ['inicio' => '18:30', 'fin' => '18:40'],  // Recreo 2 (10 min)
-                ]
+            $bloques[] = [
+                'hora_inicio' => $disponibilidad->hora_inicio,
+                'hora_fin' => $disponibilidad->hora_fin,
+                'disponibilidad_id' => $disponibilidad->id,
             ];
         }
 
-        $institucionKey = strtolower($institucion);
-        return $breaksPorInstitucion[$institucionKey] ?? [];
-    }
-
-    /**
-     * Determinar si es turno mañana o tarde basado en el día y hora
-     */
-    private function determinarTurno(string $dia, ?string $horaReferencia = null): string
-    {
-        $diaNormalizado = strtolower(trim($dia));
-
-        // Los sábados SIEMPRE son turno mañana
-        if ($diaNormalizado === 'sábado' || $diaNormalizado === 'sabado') {
-            return 'mañana';
-        }
-
-        // Si no hay hora de referencia, asumimos mañana por defecto
-        if ($horaReferencia === null) {
-            return 'mañana';
-        }
-
-        // Para el resto de días, determinar por la hora
-        try {
-            $hora = Carbon::parse($horaReferencia);
-            $horaNumero = (int) $hora->format('H');
-            $minutos = (int) $hora->format('i');
-            $horaDecimal = $horaNumero + ($minutos / 60);
-        } catch (\Exception $e) {
-            return 'mañana';
-        }
-
-        // Si es antes de las 2:00 PM (14:00) = turno mañana
-        if ($horaDecimal >= 6 && $horaDecimal < 14) {
-            return 'mañana';
-        }
-
-        if ($horaDecimal >= 14 && $horaDecimal < 23) {
-            return 'tarde';
-        }
-
-        // Por defecto, si está fuera de rango, asumir mañana
-        return 'mañana';
-    }
-
-    /**
-     * Verificar si un bloque de tiempo cae en un receso
-     */
-    private function bloqueCaeEnReceso(
-        Carbon $inicioBloque,
-        Carbon $finBloque,
-        array $breaks
-    ): bool {
-        foreach ($breaks as $break) {
-            $inicioBreak = Carbon::parse($break['inicio']);
-            $finBreak = Carbon::parse($break['fin']);
-
-            // El bloque cae en receso si se solapa con el break
-            if ($inicioBloque < $finBreak && $finBloque > $inicioBreak) {
-                return true;
-            }
-        }
-
-        return false;
+        return $bloques;
     }
 
     /**

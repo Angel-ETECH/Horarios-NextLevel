@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\ExportController;
 use App\Http\Controllers\Api\ProfesorController;
 use App\Http\Controllers\Api\CursoController;
 use App\Http\Controllers\Api\GradoController;
+use App\Http\Controllers\Api\ConfiguracionHorarioController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -122,6 +123,18 @@ Route::prefix('aulas')->group(function () {
     // Disponibilidad (ruta RESTful - compatibilidad)
     Route::get('/disponibles/{dia}/{horaInicio}/{horaFin}',
         [AulaController::class, 'getDisponiblesPorRuta']);
+});
+
+// ============================================
+// RUTAS DE CONFIGURACIÓN DE HORARIOS
+// ============================================
+Route::prefix('configuraciones-horario')->group(function () {
+    Route::get('/vigente', [ConfiguracionHorarioController::class, 'vigente']);
+    Route::get('/', [ConfiguracionHorarioController::class, 'index']);
+    Route::get('/{id}', [ConfiguracionHorarioController::class, 'show']);
+    Route::post('/', [ConfiguracionHorarioController::class, 'store']);
+    Route::put('/{id}', [ConfiguracionHorarioController::class, 'update']);
+    Route::delete('/{id}', [ConfiguracionHorarioController::class, 'destroy']);
 });
 
 // ============================================

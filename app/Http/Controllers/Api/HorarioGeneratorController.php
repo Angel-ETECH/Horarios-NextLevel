@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\ConfiguracionHorario;
 
 class HorarioGeneratorController extends Controller
 {
@@ -211,34 +212,35 @@ class HorarioGeneratorController extends Controller
             'turno' => 'required|in:mañana,tarde,completo',
         ]);
 
-        $configKey = $this->obtenerConfigKey(
-            $request->institucion,
-            $request->nivel,
-            $request->turno
-        );
-
-        $config = config("horarios.instituciones.{$configKey}");
+        $config = ConfiguracionHorario::with('bloques')
+            ->where('institucion', $request->institucion)
+            ->where('nivel', $request->nivel)
+            ->where('turno', $request->turno)
+            ->where('activo', true)
+            ->orderBy('año_academico', 'desc')
+            ->first();
 
         if (!$config) {
             return response()->json([
                 'success' => false,
-                'message' => 'No hay configuración para estos parámetros',
+                'message' => 'No hay configuración vigente',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
             'data' => [
-                'config_key' => $configKey,
-                'institucion' => $config['institucion'],
-                'nivel' => $config['nivel'],
-                'turno' => $config['turno'],
-                'hora_inicio' => $config['hora_inicio'],
-                'hora_fin' => $config['hora_fin'],
-                'duracion_bloque' => $config['duracion_bloque'],
-                'total_bloques_clase' => collect($config['bloques'])->filter(fn($b) => !isset($b['receso']))->count(),
-                'total_recesos' => collect($config['bloques'])->filter(fn($b) => isset($b['receso']))->count(),
-                'bloques' => $config['bloques'],
+                'id' => $config->id,
+                'institucion' => $config->institucion,
+                'nivel' => $config->nivel,
+                'turno' => $config->turno,
+                'nombre' => $config->nombre,
+                'hora_inicio' => $config->hora_inicio,
+                'hora_fin' => $config->hora_fin,
+                'duracion_bloque_minutos' => $config->duracion_bloque_minutos,
+                'total_bloques_clase' => $config->bloques->where('tipo', 'clase')->count(),
+                'total_recesos' => $config->bloques->where('tipo', 'receso')->count(),
+                'bloques' => $config->bloques,
             ],
         ]);
     }
@@ -406,21 +408,15 @@ class HorarioGeneratorController extends Controller
      */
     public function configuraciones(): JsonResponse
     {
-        $configuraciones = [];
-
-        foreach (config('horarios.instituciones') as $key => $config) {
-            $configuraciones[] = [
-                'key' => $key,
-                'institucion' => $config['institucion'],
-                'nivel' => $config['nivel'],
-                'turno' => $config['turno'],
-                'hora_inicio' => $config['hora_inicio'],
-                'hora_fin' => $config['hora_fin'],
-                'duracion_bloque' => $config['duracion_bloque'],
-                'total_bloques' => count(array_filter($config['bloques'], fn($b) => !isset($b['receso']))),
-                'total_recesos' => count(array_filter($config['bloques'], fn($b) => isset($b['receso']))),
-            ];
-        }
+        $configuraciones = ConfiguracionHorario::withCount([
+            'bloques as total_bloques' => fn($q) => $q->where('tipo', 'clase'),
+            'bloques as total_recesos' => fn($q) => $q->where('tipo', 'receso'),
+        ])
+        ->where('activo', true)
+        ->orderBy('institucion')
+        ->orderBy('nivel')
+        ->orderBy('turno')
+        ->get();
 
         return response()->json([
             'success' => true,
