@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             AlumnoSeeder::class,
             DisponibilidadSeeder::class,
             ProfesorCursoSeeder::class,
+            ConfiguracionHorarioSeeder::class,
             HorarioSeeder::class
         ]);
     }

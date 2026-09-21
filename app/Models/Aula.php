@@ -80,8 +80,10 @@ class Aula extends Model
      */
     public function scopeParaNivel($query, $nivel)
     {
-        return $query->where('nivel', $nivel)
-                     ->orWhere('nivel', 'todos');
+        return $query->where(function ($q) use ($nivel) {
+            $q->where('nivel', $nivel)
+            ->orWhere('nivel', 'todos');
+        });
     }
 
     /**

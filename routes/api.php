@@ -127,16 +127,32 @@ Route::prefix('aulas')->group(function () {
 // ============================================
 // RUTAS DE GENERACIÓN DE HORARIOS
 // ============================================
-Route::prefix('horarios')->group(function () {
-    // POST - Generar horarios
-    Route::post('/generar', [HorarioGeneratorController::class, 'generar']);
-    Route::post('/generar/profesor/{profesorId}', [HorarioGeneratorController::class, 'generarPorProfesor']);
+Route::prefix('horarios/generar')->group(function () {
+    // Generación general
+    Route::post('/', [HorarioGeneratorController::class, 'generar'])
+        ->name('horarios.generar');
 
-    // GET - Estadísticas
-    Route::get('/estadisticas', [HorarioGeneratorController::class, 'estadisticas']);
+    // Generación específica
+    Route::post('/profesor/{profesorId}', [HorarioGeneratorController::class, 'generarPorProfesor'])
+        ->name('horarios.generar.profesor');
 
-    // DELETE - Limpiar horarios
-    Route::delete('/limpiar', [HorarioGeneratorController::class, 'limpiar']);
+    Route::post('/grado/{gradoId}', [HorarioGeneratorController::class, 'generarPorGrado'])
+        ->name('horarios.generar.grado');
+
+    // Vista previa y configuraciones
+    Route::get('/vista-previa', [HorarioGeneratorController::class, 'vistaPrevia'])
+        ->name('horarios.generar.vista-previa');
+
+    Route::get('/configuraciones', [HorarioGeneratorController::class, 'configuraciones'])
+        ->name('horarios.generar.configuraciones');
+
+    // Estadísticas
+    Route::get('/estadisticas', [HorarioGeneratorController::class, 'estadisticas'])
+        ->name('horarios.generar.estadisticas');
+
+    // Limpieza
+    Route::delete('/limpiar', [HorarioGeneratorController::class, 'limpiar'])
+        ->name('horarios.generar.limpiar');
 });
 
 // ============================================

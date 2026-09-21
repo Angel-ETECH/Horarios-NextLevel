@@ -33,7 +33,7 @@ return new class extends Migration
             $table->index('grado_id');
 
             // Evita duplicados
-            $table->unique(['profesor_id', 'curso_id', 'grado_id']);
+            $table->unique(['profesor_id', 'curso_id', 'grado_id'], 'unique_asignacion');
         });
     }
 
