@@ -18,19 +18,54 @@ class ExportController extends Controller
     }
 
     /**
+     * Obtener filtros desde el request
+     */
+    protected function obtenerFiltros(Request $request): array
+    {
+        return $request->only([
+            'profesor_id',
+            'curso_id',
+            'grado_id',
+            'aula_id',
+            'dia_semana',
+            'turno',
+            'institucion',
+            'periodo_academico',
+            'tipo',
+            'fecha_inicio',
+            'fecha_fin',
+            'search',
+            'sort_by',
+            'sort_order',
+        ]);
+    }
+
+    /**
+     * GET /api/exportar/filtros
+     * Listar filtros disponibles
+     */
+    public function filtrosDisponibles(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => $this->exportService->getFiltrosDisponibles(),
+        ]);
+    }
+
+    /**
      * POST /api/exportar/excel
      * Exportar a Excel
      */
     public function exportExcel(Request $request): JsonResponse
     {
         try {
-            $filtros = $request->only(['profesor_id', 'grado_id', 'dia_semana', 'turno']);
+            $filtros = $this->obtenerFiltros($request);
             $horarios = $this->exportService->prepareData($filtros);
 
             if ($horarios->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No hay horarios para exportar',
+                    'message' => 'No hay horarios para exportar con los filtros aplicados',
                 ], 404);
             }
 
@@ -44,6 +79,7 @@ class ExportController extends Controller
                     'url' => $archivo,
                     'formato' => 'excel',
                     'total_registros' => $horarios->count(),
+                    'filtros_aplicados' => $filtros,
                 ],
             ]);
 
@@ -63,7 +99,7 @@ class ExportController extends Controller
     public function downloadExcel(Request $request)
     {
         try {
-            $filtros = $request->only(['profesor_id', 'grado_id', 'dia_semana', 'turno']);
+            $filtros = $this->obtenerFiltros($request);
             $horarios = $this->exportService->prepareData($filtros);
 
             if ($horarios->isEmpty()) {
@@ -92,7 +128,7 @@ class ExportController extends Controller
     public function exportPdf(Request $request): JsonResponse
     {
         try {
-            $filtros = $request->only(['profesor_id', 'grado_id', 'dia_semana', 'turno']);
+            $filtros = $this->obtenerFiltros($request);
             $horarios = $this->exportService->prepareData($filtros);
 
             if ($horarios->isEmpty()) {
@@ -131,7 +167,7 @@ class ExportController extends Controller
     public function downloadPdf(Request $request)
     {
         try {
-            $filtros = $request->only(['profesor_id', 'grado_id', 'dia_semana', 'turno']);
+            $filtros = $this->obtenerFiltros($request);
             $horarios = $this->exportService->prepareData($filtros);
 
             if ($horarios->isEmpty()) {
@@ -160,7 +196,7 @@ class ExportController extends Controller
     public function getHtmlForImage(Request $request): JsonResponse
     {
         try {
-            $filtros = $request->only(['profesor_id', 'grado_id', 'dia_semana', 'turno']);
+            $filtros = $this->obtenerFiltros($request);
             $horarios = $this->exportService->prepareData($filtros);
 
             if ($horarios->isEmpty()) {
@@ -197,7 +233,7 @@ class ExportController extends Controller
     public function exportCsv(Request $request): JsonResponse
     {
         try {
-            $filtros = $request->only(['profesor_id', 'grado_id', 'dia_semana', 'turno']);
+            $filtros = $this->obtenerFiltros($request);
             $horarios = $this->exportService->prepareData($filtros);
 
             if ($horarios->isEmpty()) {

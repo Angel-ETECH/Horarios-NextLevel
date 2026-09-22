@@ -18,6 +18,7 @@ class ProfesorCurso extends Model
         'grado_id',
         'horas_asignadas',
         'rol',
+        'institucion',
         'activo',
         'observaciones'
     ];
@@ -28,7 +29,6 @@ class ProfesorCurso extends Model
     ];
 
     // ============ RELACIONES ============
-
     public function profesor()
     {
         return $this->belongsTo(Profesor::class);
@@ -45,7 +45,6 @@ class ProfesorCurso extends Model
     }
 
     // ============ SCOPES ============
-
     public function scopeActivos($query)
     {
         return $query->where('activo', true);
@@ -64,6 +63,11 @@ class ProfesorCurso extends Model
     public function scopePorGrado($query, $gradoId)
     {
         return $query->where('grado_id', $gradoId);
+    }
+
+    public function scopePorInstitucion($query, $institucion)
+    {
+        return $query->where('institucion', $institucion);
     }
 
     public function scopeTitulares($query)

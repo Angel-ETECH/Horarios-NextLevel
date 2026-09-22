@@ -3,7 +3,6 @@
 
 namespace App\Exports;
 
-use App\Models\Horario;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
@@ -31,52 +30,25 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
     {
         $data = collect();
 
-        // Agregar encabezados de información
-        $data->push([
-            'INFORMACIÓN DEL HORARIO',
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]);
-        $data->push([
-            'Título: ' . $this->titulo,
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]);
-        $data->push([
-            'Fecha de exportación: ' . now()->format('d/m/Y H:i:s'),
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]);
+        // Encabezados de información
+        $data->push(['INFORMACIÓN DEL HORARIO', '', '', '', '', '', '']);
+        $data->push(['Título: ' . $this->titulo, '', '', '', '', '', '']);
+        $data->push(['Fecha de exportación: ' . now()->format('d/m/Y H:i:s'), '', '', '', '', '', '']);
 
         if (!empty($this->filtros)) {
-            $data->push([
-                'Filtros aplicados: ' . json_encode($this->filtros),
-                '',
-                '',
-                '',
-                '',
-                '',
-            ]);
+            $data->push(['Filtros aplicados: ' . json_encode($this->filtros, JSON_UNESCAPED_UNICODE), '', '', '', '', '', '']);
         }
 
-        $data->push([]); // Fila vacía
+        $data->push([]);
 
-        // Encabezados de la tabla
+        // ✅ Encabezados de la tabla
         $data->push([
             'ID',
             'Profesor',
             'Curso',
             'Grado',
             'Aula',
+            'Institución',
             'Día',
             'Hora Inicio',
             'Hora Fin',
@@ -92,6 +64,7 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
                 $h->curso->nombre ?? 'N/A',
                 $h->grado->nombre_completo ?? 'N/A',
                 $h->aula->nombre ?? 'N/A',
+                ucfirst($h->institucion ?? 'N/A'),
                 ucfirst($h->dia_semana),
                 $h->hora_inicio,
                 $h->hora_fin,
@@ -100,16 +73,9 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
             ]);
         }
 
-        // Agregar pie de página
+        // Pie de página
         $data->push([]);
-        $data->push([
-            'Total de clases: ' . $this->horarios->count(),
-            '',
-            '',
-            '',
-            '',
-            '',
-        ]);
+        $data->push(['Total de clases: ' . $this->horarios->count(), '', '', '', '', '', '']);
 
         return $data;
     }
@@ -122,7 +88,6 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
     public function styles(Worksheet $sheet)
     {
         return [
-            // Estilo para el título
             1 => ['font' => ['bold' => true, 'size' => 14]],
             2 => ['font' => ['bold' => true, 'size' => 12]],
             3 => ['font' => ['size' => 11]],
@@ -135,13 +100,13 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
             AfterSheet::class => function(AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
-                // Autoajustar columnas
-                foreach (range('A', 'J') as $col) {
+                // Actualizar rangos: ahora 11 columnas (A-K)
+                foreach (range('A', 'K') as $col) {
                     $sheet->getColumnDimension($col)->setAutoSize(true);
                 }
 
-                // Estilo para encabezados de tabla (fila 5)
-                $sheet->getStyle('A5:J5')->applyFromArray([
+                // Encabezados de tabla (fila 5) — ahora A5:K5
+                $sheet->getStyle('A5:K5')->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['rgb' => 'FFFFFF'],
@@ -156,9 +121,9 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
                     ],
                 ]);
 
-                // Bordes para la tabla
+                // Bordes para la tabla — ahora A5:K
                 $ultimaFila = $sheet->getHighestRow();
-                $sheet->getStyle('A5:J' . $ultimaFila)->applyFromArray([
+                $sheet->getStyle('A5:K' . $ultimaFila)->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -167,10 +132,10 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
                     ],
                 ]);
 
-                // Alternar colores para filas de datos
+                // Alternar colores
                 for ($i = 6; $i <= $ultimaFila; $i++) {
                     if ($i % 2 == 0) {
-                        $sheet->getStyle('A' . $i . ':J' . $i)->applyFromArray([
+                        $sheet->getStyle('A' . $i . ':K' . $i)->applyFromArray([
                             'fill' => [
                                 'fillType' => Fill::FILL_SOLID,
                                 'startColor' => ['rgb' => 'F2F2F2'],
@@ -179,8 +144,8 @@ class HorarioExport implements FromCollection, WithHeadings, WithStyles, WithEve
                     }
                 }
 
-                // Centrar contenido de la tabla
-                $sheet->getStyle('A5:J' . $ultimaFila)
+                // Centrar
+                $sheet->getStyle('A5:K' . $ultimaFila)
                     ->getAlignment()
                     ->setHorizontal(Alignment::HORIZONTAL_CENTER)
                     ->setVertical(Alignment::VERTICAL_CENTER);
