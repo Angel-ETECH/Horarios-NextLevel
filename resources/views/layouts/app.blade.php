@@ -9,12 +9,14 @@
 
     <title>@yield('title', 'Next Level School')</title>
 
+    <link rel="icon" type="image/png" href="{{ asset('images/logo2.png') }}">
+
     @vite(['resources/css/app.css', 'resources/js/schedule-engine.js', 'resources/js/app.js'])
 
 </head>
 
 
-<body class="bg-slate-100 text-slate-800">
+<body class="bg-slate-100 text-slate-800 invisible">
 
 
     <div class="min-h-screen">
@@ -270,6 +272,31 @@
 
 
                 </div>
+                <button
+    type="button"
+    id="btn-cerrar-sesion"
+    class="mt-4 flex w-full items-center justify-center gap-2 rounded-lg
+           border border-slate-700 px-3 py-2.5
+           text-sm font-medium text-slate-300
+           transition
+           hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400"
+>
+    <svg
+        class="h-5 w-5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+    >
+        <path d="M10 17l5-5-5-5"/>
+        <path d="M15 12H3"/>
+        <path d="M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/>
+    </svg>
+
+    <span>Cerrar sesión</span>
+</button>
 
 
             </div>

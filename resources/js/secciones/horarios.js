@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================
-    // ELEMENTOS PRINCIPALES
+    // ELEMENTOS
     // =========================================================
 
     const contenedor =
@@ -11,73 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-
-    // =========================================================
-    // STORAGE
-    // =========================================================
-
-    const KEYS = {
-
-        horarios:
-            'nextlevel_horarios',
-
-        disponibilidades:
-            'nextlevel_disponibilidades',
-
-        profesores:
-            'nextlevel_profesores',
-
-        aulas:
-            'nextlevel_aulas',
-
-        grados:
-            'nextlevel_grados',
-
-        cursos:
-            'nextlevel_cursos'
-
-    };
-
-
-    // =========================================================
-    // DÍAS
-    // =========================================================
-
-    const DIAS_NOMBRES = [
-        '',
-        'Lunes',
-        'Martes',
-        'Miércoles',
-        'Jueves',
-        'Viernes',
-        'Sábado'
-    ];
-
-
-    const DIAS_CORTOS = [
-        '',
-        'Lun',
-        'Mar',
-        'Mié',
-        'Jue',
-        'Vie',
-        'Sáb'
-    ];
-
-
-    const DIAS_SEMANA = [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-    ];
-
-
-    // =========================================================
-    // CONTROLES
-    // =========================================================
 
     const tabsInstitucion =
         document.querySelectorAll('.institucion-tab');
@@ -143,6 +76,104 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
+    // MODAL
+    // =========================================================
+
+    const eliminarHorarioModal =
+        document.getElementById('eliminar-horario-modal');
+
+    const eliminarHorarioOverlay =
+        document.getElementById('eliminar-horario-overlay');
+
+    const closeEliminarHorarioModal =
+        document.getElementById('close-eliminar-horario-modal');
+
+    const cancelEliminarHorarioModal =
+        document.getElementById('cancel-eliminar-horario-modal');
+
+    const confirmEliminarHorario =
+        document.getElementById('confirm-eliminar-horario');
+
+
+    const eliminarHorarioProfesor =
+        document.getElementById('eliminar-horario-profesor');
+
+    const eliminarHorarioCurso =
+        document.getElementById('eliminar-horario-curso');
+
+    const eliminarHorarioDia =
+        document.getElementById('eliminar-horario-dia');
+
+    const eliminarHorarioHora =
+        document.getElementById('eliminar-horario-hora');
+
+    const eliminarHorarioAula =
+        document.getElementById('eliminar-horario-aula');
+
+
+    // =========================================================
+    // STORAGE
+    // =========================================================
+
+    const KEYS = {
+
+        horarios:
+            'nextlevel_horarios',
+
+        disponibilidades:
+            'nextlevel_disponibilidades',
+
+        profesores:
+            'nextlevel_profesores',
+
+        aulas:
+            'nextlevel_aulas',
+
+        grados:
+            'nextlevel_grados',
+
+        cursos:
+            'nextlevel_cursos'
+    };
+
+
+    // =========================================================
+    // DÍAS
+    // =========================================================
+
+    const DIAS_NOMBRES = [
+        '',
+        'Lunes',
+        'Martes',
+        'Miércoles',
+        'Jueves',
+        'Viernes',
+        'Sábado'
+    ];
+
+
+    const DIAS_CORTOS = [
+        '',
+        'LUN',
+        'MAR',
+        'MIÉ',
+        'JUE',
+        'VIE',
+        'SÁB'
+    ];
+
+
+    const DIAS_SEMANA = [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+    ];
+
+
+    // =========================================================
     // ESTADO
     // =========================================================
 
@@ -155,61 +186,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let bloqueArrastradoId =
         null;
 
+    let gruposVisibles =
+        [];
 
-    // =========================================================
-    // PERMISOS
-    // =========================================================
-    //
-    // Todavía estamos trabajando frontend.
-    //
-    // Si más adelante el backend proporciona el rol,
-    // puede guardarse temporalmente como:
-    //
-    // localStorage.setItem(
-    //     'nextlevel_rol',
-    //     'director'
-    // );
-    //
-    // Si no existe, asumimos administrador.
-    // =========================================================
-
-    function puedeEditarHorario() {
-
-        const rol =
-            (
-                localStorage.getItem(
-                    'nextlevel_rol'
-                ) ||
-                'administrador'
-            )
-                .toLowerCase()
-                .trim();
-
-
-        return [
-            'administrador',
-            'director'
-        ].includes(rol);
-
-    }
-
-
-    if (
-        modoEdicionEl &&
-        !puedeEditarHorario()
-    ) {
-
-        modoEdicionEl.innerHTML =
-            `
-                <span class="h-2 w-2 rounded-full bg-slate-400"></span>
-                Solo lectura
-            `;
-
-
-        modoEdicionEl.className =
-            'inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600';
-
-    }
+    let horarioAEliminarId =
+        null;
 
 
     // =========================================================
@@ -220,28 +201,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
 
-            const data =
-                localStorage.getItem(
-                    clave
+            const datos =
+                JSON.parse(
+                    localStorage.getItem(clave) ||
+                    '[]'
                 );
 
 
-            return data
-                ? JSON.parse(data)
+            return Array.isArray(datos)
+                ? datos
                 : [];
 
         } catch (error) {
 
             console.error(
-                `Error leyendo ${clave}:`,
+                `Error leyendo ${clave}`,
                 error
             );
 
 
             return [];
-
         }
-
     }
 
 
@@ -254,45 +234,702 @@ document.addEventListener('DOMContentLoaded', () => {
             clave,
             JSON.stringify(datos)
         );
-
     }
 
 
     // =========================================================
-    // HORARIOS
+    // UTILIDADES
     // =========================================================
 
-    function cargarHorarios() {
+    function esc(valor) {
 
-        return leer(
-            KEYS.horarios
-        ).filter(
-            (horario) =>
+        return String(valor ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
 
-                horario &&
-                horario.hora_inicio &&
-                horario.hora_fin &&
-                horario.dia_semana
 
+    function normalizarTexto(valor) {
+
+        return String(valor ?? '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(
+                /[\u0300-\u036f]/g,
+                ''
+            )
+            .replace(
+                /\s+/g,
+                ' '
+            );
+    }
+
+
+    // =========================================================
+    // CUSTOM SELECT ICONOS
+    // =========================================================
+
+    function iconoFiltro(tipo) {
+
+        const iconos = {
+
+            profesor: `
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <circle cx="12" cy="7" r="4"/>
+                    <path d="M20 21a8 8 0 0 0-16 0"/>
+                </svg>
+            `,
+
+            aula: `
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                >
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
+                    <path d="M7 8h3"/>
+                    <path d="M14 8h3"/>
+                    <path d="M7 12h3"/>
+                    <path d="M14 12h3"/>
+                </svg>
+            `,
+
+            grado: `
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="m2 10 10-5 10 5-10 5Z"/>
+                    <path d="M6 12v5c3 2 9 2 12 0v-5"/>
+                </svg>
+            `,
+
+            curso: `
+                <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
+                </svg>
+            `
+        };
+
+
+        return (
+            iconos[tipo] ||
+            iconos.curso
+        );
+    }
+
+
+    // =========================================================
+    // CUSTOM SELECT
+    // =========================================================
+
+    function wrapperFiltro(select) {
+
+        if (!select) {
+            return null;
+        }
+
+
+        return document.querySelector(
+            `[data-horario-select="${select.id}"]`
+        );
+    }
+
+
+    function construirCustomFiltro(wrapper) {
+
+        if (
+            !wrapper ||
+            wrapper.dataset.ready === 'true'
+        ) {
+            return;
+        }
+
+
+        const select =
+            document.getElementById(
+                wrapper.dataset.horarioSelect
+            );
+
+
+        if (!select) {
+            return;
+        }
+
+
+        const label =
+            wrapper.dataset.label ||
+            'Filtro';
+
+
+        const placeholder =
+            wrapper.dataset.placeholder ||
+            'Seleccionar';
+
+
+        const icono =
+            wrapper.dataset.icon ||
+            'curso';
+
+
+        wrapper.innerHTML = `
+
+            <button
+                type="button"
+                class="horario-custom-trigger"
+                aria-expanded="false"
+            >
+
+                <span class="horario-custom-icon">
+                    ${iconoFiltro(icono)}
+                </span>
+
+                <span class="horario-custom-content">
+
+                    <span class="horario-custom-small">
+                        ${esc(label)}
+                    </span>
+
+                    <span class="horario-custom-text">
+                        ${esc(placeholder)}
+                    </span>
+
+                </span>
+
+                <svg
+                    class="horario-custom-arrow"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path d="m6 9 6 6 6-6"/>
+                </svg>
+
+            </button>
+
+
+            <div class="horario-custom-menu">
+
+                <div class="horario-custom-search-wrap">
+
+                    <svg
+                        class="horario-custom-search-icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <circle cx="11" cy="11" r="7"/>
+                        <path d="m20 20-3.5-3.5"/>
+                    </svg>
+
+                    <input
+                        type="text"
+                        class="horario-custom-search"
+                        autocomplete="off"
+                        placeholder="Buscar..."
+                    >
+
+                </div>
+
+                <div class="horario-custom-options"></div>
+
+            </div>
+        `;
+
+
+        wrapper.dataset.ready =
+            'true';
+
+
+        const trigger =
+            wrapper.querySelector(
+                '.horario-custom-trigger'
+            );
+
+
+        const buscador =
+            wrapper.querySelector(
+                '.horario-custom-search'
+            );
+
+
+        trigger.addEventListener(
+            'click',
+            () => {
+
+                if (trigger.disabled) {
+                    return;
+                }
+
+
+                cerrarTodosFiltros(
+                    wrapper
+                );
+
+
+                wrapper.classList.toggle(
+                    'open'
+                );
+
+
+                trigger.setAttribute(
+                    'aria-expanded',
+
+                    wrapper.classList.contains(
+                        'open'
+                    )
+                        ? 'true'
+                        : 'false'
+                );
+
+
+                if (
+                    wrapper.classList.contains(
+                        'open'
+                    )
+                ) {
+
+                    buscador.value =
+                        '';
+
+
+                    renderOpcionesFiltro(
+                        wrapper
+                    );
+
+
+                    setTimeout(
+                        () =>
+                            buscador.focus(),
+                        40
+                    );
+                }
+            }
         );
 
+
+        buscador.addEventListener(
+            'input',
+            () => {
+
+                renderOpcionesFiltro(
+                    wrapper,
+                    buscador.value
+                );
+            }
+        );
+
+
+        buscador.addEventListener(
+            'keydown',
+            event => {
+
+                if (
+                    event.key === 'Escape'
+                ) {
+
+                    cerrarFiltro(
+                        wrapper
+                    );
+
+
+                    trigger.focus();
+                }
+            }
+        );
+
+
+        actualizarCustomFiltro(
+            select
+        );
     }
 
 
-    function guardarHorarios(
-        horarios
+    function cerrarFiltro(wrapper) {
+
+        wrapper?.classList.remove(
+            'open'
+        );
+
+
+        wrapper
+            ?.querySelector(
+                '.horario-custom-trigger'
+            )
+            ?.setAttribute(
+                'aria-expanded',
+                'false'
+            );
+    }
+
+
+    function cerrarTodosFiltros(
+        excepto = null
     ) {
 
-        guardar(
-            KEYS.horarios,
-            horarios
+        document
+            .querySelectorAll(
+                '[data-horario-select]'
+            )
+            .forEach(
+                wrapper => {
+
+                    if (
+                        wrapper !== excepto
+                    ) {
+
+                        cerrarFiltro(
+                            wrapper
+                        );
+                    }
+                }
+            );
+    }
+
+
+    function renderOpcionesFiltro(
+        wrapper,
+        busqueda = ''
+    ) {
+
+        const select =
+            document.getElementById(
+                wrapper.dataset.horarioSelect
+            );
+
+
+        const container =
+            wrapper.querySelector(
+                '.horario-custom-options'
+            );
+
+
+        if (
+            !select ||
+            !container
+        ) {
+            return;
+        }
+
+
+        const query =
+            normalizarTexto(
+                busqueda
+            );
+
+
+        const opciones =
+            Array.from(
+                select.options
+            )
+                .filter(
+                    option => {
+
+                        return normalizarTexto(
+                            option.textContent
+                        ).includes(
+                            query
+                        );
+                    }
+                );
+
+
+        if (!opciones.length) {
+
+            container.innerHTML = `
+                <div class="horario-custom-empty">
+                    No se encontraron resultados
+                </div>
+            `;
+
+            return;
+        }
+
+
+        container.innerHTML =
+            opciones
+                .map(
+                    option => {
+
+                        const activo =
+                            String(select.value) ===
+                            String(option.value);
+
+
+                        return `
+
+                            <button
+                                type="button"
+
+                                class="
+                                    horario-custom-option
+                                    ${
+                                        activo
+                                            ? 'selected'
+                                            : ''
+                                    }
+                                "
+
+                                data-value="${esc(
+                                    option.value
+                                )}"
+                            >
+
+                                <span class="horario-option-icon">
+
+                                    ${iconoFiltro(
+                                        wrapper.dataset.icon
+                                    )}
+
+                                </span>
+
+
+                                <span class="horario-option-text">
+
+                                    ${esc(
+                                        option.textContent
+                                    )}
+
+                                </span>
+
+
+                                <svg
+                                    class="horario-option-check"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                >
+                                    <path d="m5 12 4 4L19 6"/>
+                                </svg>
+
+                            </button>
+                        `;
+                    }
+                )
+                .join('');
+
+
+        container
+            .querySelectorAll(
+                '.horario-custom-option'
+            )
+            .forEach(
+                button => {
+
+                    button.addEventListener(
+                        'click',
+                        () => {
+
+                            select.value =
+                                button.dataset.value;
+
+
+                            select.dispatchEvent(
+                                new Event(
+                                    'change',
+                                    {
+                                        bubbles: true
+                                    }
+                                )
+                            );
+
+
+                            actualizarCustomFiltro(
+                                select
+                            );
+
+
+                            cerrarFiltro(
+                                wrapper
+                            );
+                        }
+                    );
+                }
+            );
+    }
+
+
+    function actualizarCustomFiltro(
+        select
+    ) {
+
+        if (!select) {
+            return;
+        }
+
+
+        const wrapper =
+            wrapperFiltro(
+                select
+            );
+
+
+        if (!wrapper) {
+            return;
+        }
+
+
+        const trigger =
+            wrapper.querySelector(
+                '.horario-custom-trigger'
+            );
+
+
+        const texto =
+            wrapper.querySelector(
+                '.horario-custom-text'
+            );
+
+
+        if (
+            !trigger ||
+            !texto
+        ) {
+            return;
+        }
+
+
+        trigger.disabled =
+            select.disabled;
+
+
+        const opcion =
+            select.options[
+                select.selectedIndex
+            ];
+
+
+        texto.textContent =
+            opcion?.textContent ||
+            wrapper.dataset.placeholder ||
+            'Seleccionar';
+
+
+        renderOpcionesFiltro(
+            wrapper
+        );
+    }
+
+
+    function actualizarTodosCustomFiltros() {
+
+        [
+            filtroProfesor,
+            filtroAula,
+            filtroGrado,
+            filtroCurso
+        ]
+            .filter(Boolean)
+            .forEach(
+                actualizarCustomFiltro
+            );
+    }
+
+
+    document
+        .querySelectorAll(
+            '[data-horario-select]'
+        )
+        .forEach(
+            construirCustomFiltro
         );
 
+
+    document.addEventListener(
+        'click',
+        event => {
+
+            if (
+                !event.target.closest(
+                    '[data-horario-select]'
+                )
+            ) {
+
+                cerrarTodosFiltros();
+            }
+        }
+    );
+
+
+    // =========================================================
+    // PERMISOS
+    // =========================================================
+
+    function puedeEditarHorario() {
+
+        const rol =
+            String(
+                localStorage.getItem(
+                    'nextlevel_rol'
+                ) ||
+                'administrador'
+            )
+                .trim()
+                .toLowerCase();
+
+
+        return [
+            'administrador',
+            'director'
+        ].includes(
+            rol
+        );
+    }
+
+
+    if (
+        modoEdicionEl &&
+        !puedeEditarHorario()
+    ) {
+
+        modoEdicionEl.innerHTML = `
+            <span class="h-2 w-2 rounded-full bg-slate-400"></span>
+            Solo lectura
+        `;
+
+
+        modoEdicionEl.className =
+            'inline-flex shrink-0 items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600';
     }
 
 
     // =========================================================
-    // UTILIDADES DE TIEMPO
+    // HORAS
     // =========================================================
 
     function aMinutos(hora) {
@@ -302,20 +939,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        const [
-            horas,
-            minutos
-        ] =
-            String(hora)
-                .split(':')
-                .map(Number);
+        const partes =
+            String(hora).split(':');
 
 
         return (
-            (horas * 60) +
-            minutos
+            (Number(partes[0]) || 0) *
+            60
+        ) +
+        (
+            Number(partes[1]) ||
+            0
         );
-
     }
 
 
@@ -324,25 +959,89 @@ document.addEventListener('DOMContentLoaded', () => {
         const horas =
             String(
                 Math.floor(
-                    minutos / 60
+                    minutos /
+                    60
                 )
-            ).padStart(
-                2,
-                '0'
-            );
+            )
+                .padStart(
+                    2,
+                    '0'
+                );
 
 
-        const minutosRestantes =
+        const restantes =
             String(
-                minutos % 60
-            ).padStart(
-                2,
-                '0'
+                minutos %
+                60
+            )
+                .padStart(
+                    2,
+                    '0'
+                );
+
+
+        return `${horas}:${restantes}`;
+    }
+
+
+    function duracionMinutos(
+        bloque
+    ) {
+
+        return Math.max(
+            0,
+
+            aMinutos(
+                bloque.hora_fin
+            ) -
+
+            aMinutos(
+                bloque.hora_inicio
+            )
+        );
+    }
+
+
+    function textoDuracion(
+        bloque
+    ) {
+
+        const minutos =
+            duracionMinutos(
+                bloque
             );
 
 
-        return `${horas}:${minutosRestantes}`;
+        const horas =
+            Math.floor(
+                minutos /
+                60
+            );
 
+
+        const restantes =
+            minutos %
+            60;
+
+
+        if (
+            horas > 0 &&
+            restantes === 0
+        ) {
+
+            return `${horas} h`;
+        }
+
+
+        if (
+            horas > 0
+        ) {
+
+            return `${horas} h ${restantes} min`;
+        }
+
+
+        return `${restantes} min`;
     }
 
 
@@ -355,48 +1054,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return (
             aMinutos(inicioA) <
-                aMinutos(finB) &&
+            aMinutos(finB) &&
 
             aMinutos(inicioB) <
-                aMinutos(finA)
+            aMinutos(finA)
         );
-
     }
 
 
     // =========================================================
-    // ESCAPAR TEXTO
+    // INSTITUCIÓN
     // =========================================================
 
-    function esc(texto) {
+    function normalizarInstitucion(
+        valor
+    ) {
 
-        if (!texto) {
-            return '';
-        }
+        return String(
+            valor ||
+            'colegio'
+        )
+            .trim()
+            .toLowerCase();
+    }
 
 
-        return String(texto)
+    function textoInstitucion() {
 
-            .replace(
-                /&/g,
-                '&amp;'
-            )
-
-            .replace(
-                /</g,
-                '&lt;'
-            )
-
-            .replace(
-                />/g,
-                '&gt;'
-            )
-
-            .replace(
-                /"/g,
-                '&quot;'
-            );
-
+        return (
+            institucionActiva ===
+            'colegio'
+        )
+            ? 'Colegio'
+            : 'Academia';
     }
 
 
@@ -407,33 +1097,38 @@ document.addEventListener('DOMContentLoaded', () => {
     function getCatalogos() {
 
         const profesores =
-            leer(KEYS.profesores);
+            leer(
+                KEYS.profesores
+            );
 
         const aulas =
-            leer(KEYS.aulas);
+            leer(
+                KEYS.aulas
+            );
 
         const grados =
-            leer(KEYS.grados);
+            leer(
+                KEYS.grados
+            );
 
         const cursos =
-            leer(KEYS.cursos);
+            leer(
+                KEYS.cursos
+            );
 
 
         return {
 
             profesores,
-
             aulas,
-
             grados,
-
             cursos,
 
 
             mapProf:
                 new Map(
                     profesores.map(
-                        (item) => [
+                        item => [
                             String(item.id),
                             item
                         ]
@@ -444,7 +1139,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mapAula:
                 new Map(
                     aulas.map(
-                        (item) => [
+                        item => [
                             String(item.id),
                             item
                         ]
@@ -455,7 +1150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mapGrado:
                 new Map(
                     grados.map(
-                        (item) => [
+                        item => [
                             String(item.id),
                             item
                         ]
@@ -466,844 +1161,331 @@ document.addEventListener('DOMContentLoaded', () => {
             mapCurso:
                 new Map(
                     cursos.map(
-                        (item) => [
+                        item => [
                             String(item.id),
                             item
                         ]
                     )
                 )
-
         };
-
     }
 
 
+    // =========================================================
+    // NOMBRES
+    // =========================================================
+
     function nombreProfesor(
-        profesor,
-        id
+        profesor
     ) {
 
         if (!profesor) {
 
-            return `Profesor ${id ?? '?'}`;
-
+            return 'Profesor no disponible';
         }
 
 
-        return `${profesor.nombre ?? ''} ${profesor.apellido_paterno ?? ''}`
-            .trim();
+        const nombre =
+            profesor.nombre ||
+            profesor.nombres ||
+            '';
 
+
+        const apellidos = [
+
+            profesor.apellido_paterno,
+
+            profesor.apellidoPaterno,
+
+            profesor.apellido,
+
+            profesor.apellido_materno
+
+        ]
+            .filter(Boolean)
+            .join(' ');
+
+
+        return (
+            `${nombre} ${apellidos}`
+                .replace(
+                    /\s+/g,
+                    ' '
+                )
+                .trim() ||
+
+            profesor.nombre_completo ||
+
+            profesor.nombreCompleto ||
+
+            'Profesor'
+        );
     }
 
 
     function nombreAula(
-        aula,
-        id
+        aula
     ) {
 
-        return aula
-            ? aula.nombre
-            : `Aula ${id ?? '?'}`;
+        if (!aula) {
 
+            return 'Aula no disponible';
+        }
+
+
+        return (
+            aula.nombre ||
+            aula.nombre_aula ||
+            aula.codigo ||
+            'Aula'
+        );
     }
 
 
     function nombreCurso(
-        curso,
-        id
+        curso
     ) {
 
-        return curso
-            ? curso.nombre
-            : `Curso ${id ?? '?'}`;
+        if (!curso) {
 
+            return 'Curso no disponible';
+        }
+
+
+        return (
+            curso.nombre ||
+            curso.nombre_curso ||
+            curso.codigo ||
+            'Curso'
+        );
     }
 
 
     function nombreGrado(
-        grado,
-        id
+        grado
     ) {
 
         if (!grado) {
 
-            return id
-                ? `Grado ${id}`
-                : 'Sin grado';
-
+            return 'Sin grado';
         }
 
 
-        return (
+        let nombre =
             grado.nombre_completo ||
-            `${grado.grado ?? ''} ${grado.seccion ?? ''}`.trim()
-        );
-
-    }
-
-
-    // =========================================================
-    // VISTA
-    // =========================================================
-
-    function getAgrupaPor() {
-
-        if (
-            vistaActual ===
-            'aula-completa'
-        ) {
-
-            return 'aula';
-
-        }
+            grado.nombreCompleto ||
+            grado.nombre ||
+            `${grado.grado || ''} ${grado.seccion || ''}`
+                .trim() ||
+            'Grado';
 
 
-        return vistaActual;
-
-    }
-
-
-    function isVistaCompleta() {
-
-        return (
-            vistaActual ===
-                'aula-completa' ||
-
-            (
-                chkCompleto &&
-                chkCompleto.checked
-            )
-        );
-
-    }
-
-
-    // =========================================================
-    // COLORES
-    // =========================================================
-
-    const colores = [
-
-        {
-            bg: '#eef2ff',
-            text: '#312e81',
-            sub: '#4338ca'
-        },
-
-        {
-            bg: '#ecfdf5',
-            text: '#064e3b',
-            sub: '#047857'
-        },
-
-        {
-            bg: '#eff6ff',
-            text: '#1e3a8a',
-            sub: '#1d4ed8'
-        },
-
-        {
-            bg: '#fffbeb',
-            text: '#78350f',
-            sub: '#b45309'
-        },
-
-        {
-            bg: '#faf5ff',
-            text: '#4c1d95',
-            sub: '#7e22ce'
-        },
-
-        {
-            bg: '#f0f9ff',
-            text: '#0c4a6e',
-            sub: '#0369a1'
-        },
-
-        {
-            bg: '#fff1f2',
-            text: '#881337',
-            sub: '#be123c'
-        },
-
-        {
-            bg: '#f0fdfa',
-            text: '#134e4a',
-            sub: '#0f766e'
-        }
-
-    ];
-
-
-    const colorCache = {};
-
-
-    function getColorCurso(
-        nombre
-    ) {
-
-        if (
-            !colorCache[nombre]
-        ) {
-
-            const indice =
-                Object.keys(
-                    colorCache
-                ).length %
-                colores.length;
-
-
-            colorCache[nombre] =
-                colores[indice];
-
-        }
-
-
-        return colorCache[nombre];
-
-    }
-
-
-    // =========================================================
-    // FILTROS
-    // =========================================================
-
-    function poblarSelect(
-        select,
-        opciones,
-        textoDefault
-    ) {
-
-        if (!select) {
-            return;
-        }
-
-
-        const seleccionado =
-            select.value ||
-            'todos';
-
-
-        select.innerHTML =
-            '';
-
-
-        const defecto =
-            document.createElement(
-                'option'
+        const nivel =
+            normalizarTexto(
+                grado.nivel
             );
 
 
-        defecto.value =
-            'todos';
+        if (
+            nivel === 'primaria'
+        ) {
 
-        defecto.textContent =
-            textoDefault;
-
-
-        select.appendChild(
-            defecto
-        );
-
-
-        opciones.sort(
-            (a, b) =>
-                a.texto.localeCompare(
-                    b.texto,
-                    'es',
-                    {
-                        numeric: true
-                    }
+            if (
+                !normalizarTexto(
+                    nombre
+                ).includes(
+                    'primaria'
                 )
-        );
+            ) {
 
-
-        opciones.forEach(
-            (opcion) => {
-
-                const element =
-                    document.createElement(
-                        'option'
-                    );
-
-
-                element.value =
-                    String(
-                        opcion.id
-                    );
-
-
-                element.textContent =
-                    opcion.texto;
-
-
-                select.appendChild(
-                    element
-                );
-
+                nombre +=
+                    ' · Primaria';
             }
-        );
+        }
 
 
         if (
-            Array.from(
-                select.options
-            ).some(
-                (option) =>
-                    option.value ===
-                    seleccionado
-            )
+            nivel === 'secundaria'
         ) {
 
-            select.value =
-                seleccionado;
+            if (
+                !normalizarTexto(
+                    nombre
+                ).includes(
+                    'secundaria'
+                )
+            ) {
 
+                nombre +=
+                    ' · Secundaria';
+            }
         }
 
+
+        return nombre;
     }
 
 
-    function cargarFiltros(
-        bloques
+    // =========================================================
+    // IDENTIDAD REAL DEL GRADO
+    // =========================================================
+    //
+    // No dependemos solamente de grado_id.
+    //
+    // Si por datos antiguos existen dos IDs distintos que
+    // representan "1° B · Primaria", también los consideramos
+    // el mismo grado.
+    // =========================================================
+
+    function claveRealGrado(
+        gradoId
     ) {
 
+        if (
+            gradoId === null ||
+            gradoId === undefined ||
+            gradoId === ''
+        ) {
+
+            return '';
+        }
+
+
         const {
-            mapProf,
-            mapAula,
-            mapGrado,
-            mapCurso
+            mapGrado
         } =
             getCatalogos();
 
 
-        function unicos(
-            campo,
-            resolver
+        const grado =
+            mapGrado.get(
+                String(
+                    gradoId
+                )
+            );
+
+
+        if (!grado) {
+
+            return `id:${String(
+                gradoId
+            )}`;
+        }
+
+
+        const nivel =
+            normalizarTexto(
+                grado.nivel ??
+                grado.nivel_educativo ??
+                grado.tipo_nivel ??
+                grado.nivelEducativo ??
+                ''
+            );
+
+
+        const nombre =
+            normalizarTexto(
+                grado.nombre_completo ??
+                grado.nombreCompleto ??
+                grado.nombre ??
+                grado.grado ??
+                ''
+            );
+
+
+        const seccion =
+            normalizarTexto(
+                grado.seccion ??
+                ''
+            );
+
+
+        return [
+            nivel,
+            nombre,
+            seccion
+        ]
+            .filter(Boolean)
+            .join('|');
+    }
+
+
+    function esMismoGrado(
+        gradoA,
+        gradoB
+    ) {
+
+        if (
+            gradoA === null ||
+            gradoA === undefined ||
+            gradoB === null ||
+            gradoB === undefined
         ) {
 
-            const vistos =
-                new Map();
-
-
-            bloques.forEach(
-                (bloque) => {
-
-                    const id =
-                        bloque[campo];
-
-
-                    if (
-                        id === null ||
-                        id === undefined
-                    ) {
-
-                        return;
-
-                    }
-
-
-                    const key =
-                        String(id);
-
-
-                    if (
-                        !vistos.has(
-                            key
-                        )
-                    ) {
-
-                        vistos.set(
-                            key,
-                            {
-                                id,
-
-                                texto:
-                                    resolver(
-                                        key,
-                                        id
-                                    )
-                            }
-                        );
-
-                    }
-
-                }
-            );
-
-
-            return Array.from(
-                vistos.values()
-            );
-
+            return false;
         }
-
-
-        poblarSelect(
-
-            filtroProfesor,
-
-            unicos(
-                'profesor_id',
-                (key, id) =>
-                    nombreProfesor(
-                        mapProf.get(key),
-                        id
-                    )
-            ),
-
-            'Todos los profesores'
-
-        );
-
-
-        poblarSelect(
-
-            filtroAula,
-
-            unicos(
-                'aula_id',
-                (key, id) =>
-                    nombreAula(
-                        mapAula.get(key),
-                        id
-                    )
-            ),
-
-            'Todas las aulas'
-
-        );
-
-
-        poblarSelect(
-
-            filtroGrado,
-
-            unicos(
-                'grado_id',
-                (key, id) =>
-                    nombreGrado(
-                        mapGrado.get(key),
-                        id
-                    )
-            ),
-
-            'Todos'
-
-        );
-
-
-        poblarSelect(
-
-            filtroCurso,
-
-            unicos(
-                'curso_id',
-                (key, id) =>
-                    nombreCurso(
-                        mapCurso.get(key),
-                        id
-                    )
-            ),
-
-            'Todos los cursos'
-
-        );
-
-    }
-
-
-    // =========================================================
-    // DÍAS DEL TABLERO
-    // =========================================================
-
-    function obtenerDias(
-        bloques,
-        completo
-    ) {
-
-        if (completo) {
-
-            return DIAS_SEMANA;
-
-        }
-
-
-        const dias =
-            Array.from(
-                new Set(
-                    bloques.map(
-                        (bloque) =>
-                            Number(
-                                bloque.dia_semana
-                            )
-                    )
-                )
-            )
-                .sort(
-                    (a, b) =>
-                        a - b
-                );
-
-
-        return dias.length
-            ? dias
-            : [1];
-
-    }
-
-
-    // =========================================================
-    // FILAS HORARIAS
-    // =========================================================
-
-    function construirSlots(
-        bloques,
-        completo
-    ) {
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEMANA COMPLETA
-        |--------------------------------------------------------------------------
-        |
-        | Mostramos 07:00 - 20:00 incluso si todavía existen horas libres.
-        | Esto permite que el administrador tenga celdas donde arrastrar
-        | una clase.
-        |
-        */
-
-        if (completo) {
-
-            const slots = [];
-
-
-            for (
-                let minutos = 420;
-                minutos < 1200;
-                minutos += 60
-            ) {
-
-                slots.push({
-
-                    ini:
-                        minutos,
-
-                    fin:
-                        minutos + 60
-
-                });
-
-            }
-
-
-            return slots;
-
-        }
-
-
-        const limites =
-            new Set();
-
-
-        bloques.forEach(
-            (bloque) => {
-
-                limites.add(
-                    aMinutos(
-                        bloque.hora_inicio
-                    )
-                );
-
-
-                limites.add(
-                    aMinutos(
-                        bloque.hora_fin
-                    )
-                );
-
-            }
-        );
 
 
         if (
-            limites.size <
-            2
+            String(gradoA) ===
+            String(gradoB)
         ) {
 
-            limites.add(
-                420
-            );
-
-            limites.add(
-                480
-            );
-
+            return true;
         }
 
 
-        const ordenados =
-            Array.from(
-                limites
-            ).sort(
-                (a, b) =>
-                    a - b
+        const claveA =
+            claveRealGrado(
+                gradoA
             );
 
 
-        const slots = [];
+        const claveB =
+            claveRealGrado(
+                gradoB
+            );
 
 
-        for (
-            let i = 0;
-            i <
-            ordenados.length - 1;
-            i++
-        ) {
-
-            slots.push({
-
-                ini:
-                    ordenados[i],
-
-                fin:
-                    ordenados[i + 1]
-
-            });
-
-        }
-
-
-        return slots;
-
+        return (
+            claveA !== '' &&
+            claveB !== '' &&
+            claveA === claveB
+        );
     }
 
 
     // =========================================================
-    // MATRIZ
+    // HORARIOS
     // =========================================================
 
-    function construirMatriz(
-        bloques,
-        dias,
-        slots
+    function cargarHorarios() {
+
+        return leer(
+            KEYS.horarios
+        )
+            .filter(
+                horario =>
+                    horario &&
+                    horario.hora_inicio &&
+                    horario.hora_fin &&
+                    horario.dia_semana
+            );
+    }
+
+
+    function guardarHorarios(
+        horarios
     ) {
 
-        const matriz = {};
-
-
-        dias.forEach(
-            (dia) => {
-
-                matriz[dia] =
-                    new Array(
-                        slots.length
-                    ).fill(null);
-
-            }
+        guardar(
+            KEYS.horarios,
+            horarios
         );
-
-
-        dias.forEach(
-            (dia) => {
-
-                const bloquesDia =
-                    bloques
-
-                        .filter(
-                            (bloque) =>
-                                Number(
-                                    bloque.dia_semana
-                                ) ===
-                                Number(dia)
-                        )
-
-                        .sort(
-                            (a, b) =>
-                                aMinutos(
-                                    a.hora_inicio
-                                ) -
-                                aMinutos(
-                                    b.hora_inicio
-                                )
-                        );
-
-
-                bloquesDia.forEach(
-                    (bloque) => {
-
-                        const inicioMin =
-                            aMinutos(
-                                bloque.hora_inicio
-                            );
-
-
-                        const finMin =
-                            aMinutos(
-                                bloque.hora_fin
-                            );
-
-
-                        let inicio =
-                            -1;
-
-
-                        for (
-                            let i = 0;
-                            i < slots.length;
-                            i++
-                        ) {
-
-                            if (
-                                slots[i].ini <=
-                                    inicioMin &&
-
-                                inicioMin <
-                                    slots[i].fin
-                            ) {
-
-                                inicio = i;
-
-                                break;
-
-                            }
-
-                        }
-
-
-                        if (
-                            inicio ===
-                            -1
-                        ) {
-
-                            return;
-
-                        }
-
-
-                        let span = 0;
-
-
-                        for (
-                            let i = inicio;
-                            i <
-                                slots.length &&
-                            slots[i].ini <
-                                finMin;
-                            i++
-                        ) {
-
-                            span++;
-
-                        }
-
-
-                        span =
-                            Math.max(
-                                1,
-                                span
-                            );
-
-
-                        const actual =
-                            matriz[dia][inicio];
-
-
-                        if (
-                            actual &&
-                            actual.tipo ===
-                                'bloque'
-                        ) {
-
-                            actual.bloques.push(
-                                bloque
-                            );
-
-                            actual.conflicto =
-                                true;
-
-                            return;
-
-                        }
-
-
-                        if (
-                            actual &&
-                            actual.tipo ===
-                                'cont'
-                        ) {
-
-                            const propietario =
-                                matriz[dia][
-                                    actual.dueno
-                                ];
-
-
-                            propietario.bloques.push(
-                                bloque
-                            );
-
-                            propietario.conflicto =
-                                true;
-
-                            return;
-
-                        }
-
-
-                        matriz[dia][inicio] = {
-
-                            tipo:
-                                'bloque',
-
-                            bloques:
-                                [bloque],
-
-                            span,
-
-                            conflicto:
-                                false
-
-                        };
-
-
-                        for (
-                            let i =
-                                inicio + 1;
-                            i <
-                                inicio +
-                                span;
-                            i++
-                        ) {
-
-                            matriz[dia][i] = {
-
-                                tipo:
-                                    'cont',
-
-                                dueno:
-                                    inicio
-
-                            };
-
-                        }
-
-                    }
-                );
-
-            }
-        );
-
-
-        return matriz;
-
     }
 
 
-    // =========================================================
-    // TEXTO DE UNA CLASE
-    // =========================================================
-
-    function getLineasBloque(
+    function datosClase(
         bloque
     ) {
 
@@ -1316,112 +1498,520 @@ document.addEventListener('DOMContentLoaded', () => {
             getCatalogos();
 
 
-        const curso =
-            nombreCurso(
-                mapCurso.get(
-                    String(
-                        bloque.curso_id
+        return {
+
+            profesor:
+                nombreProfesor(
+                    mapProf.get(
+                        String(
+                            bloque.profesor_id
+                        )
                     )
                 ),
-                bloque.curso_id
+
+
+            aula:
+                nombreAula(
+                    mapAula.get(
+                        String(
+                            bloque.aula_id
+                        )
+                    )
+                ),
+
+
+            grado:
+                nombreGrado(
+                    mapGrado.get(
+                        String(
+                            bloque.grado_id
+                        )
+                    )
+                ),
+
+
+            curso:
+                nombreCurso(
+                    mapCurso.get(
+                        String(
+                            bloque.curso_id
+                        )
+                    )
+                )
+        };
+    }
+
+
+    // =========================================================
+    // DISPONIBILIDAD DEL PROFESOR
+    // =========================================================
+
+    function profesorDisponible(
+        bloque,
+        dia,
+        horaInicio,
+        horaFin
+    ) {
+
+        const disponibilidades =
+            leer(
+                KEYS.disponibilidades
             );
 
 
-        const profesor =
-            nombreProfesor(
-                mapProf.get(
-                    String(
-                        bloque.profesor_id
-                    )
-                ),
-                bloque.profesor_id
+        const profesorId =
+            bloque.profesor_id;
+
+
+        const institucion =
+            normalizarInstitucion(
+                bloque.institucion
             );
 
 
-        const aula =
-            nombreAula(
-                mapAula.get(
-                    String(
-                        bloque.aula_id
-                    )
-                ),
-                bloque.aula_id
-            );
+        const rangos =
+            disponibilidades
+                .filter(
+                    item => {
+
+                        const id =
+                            item.profesor_id ??
+                            item.profesorId;
 
 
-        const grado =
-            nombreGrado(
-                mapGrado.get(
-                    String(
-                        bloque.grado_id
-                    )
-                ),
-                bloque.grado_id
-            );
+                        const diaItem =
+                            item.dia_semana ??
+                            item.dia;
 
 
-        const agrupa =
-            getAgrupaPor();
+                        return (
+
+                            String(id) ===
+                            String(profesorId) &&
+
+                            normalizarInstitucion(
+                                item.institucion
+                            ) ===
+                            institucion &&
+
+                            Number(
+                                diaItem
+                            ) ===
+                            Number(dia)
+                        );
+                    }
+                );
 
 
-        if (
-            agrupa ===
-            'profesor'
-        ) {
+        if (!rangos.length) {
 
-            return {
-
-                curso,
-
-                sec:
-                    aula,
-
-                ter:
-                    grado
-
-            };
-
+            return false;
         }
 
 
+        return rangos.some(
+            rango => {
+
+                const inicio =
+                    rango.hora_inicio ??
+                    rango.horaInicio;
+
+
+                const fin =
+                    rango.hora_fin ??
+                    rango.horaFin;
+
+
+                if (
+                    !inicio ||
+                    !fin
+                ) {
+
+                    return false;
+                }
+
+
+                return (
+
+                    aMinutos(
+                        horaInicio
+                    ) >=
+                    aMinutos(
+                        inicio
+                    ) &&
+
+                    aMinutos(
+                        horaFin
+                    ) <=
+                    aMinutos(
+                        fin
+                    )
+                );
+            }
+        );
+    }
+
+
+    // =========================================================
+    // VALIDAR CONFLICTOS
+    // =========================================================
+
+    function validarMovimiento(
+        bloque,
+        dia,
+        horaInicio,
+        horaFin
+    ) {
+
+        const datos =
+            datosClase(
+                bloque
+            );
+
+
+        // -----------------------------------------------------
+        // RANGO VÁLIDO
+        // -----------------------------------------------------
+
         if (
-            agrupa ===
-            'aula'
+            aMinutos(
+                horaFin
+            ) <=
+            aMinutos(
+                horaInicio
+            )
         ) {
 
             return {
 
-                curso,
+                valido:
+                    false,
 
-                sec:
-                    profesor,
-
-                ter:
-                    grado
-
+                mensaje:
+                    'La hora de fin debe ser posterior a la hora de inicio.'
             };
+        }
 
+
+        // -----------------------------------------------------
+        // DENTRO DE LA TABLA
+        // -----------------------------------------------------
+
+        if (
+            aMinutos(
+                horaInicio
+            ) <
+            420 ||
+            aMinutos(
+                horaFin
+            ) >
+            1200
+        ) {
+
+            return {
+
+                valido:
+                    false,
+
+                mensaje:
+                    'La clase debe mantenerse entre las 07:00 y las 20:00.'
+            };
+        }
+
+
+        // -----------------------------------------------------
+        // DISPONIBILIDAD PROFESOR
+        // -----------------------------------------------------
+
+        if (
+            !profesorDisponible(
+                bloque,
+                dia,
+                horaInicio,
+                horaFin
+            )
+        ) {
+
+            return {
+
+                valido:
+                    false,
+
+                mensaje:
+                    `${datos.profesor} no está disponible el ${DIAS_NOMBRES[dia]} de ${horaInicio} a ${horaFin}.`
+            };
+        }
+
+
+        const horarios =
+            cargarHorarios();
+
+
+        // -----------------------------------------------------
+        // BUSCAR CUALQUIER CLASE QUE SE TRASLAPE
+        // -----------------------------------------------------
+
+        for (
+            const otro of
+            horarios
+        ) {
+
+            // La misma clase que estamos moviendo no cuenta.
+            if (
+                String(
+                    otro.id
+                ) ===
+                String(
+                    bloque.id
+                )
+            ) {
+
+                continue;
+            }
+
+
+            // Diferente institución.
+            if (
+                normalizarInstitucion(
+                    otro.institucion
+                ) !==
+                normalizarInstitucion(
+                    bloque.institucion
+                )
+            ) {
+
+                continue;
+            }
+
+
+            // Diferente día.
+            if (
+                Number(
+                    otro.dia_semana
+                ) !==
+                Number(
+                    dia
+                )
+            ) {
+
+                continue;
+            }
+
+
+            // No se cruzan.
+            if (
+                !existeTraslape(
+                    horaInicio,
+                    horaFin,
+                    otro.hora_inicio,
+                    otro.hora_fin
+                )
+            ) {
+
+                continue;
+            }
+
+
+            const datosOtro =
+                datosClase(
+                    otro
+                );
+
+
+            // -------------------------------------------------
+            // PROFESOR OCUPADO
+            // -------------------------------------------------
+
+            if (
+                String(
+                    otro.profesor_id
+                ) ===
+                String(
+                    bloque.profesor_id
+                )
+            ) {
+
+                return {
+
+                    valido:
+                        false,
+
+                    mensaje:
+                        `${datos.profesor} ya tiene ${datosOtro.curso} el ${DIAS_NOMBRES[dia]} de ${otro.hora_inicio} a ${otro.hora_fin}.`
+                };
+            }
+
+
+            // -------------------------------------------------
+            // AULA OCUPADA
+            // -------------------------------------------------
+
+            if (
+                bloque.aula_id !==
+                null &&
+
+                bloque.aula_id !==
+                undefined &&
+
+                String(
+                    otro.aula_id
+                ) ===
+                String(
+                    bloque.aula_id
+                )
+            ) {
+
+                return {
+
+                    valido:
+                        false,
+
+                    mensaje:
+                        `${datos.aula} ya está ocupada por ${datosOtro.curso} el ${DIAS_NOMBRES[dia]} de ${otro.hora_inicio} a ${otro.hora_fin}.`
+                };
+            }
+
+
+            // -------------------------------------------------
+            // GRADO OCUPADO
+            // -------------------------------------------------
+
+            if (
+                bloque.grado_id &&
+                otro.grado_id &&
+                esMismoGrado(
+                    otro.grado_id,
+                    bloque.grado_id
+                )
+            ) {
+
+                return {
+
+                    valido:
+                        false,
+
+                    mensaje:
+                        `${datos.grado} ya tiene ${datosOtro.curso} el ${DIAS_NOMBRES[dia]} de ${otro.hora_inicio} a ${otro.hora_fin}.`
+                };
+            }
         }
 
 
         return {
 
-            curso,
+            valido:
+                true,
 
-            sec:
-                profesor,
-
-            ter:
-                aula
-
+            mensaje:
+                'Horario disponible.'
         };
-
     }
 
 
     // =========================================================
-    // AGRUPAR
+    // COLORES
     // =========================================================
+
+    const COLORES = [
+
+        {
+            bg:'#ECFDF5',
+            border:'#A7F3D0',
+            titulo:'#065F46',
+            acento:'#10B981'
+        },
+
+        {
+            bg:'#EEF2FF',
+            border:'#C7D2FE',
+            titulo:'#312E81',
+            acento:'#4F46E5'
+        },
+
+        {
+            bg:'#EFF6FF',
+            border:'#BFDBFE',
+            titulo:'#1E3A8A',
+            acento:'#2563EB'
+        },
+
+        {
+            bg:'#FFFBEB',
+            border:'#FDE68A',
+            titulo:'#78350F',
+            acento:'#D97706'
+        }
+    ];
+
+
+    const cacheColor =
+        new Map();
+
+
+    function colorCurso(
+        nombre
+    ) {
+
+        const key =
+            nombre ||
+            'Curso';
+
+
+        if (
+            !cacheColor.has(
+                key
+            )
+        ) {
+
+            cacheColor.set(
+
+                key,
+
+                COLORES[
+                    cacheColor.size %
+                    COLORES.length
+                ]
+            );
+        }
+
+
+        return cacheColor.get(
+            key
+        );
+    }
+
+
+    // =========================================================
+    // INSTITUCIÓN
+    // =========================================================
+
+    function horarioEsDeInstitucion(
+        horario
+    ) {
+
+        return (
+            normalizarInstitucion(
+                horario.institucion
+            ) ===
+            institucionActiva
+        );
+    }
+
+
+    // =========================================================
+    // AGRUPACIÓN
+    // =========================================================
+
+    function getAgrupaPor() {
+
+        return (
+            vistaActual ===
+            'aula-completa'
+        )
+            ? 'aula'
+            : vistaActual;
+    }
+
 
     function agruparBloques(
         bloques
@@ -1439,72 +2029,101 @@ document.addEventListener('DOMContentLoaded', () => {
             new Map();
 
 
-        const agrupa =
+        const tipo =
             getAgrupaPor();
 
 
         bloques.forEach(
-            (bloque) => {
+            bloque => {
 
-                let clave;
-
+                let id;
                 let nombre;
+                let clave;
 
 
                 if (
-                    agrupa ===
+                    tipo ===
                     'profesor'
                 ) {
 
-                    clave =
-                        `prof-${bloque.profesor_id}`;
+                    id =
+                        bloque.profesor_id;
+
+
+                    const profesor =
+                        mapProf.get(
+                            String(id)
+                        );
+
+
+                    if (!profesor) {
+                        return;
+                    }
 
 
                     nombre =
                         nombreProfesor(
-                            mapProf.get(
-                                String(
-                                    bloque.profesor_id
-                                )
-                            ),
-                            bloque.profesor_id
+                            profesor
                         );
 
+
+                    clave =
+                        `prof-${id}`;
+
                 } else if (
-                    agrupa ===
+                    tipo ===
                     'aula'
                 ) {
 
-                    clave =
-                        `aula-${bloque.aula_id}`;
+                    id =
+                        bloque.aula_id;
+
+
+                    const aula =
+                        mapAula.get(
+                            String(id)
+                        );
+
+
+                    if (!aula) {
+                        return;
+                    }
 
 
                     nombre =
                         nombreAula(
-                            mapAula.get(
-                                String(
-                                    bloque.aula_id
-                                )
-                            ),
-                            bloque.aula_id
+                            aula
                         );
+
+
+                    clave =
+                        `aula-${id}`;
 
                 } else {
 
-                    clave =
-                        `grado-${bloque.grado_id}`;
+                    id =
+                        bloque.grado_id;
+
+
+                    const grado =
+                        mapGrado.get(
+                            String(id)
+                        );
+
+
+                    if (!grado) {
+                        return;
+                    }
 
 
                     nombre =
                         nombreGrado(
-                            mapGrado.get(
-                                String(
-                                    bloque.grado_id
-                                )
-                            ),
-                            bloque.grado_id
+                            grado
                         );
 
+
+                    clave =
+                        `grado-${id}`;
                 }
 
 
@@ -1517,114 +2136,719 @@ document.addEventListener('DOMContentLoaded', () => {
                     grupos.set(
                         clave,
                         {
-
                             clave,
-
                             nombre,
-
-                            bloques:
-                                []
-
+                            bloques:[]
                         }
                     );
-
                 }
 
 
                 grupos
-                    .get(clave)
+                    .get(
+                        clave
+                    )
                     .bloques
-                    .push(bloque);
-
+                    .push(
+                        bloque
+                    );
             }
         );
 
 
         return Array.from(
             grupos.values()
-        ).sort(
-            (a, b) =>
-                a.nombre.localeCompare(
-                    b.nombre,
-                    'es',
-                    {
-                        numeric: true
-                    }
-                )
         );
-
     }
 
 
     // =========================================================
-    // CONFLICTOS GENERALES
+    // POBLAR FILTROS
     // =========================================================
 
-    function detectarConflictos(
-        bloques
+    function poblarSelect(
+        select,
+        opciones,
+        textoDefault
     ) {
 
-        const conflictos = [];
+        if (!select) {
+            return;
+        }
 
 
-        [
-            'profesor_id',
-            'aula_id',
-            'grado_id'
-        ].forEach(
-            (campo) => {
-
-                const agrupados =
-                    new Map();
+        const actual =
+            select.value ||
+            'todos';
 
 
-                bloques.forEach(
-                    (bloque) => {
-
-                        const id =
-                            bloque[campo];
+        select.innerHTML =
+            `<option value="todos">${textoDefault}</option>`;
 
 
-                        if (
-                            id === null ||
-                            id === undefined
-                        ) {
-
-                            return;
-
+        opciones
+            .sort(
+                (a, b) =>
+                    String(
+                        a.texto
+                    ).localeCompare(
+                        String(
+                            b.texto
+                        ),
+                        'es',
+                        {
+                            numeric:
+                                true
                         }
+                    )
+            )
+            .forEach(
+                opcion => {
+
+                    const element =
+                        document.createElement(
+                            'option'
+                        );
 
 
-                        const key =
-                            `${id}-${bloque.dia_semana}`;
+                    element.value =
+                        String(
+                            opcion.id
+                        );
 
 
-                        if (
-                            !agrupados.has(
-                                key
-                            )
-                        ) {
-
-                            agrupados.set(
-                                key,
-                                []
-                            );
-
-                        }
+                    element.textContent =
+                        opcion.texto;
 
 
-                        agrupados
-                            .get(key)
-                            .push(bloque);
+                    select.appendChild(
+                        element
+                    );
+                }
+            );
 
-                    }
+
+        const existe =
+            Array.from(
+                select.options
+            )
+                .some(
+                    option =>
+                        option.value ===
+                        actual
                 );
 
 
-                agrupados.forEach(
-                    (lista) => {
+        select.value =
+            existe
+                ? actual
+                : 'todos';
 
-                        lista.sort(
+
+        actualizarCustomFiltro(
+            select
+        );
+    }
+
+
+    function cargarFiltros(
+        bloques
+    ) {
+
+        const {
+            mapProf,
+            mapAula,
+            mapGrado,
+            mapCurso
+        } =
+            getCatalogos();
+
+
+        const profesorMap =
+            new Map();
+
+        const aulaMap =
+            new Map();
+
+        const gradoMap =
+            new Map();
+
+        const cursoMap =
+            new Map();
+
+
+        bloques.forEach(
+            bloque => {
+
+                const p =
+                    mapProf.get(
+                        String(
+                            bloque.profesor_id
+                        )
+                    );
+
+
+                if (p) {
+
+                    profesorMap.set(
+                        String(
+                            bloque.profesor_id
+                        ),
+
+                        {
+                            id:
+                                bloque.profesor_id,
+
+                            texto:
+                                nombreProfesor(
+                                    p
+                                )
+                        }
+                    );
+                }
+
+
+                const a =
+                    mapAula.get(
+                        String(
+                            bloque.aula_id
+                        )
+                    );
+
+
+                if (a) {
+
+                    aulaMap.set(
+                        String(
+                            bloque.aula_id
+                        ),
+
+                        {
+                            id:
+                                bloque.aula_id,
+
+                            texto:
+                                nombreAula(
+                                    a
+                                )
+                        }
+                    );
+                }
+
+
+                const g =
+                    mapGrado.get(
+                        String(
+                            bloque.grado_id
+                        )
+                    );
+
+
+                if (g) {
+
+                    gradoMap.set(
+                        String(
+                            bloque.grado_id
+                        ),
+
+                        {
+                            id:
+                                bloque.grado_id,
+
+                            texto:
+                                nombreGrado(
+                                    g
+                                )
+                        }
+                    );
+                }
+
+
+                const c =
+                    mapCurso.get(
+                        String(
+                            bloque.curso_id
+                        )
+                    );
+
+
+                if (c) {
+
+                    cursoMap.set(
+                        String(
+                            bloque.curso_id
+                        ),
+
+                        {
+                            id:
+                                bloque.curso_id,
+
+                            texto:
+                                nombreCurso(
+                                    c
+                                )
+                        }
+                    );
+                }
+            }
+        );
+
+
+        poblarSelect(
+            filtroProfesor,
+            Array.from(
+                profesorMap.values()
+            ),
+            'Todos los profesores'
+        );
+
+
+        poblarSelect(
+            filtroAula,
+            Array.from(
+                aulaMap.values()
+            ),
+            'Todas las aulas'
+        );
+
+
+        poblarSelect(
+            filtroGrado,
+            Array.from(
+                gradoMap.values()
+            ),
+            'Todos los grados'
+        );
+
+
+        poblarSelect(
+            filtroCurso,
+            Array.from(
+                cursoMap.values()
+            ),
+            'Todos los cursos'
+        );
+
+
+        if (
+            institucionActiva ===
+            'academia'
+        ) {
+
+            filtroGrado.value =
+                'todos';
+
+
+            filtroGrado.disabled =
+                true;
+
+        } else {
+
+            filtroGrado.disabled =
+                false;
+        }
+
+
+        actualizarTodosCustomFiltros();
+    }
+
+
+    function aplicarFiltros(
+        bloques
+    ) {
+
+        return bloques.filter(
+            bloque => {
+
+                if (
+                    filtroProfesor.value !==
+                    'todos' &&
+
+                    String(
+                        bloque.profesor_id
+                    ) !==
+                    filtroProfesor.value
+                ) {
+
+                    return false;
+                }
+
+
+                if (
+                    filtroAula.value !==
+                    'todos' &&
+
+                    String(
+                        bloque.aula_id
+                    ) !==
+                    filtroAula.value
+                ) {
+
+                    return false;
+                }
+
+
+                if (
+                    filtroGrado.value !==
+                    'todos' &&
+
+                    String(
+                        bloque.grado_id
+                    ) !==
+                    filtroGrado.value
+                ) {
+
+                    return false;
+                }
+
+
+                if (
+                    filtroCurso.value !==
+                    'todos' &&
+
+                    String(
+                        bloque.curso_id
+                    ) !==
+                    filtroCurso.value
+                ) {
+
+                    return false;
+                }
+
+
+                return true;
+            }
+        );
+    }
+
+
+    function limpiarFiltros() {
+
+        [
+            filtroProfesor,
+            filtroAula,
+            filtroGrado,
+            filtroCurso
+        ]
+            .filter(Boolean)
+            .forEach(
+                filtro => {
+
+                    filtro.value =
+                        'todos';
+                }
+            );
+
+
+        actualizarTodosCustomFiltros();
+    }
+
+
+    // =========================================================
+    // DETECTAR CONFLICTOS ACTUALES
+    // =========================================================
+
+    function detectarConflictosExistentes(
+        bloques
+    ) {
+
+        for (
+            let i = 0;
+            i < bloques.length;
+            i++
+        ) {
+
+            for (
+                let j = i + 1;
+                j < bloques.length;
+                j++
+            ) {
+
+                const a =
+                    bloques[i];
+
+                const b =
+                    bloques[j];
+
+
+                if (
+                    normalizarInstitucion(
+                        a.institucion
+                    ) !==
+                    normalizarInstitucion(
+                        b.institucion
+                    )
+                ) {
+
+                    continue;
+                }
+
+
+                if (
+                    Number(
+                        a.dia_semana
+                    ) !==
+                    Number(
+                        b.dia_semana
+                    )
+                ) {
+
+                    continue;
+                }
+
+
+                if (
+                    !existeTraslape(
+                        a.hora_inicio,
+                        a.hora_fin,
+                        b.hora_inicio,
+                        b.hora_fin
+                    )
+                ) {
+
+                    continue;
+                }
+
+
+                const mismoProfesor =
+                    String(
+                        a.profesor_id
+                    ) ===
+                    String(
+                        b.profesor_id
+                    );
+
+
+                const mismaAula =
+                    a.aula_id &&
+                    b.aula_id &&
+                    String(
+                        a.aula_id
+                    ) ===
+                    String(
+                        b.aula_id
+                    );
+
+
+                const mismoGrado =
+                    a.grado_id &&
+                    b.grado_id &&
+                    esMismoGrado(
+                        a.grado_id,
+                        b.grado_id
+                    );
+
+
+                if (
+                    mismoProfesor ||
+                    mismaAula ||
+                    mismoGrado
+                ) {
+
+                    return true;
+                }
+            }
+        }
+
+
+        return false;
+    }
+
+
+    // =========================================================
+    // ESTADÍSTICAS
+    // =========================================================
+
+    function actualizarEstadisticas(
+        bloques
+    ) {
+
+        statProfesores.textContent =
+            new Set(
+                bloques.map(
+                    item =>
+                        item.profesor_id
+                )
+            ).size;
+
+
+        statAulas.textContent =
+            new Set(
+                bloques.map(
+                    item =>
+                        item.aula_id
+                )
+            ).size;
+
+
+        statClases.textContent =
+            bloques.length;
+
+
+        const tieneConflictos =
+            detectarConflictosExistentes(
+                bloques
+            );
+
+
+        if (
+            tieneConflictos
+        ) {
+
+            statEstado.textContent =
+                'Revisar conflictos';
+
+
+            statEstadoPunto.style.background =
+                '#DB0808';
+
+        } else {
+
+            statEstado.textContent =
+                'Sin conflictos';
+
+
+            statEstadoPunto.style.background =
+                '#10B981';
+        }
+    }
+
+
+    // =========================================================
+    // DATOS SECUNDARIOS
+    // =========================================================
+
+    function datosSecundarios(
+        bloque
+    ) {
+
+        const datos =
+            datosClase(
+                bloque
+            );
+
+
+        if (
+            getAgrupaPor() ===
+            'profesor'
+        ) {
+
+            return {
+
+                principal:
+                    datos.curso,
+
+                segundo:
+                    datos.aula,
+
+                tercero:
+                    datos.grado
+            };
+        }
+
+
+        if (
+            getAgrupaPor() ===
+            'aula'
+        ) {
+
+            return {
+
+                principal:
+                    datos.curso,
+
+                segundo:
+                    datos.profesor,
+
+                tercero:
+                    datos.grado
+            };
+        }
+
+
+        return {
+
+            principal:
+                datos.curso,
+
+            segundo:
+                datos.profesor,
+
+            tercero:
+                datos.aula
+        };
+    }
+
+
+    // =========================================================
+    // SLOTS
+    // =========================================================
+
+    function construirSlots() {
+
+        const slots =
+            [];
+
+
+        for (
+            let minutos = 420;
+            minutos < 1200;
+            minutos += 60
+        ) {
+
+            slots.push({
+
+                ini:
+                    minutos,
+
+                fin:
+                    minutos +
+                    60
+            });
+        }
+
+
+        return slots;
+    }
+
+
+    function construirMatriz(
+        bloques,
+        dias,
+        slots
+    ) {
+
+        const matriz =
+            {};
+
+
+        dias.forEach(
+            dia => {
+
+                matriz[dia] =
+                    new Array(
+                        slots.length
+                    )
+                        .fill(
+                            null
+                        );
+            }
+        );
+
+
+        dias.forEach(
+            dia => {
+
+                const clases =
+                    bloques
+                        .filter(
+                            bloque =>
+                                Number(
+                                    bloque.dia_semana
+                                ) ===
+                                Number(dia)
+                        )
+                        .sort(
                             (a, b) =>
                                 aMinutos(
                                     a.hora_inicio
@@ -1635,331 +2859,561 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
 
 
+                clases.forEach(
+                    bloque => {
+
+                        const inicio =
+                            aMinutos(
+                                bloque.hora_inicio
+                            );
+
+
+                        const fin =
+                            aMinutos(
+                                bloque.hora_fin
+                            );
+
+
+                        const indiceInicio =
+                            slots.findIndex(
+                                slot =>
+                                    slot.ini <=
+                                    inicio &&
+
+                                    inicio <
+                                    slot.fin
+                            );
+
+
+                        if (
+                            indiceInicio === -1
+                        ) {
+
+                            return;
+                        }
+
+
+                        let span =
+                            0;
+
+
                         for (
-                            let i = 0;
+                            let i =
+                                indiceInicio;
+
                             i <
-                            lista.length - 1;
+                            slots.length &&
+                            slots[i].ini <
+                            fin;
+
+                            i++
+                        ) {
+
+                            span++;
+                        }
+
+
+                        span =
+                            Math.max(
+                                1,
+                                span
+                            );
+
+
+                        /*
+                         * Si por datos antiguos existen dos clases
+                         * en la misma celda del mismo grupo,
+                         * no pisamos silenciosamente la primera.
+                         */
+                        if (
+                            matriz[dia][
+                                indiceInicio
+                            ] !==
+                            null
+                        ) {
+
+                            console.warn(
+                                'Conflicto visual detectado:',
+                                bloque
+                            );
+
+                            return;
+                        }
+
+
+                        matriz[dia][
+                            indiceInicio
+                        ] = {
+
+                            tipo:
+                                'bloque',
+
+                            bloque,
+
+                            span
+                        };
+
+
+                        for (
+                            let i =
+                                indiceInicio +
+                                1;
+
+                            i <
+                            indiceInicio +
+                            span &&
+                            i <
+                            slots.length;
+
                             i++
                         ) {
 
                             if (
-                                existeTraslape(
-                                    lista[i].hora_inicio,
-                                    lista[i].hora_fin,
-                                    lista[i + 1].hora_inicio,
-                                    lista[i + 1].hora_fin
-                                )
+                                matriz[dia][i] ===
+                                null
                             ) {
 
-                                conflictos.push({
-
-                                    campo,
-
-                                    a:
-                                        lista[i],
-
-                                    b:
-                                        lista[i + 1]
-
-                                });
-
+                                matriz[dia][i] = {
+                                    tipo:
+                                        'cont'
+                                };
                             }
+                        }
+                    }
+                );
+            }
+        );
 
+
+        return matriz;
+    }
+
+
+    // =========================================================
+    // TARJETA
+    // =========================================================
+
+    function tarjetaDetallada(
+        bloque
+    ) {
+
+        const datos =
+            datosSecundarios(
+                bloque
+            );
+
+
+        const color =
+            colorCurso(
+                datos.principal
+            );
+
+
+        const btnEliminar =
+            puedeEditarHorario()
+
+                ? `
+                    <button
+                        type="button"
+                        class="btn-eliminar-horario"
+                        data-eliminar-horario-id="${esc(
+                            bloque.id
+                        )}"
+                        draggable="false"
+                        title="Eliminar clase"
+                    >
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M3 6h18"></path>
+                            <path d="M8 6V4h8v2"></path>
+                            <path d="M19 6l-1 14H6L5 6"></path>
+                            <path d="M10 11v5"></path>
+                            <path d="M14 11v5"></path>
+                        </svg>
+                    </button>
+                `
+
+                : '';
+
+
+        return `
+            <article
+                class="horario-clase relative flex h-full flex-col overflow-hidden rounded-xl border p-3 shadow-sm"
+                draggable="${
+                    puedeEditarHorario()
+                        ? 'true'
+                        : 'false'
+                }"
+                data-horario-id="${esc(
+                    bloque.id
+                )}"
+                style="
+                    background:${color.bg};
+                    border-color:${color.border};
+                "
+            >
+
+                <div
+                    class="absolute inset-y-0 left-0 w-1"
+                    style="background:${color.acento};"
+                ></div>
+
+
+                ${btnEliminar}
+
+
+                <div class="flex h-full flex-col justify-between pl-2 pr-7">
+
+                    <div>
+
+                        <p
+                            class="text-[12px] font-extrabold leading-4"
+                            style="color:${color.titulo};"
+                        >
+                            ${esc(
+                                datos.principal
+                            )}
+                        </p>
+
+
+                        <p
+                            class="mt-2 text-[11px] font-semibold"
+                            style="color:${color.acento};"
+                        >
+                            ${esc(
+                                datos.segundo
+                            )}
+                        </p>
+
+
+                        <p class="mt-1 text-[10px] text-slate-500">
+                            ${esc(
+                                datos.tercero
+                            )}
+                        </p>
+
+                    </div>
+
+
+                    <div class="mt-4 flex flex-wrap gap-1.5">
+
+                        <span class="rounded-md bg-white px-2 py-1 text-[9px] font-semibold text-slate-500 shadow-sm">
+
+                            ${esc(
+                                bloque.hora_inicio
+                            )}
+
+                            -
+
+                            ${esc(
+                                bloque.hora_fin
+                            )}
+
+                        </span>
+
+
+                        <span
+                            class="rounded-md bg-white px-2 py-1 text-[9px] font-bold shadow-sm"
+                            style="color:${color.acento};"
+                        >
+
+                            ${esc(
+                                textoDuracion(
+                                    bloque
+                                )
+                            )}
+
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </article>
+        `;
+    }
+
+
+    // =========================================================
+    // TABLA
+    // =========================================================
+
+    function renderTablaGrupo(
+        grupo
+    ) {
+
+        const slots =
+            construirSlots();
+
+
+        const matriz =
+            construirMatriz(
+                grupo.bloques,
+                DIAS_SEMANA,
+                slots
+            );
+
+
+        let headers =
+            '';
+
+
+        DIAS_SEMANA.forEach(
+            dia => {
+
+                headers += `
+                    <th class="border-b border-r border-slate-200 bg-slate-50 px-3 py-3 text-center">
+
+                        <span class="block text-xs font-extrabold" style="color:#0F2749;">
+                            ${DIAS_NOMBRES[dia]}
+                        </span>
+
+                        <span class="block text-[9px] font-semibold text-slate-400">
+                            ${DIAS_CORTOS[dia]}
+                        </span>
+
+                    </th>
+                `;
+            }
+        );
+
+
+        let filas =
+            '';
+
+
+        slots.forEach(
+            (slot,index) => {
+
+                filas += `
+                    <tr style="height:88px;">
+
+                        <th class="sticky left-0 z-10 w-[110px] border-b border-r border-slate-200 bg-white px-2 py-2 text-center">
+
+                            <span class="block text-[10px] font-extrabold" style="color:#1B3A6B;">
+                                ${index + 1}H
+                            </span>
+
+                            <span class="mt-1 block text-[9px] text-slate-400">
+                                ${aTexto(slot.ini)}
+                                -
+                                ${aTexto(slot.fin)}
+                            </span>
+
+                        </th>
+                `;
+
+
+                DIAS_SEMANA.forEach(
+                    dia => {
+
+                        const celda =
+                            matriz[dia][
+                                index
+                            ];
+
+
+                        if (
+                            celda?.tipo ===
+                            'cont'
+                        ) {
+
+                            return;
                         }
 
+
+                        if (
+                            celda?.tipo ===
+                            'bloque'
+                        ) {
+
+                            const altura =
+                                celda.span *
+                                88;
+
+
+                            filas += `
+                                <td
+                                    rowspan="${celda.span}"
+                                    class="horario-dropzone border-b border-r border-slate-200 p-1 align-top"
+                                    data-grupo="${esc(
+                                        grupo.clave
+                                    )}"
+                                    data-dia="${dia}"
+                                    data-hora-inicio="${aTexto(
+                                        slot.ini
+                                    )}"
+                                    style="height:${altura}px;"
+                                >
+
+                                    <div
+                                        style="
+                                            height:${
+                                                altura -
+                                                8
+                                            }px;
+                                        "
+                                    >
+                                        ${tarjetaDetallada(
+                                            celda.bloque
+                                        )}
+                                    </div>
+
+                                </td>
+                            `;
+
+
+                            return;
+                        }
+
+
+                        filas += `
+                            <td
+                                class="horario-dropzone border-b border-r border-slate-200 bg-white p-1"
+                                data-grupo="${esc(
+                                    grupo.clave
+                                )}"
+                                data-dia="${dia}"
+                                data-hora-inicio="${aTexto(
+                                    slot.ini
+                                )}"
+                            >
+
+                                <div
+                                    class="flex h-[80px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/40 text-[8px] font-semibold uppercase tracking-wider text-slate-300"
+                                >
+                                    Libre
+                                </div>
+
+                            </td>
+                        `;
                     }
                 );
 
+
+                filas += `
+                    </tr>
+                `;
             }
         );
 
 
-        return conflictos;
+        return `
+            <section
+                class="horario-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                data-grupo-card="${esc(
+                    grupo.clave
+                )}"
+            >
 
-    }
+                <div class="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
 
+                    <div>
 
-    // =========================================================
-    // DISPONIBILIDAD PARA DRAG & DROP
-    // =========================================================
+                        <h3
+                            class="text-base font-extrabold"
+                            style="color:#0F2749;"
+                        >
+                            ${esc(
+                                grupo.nombre
+                            )}
+                        </h3>
 
-    function profesorDisponible(
-        bloque,
-        nuevoDia,
-        nuevaHoraInicio,
-        nuevaHoraFin
-    ) {
+                        <p class="mt-1 text-xs text-slate-500">
 
-        const disponibilidades =
-            leer(
-                KEYS.disponibilidades
-            );
+                            ${grupo.bloques.length}
 
+                            ${
+                                grupo.bloques.length ===
+                                1
 
-        return disponibilidades.some(
-            (item) => {
+                                    ? 'clase programada'
 
-                const profesorId =
-                    item.profesor_id ??
-                    item.profesorId;
+                                    : 'clases programadas'
+                            }
 
+                        </p>
 
-                const dia =
-                    Number(
-                        item.dia_semana ??
-                        item.dia
-                    );
+                    </div>
 
 
-                const inicio =
-                    item.hora_inicio ??
-                    item.horaInicio;
+                    <div class="flex flex-wrap items-center gap-2">
 
+                        <span
+                            class="rounded-full px-3 py-1.5 text-[11px] font-semibold"
+                            style="
+                                background:#F1F5F9;
+                                color:#1B3A6B;
+                            "
+                        >
+                            ${textoInstitucion()}
+                        </span>
 
-                const fin =
-                    item.hora_fin ??
-                    item.horaFin;
 
+                        <button
+                            type="button"
+                            class="horario-export-btn btn-exportar-grupo"
+                            data-exportar-grupo="${esc(
+                                grupo.clave
+                            )}"
+                            data-formato="imagen"
+                        >
+                            Imagen
+                        </button>
 
-                return (
 
-                    String(
-                        profesorId
-                    ) ===
-                        String(
-                            bloque.profesor_id
-                        ) &&
+                        <button
+                            type="button"
+                            class="horario-export-btn horario-export-btn-pdf btn-exportar-grupo"
+                            data-exportar-grupo="${esc(
+                                grupo.clave
+                            )}"
+                            data-formato="pdf"
+                        >
+                            PDF
+                        </button>
 
-                    item.institucion ===
-                        bloque.institucion &&
+                    </div>
 
-                    dia ===
-                        Number(
-                            nuevoDia
-                        ) &&
+                </div>
 
-                    nuevaHoraInicio >=
-                        inicio &&
 
-                    nuevaHoraFin <=
-                        fin
+                <div class="horario-scroll overflow-x-auto">
 
-                );
+                    <table
+                        class="horario-tabla w-full min-w-[1080px] table-fixed border-collapse"
+                    >
 
-            }
-        );
+                        <thead>
+                            <tr>
 
-    }
+                                <th
+                                    class="sticky left-0 z-30 w-[110px] border-b border-r border-slate-200 bg-slate-50 px-2 py-3 text-center text-[10px] font-bold uppercase text-slate-500"
+                                >
+                                    Hora
+                                </th>
 
+                                ${headers}
 
-    // =========================================================
-    // VALIDAR MOVIMIENTO
-    // =========================================================
+                            </tr>
+                        </thead>
 
-    function validarMovimiento(
-        bloque,
-        nuevoDia,
-        nuevaHoraInicio,
-        nuevaHoraFin
-    ) {
+                        <tbody>
+                            ${filas}
+                        </tbody>
 
-        if (
-            !profesorDisponible(
-                bloque,
-                nuevoDia,
-                nuevaHoraInicio,
-                nuevaHoraFin
-            )
-        ) {
+                    </table>
 
-            return {
+                </div>
 
-                valido:
-                    false,
-
-                mensaje:
-                    `El profesor no está disponible el ${DIAS_NOMBRES[nuevoDia]} de ${nuevaHoraInicio} a ${nuevaHoraFin}.`
-
-            };
-
-        }
-
-
-        const horarios =
-            cargarHorarios();
-
-
-        const restantes =
-            horarios.filter(
-                (item) =>
-                    String(item.id) !==
-                    String(bloque.id)
-            );
-
-
-        // =====================================================
-        // PROFESOR
-        // =====================================================
-
-        const conflictoProfesor =
-            restantes.find(
-                (item) =>
-
-                    String(
-                        item.profesor_id
-                    ) ===
-                        String(
-                            bloque.profesor_id
-                        ) &&
-
-                    Number(
-                        item.dia_semana
-                    ) ===
-                        Number(
-                            nuevoDia
-                        ) &&
-
-                    existeTraslape(
-                        nuevaHoraInicio,
-                        nuevaHoraFin,
-                        item.hora_inicio,
-                        item.hora_fin
-                    )
-
-            );
-
-
-        if (conflictoProfesor) {
-
-            return {
-
-                valido:
-                    false,
-
-                mensaje:
-                    'El profesor ya tiene otra clase en ese horario.'
-
-            };
-
-        }
-
-
-        // =====================================================
-        // AULA
-        // =====================================================
-
-        const conflictoAula =
-            restantes.find(
-                (item) =>
-
-                    String(
-                        item.aula_id
-                    ) ===
-                        String(
-                            bloque.aula_id
-                        ) &&
-
-                    Number(
-                        item.dia_semana
-                    ) ===
-                        Number(
-                            nuevoDia
-                        ) &&
-
-                    existeTraslape(
-                        nuevaHoraInicio,
-                        nuevaHoraFin,
-                        item.hora_inicio,
-                        item.hora_fin
-                    )
-
-            );
-
-
-        if (conflictoAula) {
-
-            return {
-
-                valido:
-                    false,
-
-                mensaje:
-                    'El aula ya está ocupada en ese horario.'
-
-            };
-
-        }
-
-
-        // =====================================================
-        // GRADO
-        // =====================================================
-
-        if (
-            bloque.grado_id !==
-                null &&
-            bloque.grado_id !==
-                undefined
-        ) {
-
-            const conflictoGrado =
-                restantes.find(
-                    (item) =>
-
-                        item.grado_id !==
-                            null &&
-
-                        String(
-                            item.grado_id
-                        ) ===
-                            String(
-                                bloque.grado_id
-                            ) &&
-
-                        Number(
-                            item.dia_semana
-                        ) ===
-                            Number(
-                                nuevoDia
-                            ) &&
-
-                        existeTraslape(
-                            nuevaHoraInicio,
-                            nuevaHoraFin,
-                            item.hora_inicio,
-                            item.hora_fin
-                        )
-
-                );
-
-
-            if (conflictoGrado) {
-
-                return {
-
-                    valido:
-                        false,
-
-                    mensaje:
-                        'El grado o grupo ya tiene otra clase en ese horario.'
-
-                };
-
-            }
-
-        }
-
-
-        return {
-
-            valido:
-                true,
-
-            mensaje:
-                'Movimiento permitido.'
-
-        };
-
+            </section>
+        `;
     }
 
 
@@ -1967,110 +3421,276 @@ document.addEventListener('DOMContentLoaded', () => {
     // MENSAJES
     // =========================================================
 
-    let timerMensaje =
-        null;
-
-
     function mostrarMensaje(
-        tipo,
-        titulo,
-        texto
+        texto,
+        tipo='ok'
     ) {
 
-        if (!mensajeEl) {
+        const estilos = {
 
-            if (
-                tipo ===
-                'error'
-            ) {
+            ok:
+                'border-emerald-200 bg-emerald-50 text-emerald-700',
 
-                alert(texto);
+            error:
+                'border-red-200 bg-red-50 text-red-700',
 
-            }
-
-            return;
-
-        }
+            info:
+                'border-blue-200 bg-blue-50 text-blue-700'
+        };
 
 
-        clearTimeout(
-            timerMensaje
-        );
+        mensajeEl.className =
+            `fixed bottom-5 right-5 z-[100] max-w-md rounded-2xl border p-4 text-sm font-medium shadow-2xl ${
+                estilos[tipo] ||
+                estilos.info
+            }`;
+
+
+        mensajeEl.textContent =
+            texto;
 
 
         mensajeEl.classList.remove(
-            'hidden',
-            'border-emerald-200',
-            'border-red-200'
+            'hidden'
         );
 
 
-        if (
-            tipo ===
-            'error'
-        ) {
-
-            mensajeEl.classList.add(
-                'border-red-200'
-            );
+        clearTimeout(
+            mostrarMensaje.timer
+        );
 
 
-            mensajeEl.innerHTML =
-                `
-                    <div class="flex gap-3">
-                        <div class="text-lg">❌</div>
-                        <div>
-                            <p class="text-sm font-bold text-red-700">
-                                ${esc(titulo)}
-                            </p>
-
-                            <p class="mt-1 text-xs leading-5 text-slate-600">
-                                ${esc(texto)}
-                            </p>
-                        </div>
-                    </div>
-                `;
-
-        } else {
-
-            mensajeEl.classList.add(
-                'border-emerald-200'
-            );
-
-
-            mensajeEl.innerHTML =
-                `
-                    <div class="flex gap-3">
-                        <div class="text-lg">✅</div>
-                        <div>
-                            <p class="text-sm font-bold text-emerald-700">
-                                ${esc(titulo)}
-                            </p>
-
-                            <p class="mt-1 text-xs leading-5 text-slate-600">
-                                ${esc(texto)}
-                            </p>
-                        </div>
-                    </div>
-                `;
-
-        }
-
-
-        timerMensaje =
+        mostrarMensaje.timer =
             setTimeout(
                 () => {
 
-                    mensajeEl
-                        .classList
-                        .add(
-                            'hidden'
-                        );
-
+                    mensajeEl.classList.add(
+                        'hidden'
+                    );
                 },
-                4500
+                5500
+            );
+    }
+
+
+    // =========================================================
+    // ELIMINAR
+    // =========================================================
+
+    function abrirModalEliminarHorario(
+        id
+    ) {
+
+        const bloque =
+            cargarHorarios()
+                .find(
+                    horario =>
+                        String(
+                            horario.id
+                        ) ===
+                        String(id)
+                );
+
+
+        if (!bloque) {
+
+            mostrarMensaje(
+                'No se encontró la clase.',
+                'error'
             );
 
+            return;
+        }
+
+
+        horarioAEliminarId =
+            bloque.id;
+
+
+        const datos =
+            datosClase(
+                bloque
+            );
+
+
+        eliminarHorarioProfesor.textContent =
+            datos.profesor;
+
+
+        eliminarHorarioCurso.textContent =
+            datos.curso;
+
+
+        eliminarHorarioDia.textContent =
+            DIAS_NOMBRES[
+                Number(
+                    bloque.dia_semana
+                )
+            ];
+
+
+        eliminarHorarioHora.textContent =
+            `${bloque.hora_inicio} - ${bloque.hora_fin}`;
+
+
+        eliminarHorarioAula.textContent =
+            datos.aula;
+
+
+        eliminarHorarioModal.classList.remove(
+            'hidden'
+        );
+
+
+        document.body.classList.add(
+            'overflow-hidden'
+        );
+    }
+
+
+    function cerrarModalEliminarHorario() {
+
+        horarioAEliminarId =
+            null;
+
+
+        eliminarHorarioModal.classList.add(
+            'hidden'
+        );
+
+
+        document.body.classList.remove(
+            'overflow-hidden'
+        );
+    }
+
+
+    function eliminarHorarioSeleccionado() {
+
+        if (
+            horarioAEliminarId === null
+        ) {
+            return;
+        }
+
+
+        const nuevos =
+            leer(
+                KEYS.horarios
+            )
+                .filter(
+                    horario =>
+                        String(
+                            horario.id
+                        ) !==
+                        String(
+                            horarioAEliminarId
+                        )
+                );
+
+
+        guardarHorarios(
+            nuevos
+        );
+
+
+        cerrarModalEliminarHorario();
+
+
+        render();
+
+
+        mostrarMensaje(
+            'Horario eliminado correctamente.'
+        );
+    }
+
+
+    // =========================================================
+    // DRAG - CLAVE DE GRUPO
+    // =========================================================
+
+    function claveGrupoBloque(
+        bloque
+    ) {
+
+        if (
+            getAgrupaPor() ===
+            'profesor'
+        ) {
+
+            return `prof-${bloque.profesor_id}`;
+        }
+
+
+        if (
+            getAgrupaPor() ===
+            'aula'
+        ) {
+
+            return `aula-${bloque.aula_id}`;
+        }
+
+
+        return `grado-${bloque.grado_id}`;
+    }
+
+
+    // =========================================================
+    // PREVISUALIZAR MOVIMIENTO
+    // =========================================================
+
+    function obtenerValidacionZona(
+        bloque,
+        zona
+    ) {
+
+        const dia =
+            Number(
+                zona.dataset.dia
+            );
+
+
+        const horaInicio =
+            zona.dataset.horaInicio;
+
+
+        const duracion =
+            duracionMinutos(
+                bloque
+            );
+
+
+        if (
+            !duracion
+        ) {
+
+            return {
+
+                valido:
+                    false,
+
+                mensaje:
+                    'La clase tiene una duración inválida.'
+            };
+        }
+
+
+        const horaFin =
+            aTexto(
+                aMinutos(
+                    horaInicio
+                ) +
+                duracion
+            );
+
+
+        return validarMovimiento(
+            bloque,
+            dia,
+            horaInicio,
+            horaFin
+        );
     }
 
 
@@ -2080,76 +3700,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function moverClase(
         id,
-        nuevoDia,
-        nuevaHoraInicio
+        dia,
+        horaInicio
     ) {
 
         const horarios =
             cargarHorarios();
 
 
-        const indice =
+        const index =
             horarios.findIndex(
-                (item) =>
-                    String(item.id) ===
+                horario =>
+                    String(
+                        horario.id
+                    ) ===
                     String(id)
             );
 
 
         if (
-            indice ===
-            -1
+            index === -1
         ) {
 
             mostrarMensaje(
-                'error',
-                'No se encontró la clase',
-                'Actualiza la página e inténtalo nuevamente.'
+                'No se encontró la clase que deseas mover.',
+                'error'
             );
 
-            return;
-
+            return false;
         }
 
 
         const bloque =
-            horarios[indice];
+            horarios[index];
 
 
         const duracion =
-            aMinutos(
-                bloque.hora_fin
-            ) -
-            aMinutos(
-                bloque.hora_inicio
+            duracionMinutos(
+                bloque
             );
 
 
-        const nuevoInicioMin =
-            aMinutos(
-                nuevaHoraInicio
+        if (
+            duracion <= 0
+        ) {
+
+            mostrarMensaje(
+                'La duración de la clase no es válida.',
+                'error'
             );
 
-
-        const nuevoFinMin =
-            nuevoInicioMin +
-            duracion;
+            return false;
+        }
 
 
-        const nuevaHoraFin =
+        const horaFin =
             aTexto(
-                nuevoFinMin
+                aMinutos(
+                    horaInicio
+                ) +
+                duracion
             );
 
+
+        // -----------------------------------------------------
+        // VALIDACIÓN GLOBAL
+        // -----------------------------------------------------
 
         const validacion =
             validarMovimiento(
                 bloque,
-                Number(
-                    nuevoDia
-                ),
-                nuevaHoraInicio,
-                nuevaHoraFin
+                dia,
+                horaInicio,
+                horaFin
             );
 
 
@@ -2158,34 +3781,33 @@ document.addEventListener('DOMContentLoaded', () => {
         ) {
 
             mostrarMensaje(
-                'error',
-                'No se puede mover la clase',
-                validacion.mensaje
+                validacion.mensaje,
+                'error'
             );
 
 
-            renderizar();
-
-            return;
-
+            return false;
         }
 
 
-        horarios[indice] = {
+        // -----------------------------------------------------
+        // GUARDAR SOLO SI TODO ESTÁ CORRECTO
+        // -----------------------------------------------------
+
+        horarios[index] = {
 
             ...bloque,
 
             dia_semana:
                 Number(
-                    nuevoDia
+                    dia
                 ),
 
             hora_inicio:
-                nuevaHoraInicio,
+                horaInicio,
 
             hora_fin:
-                nuevaHoraFin
-
+                horaFin
         };
 
 
@@ -2194,59 +3816,41 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
+        render();
+
+
         mostrarMensaje(
-            'ok',
-            'Clase movida',
-            `${DIAS_NOMBRES[nuevoDia]} · ${nuevaHoraInicio} - ${nuevaHoraFin}`
+            `Clase movida al ${DIAS_NOMBRES[dia]} de ${horaInicio} a ${horaFin}.`
         );
 
 
-        renderizar();
-
+        return true;
     }
 
 
     // =========================================================
-    // MISMO TABLERO
-    // =========================================================
-    //
-    // Arrastrar una clase en "Por profesor" NO cambia profesor.
-    // Arrastrarla en "Por aula" NO cambia aula.
-    //
-    // Para cambiar profesor/aula/grado se debe hacer desde
-    // Asignaciones.
+    // LIMPIAR PREVIEW DRAG
     // =========================================================
 
-    function claveGrupoDelBloque(
-        bloque
+    function limpiarEstadoDrag(
+        zona
     ) {
 
-        const agrupa =
-            getAgrupaPor();
+        zona.classList.remove(
+            'drag-over'
+        );
 
 
-        if (
-            agrupa ===
-            'profesor'
-        ) {
-
-            return `prof-${bloque.profesor_id}`;
-
-        }
+        zona.style.background =
+            '';
 
 
-        if (
-            agrupa ===
-            'aula'
-        ) {
-
-            return `aula-${bloque.aula_id}`;
-
-        }
+        zona.style.outline =
+            '';
 
 
-        return `grado-${bloque.grado_id}`;
-
+        zona.style.outlineOffset =
+            '';
     }
 
 
@@ -2259,1364 +3863,1008 @@ document.addEventListener('DOMContentLoaded', () => {
         if (
             !puedeEditarHorario()
         ) {
-
             return;
-
         }
 
 
-        const clases =
-            contenedor.querySelectorAll(
+        contenedor
+            .querySelectorAll(
                 '.horario-clase'
-            );
+            )
+            .forEach(
+                clase => {
 
+                    clase.addEventListener(
+                        'dragstart',
+                        event => {
 
-        const zonas =
-            contenedor.querySelectorAll(
-                '.horario-dropzone'
-            );
-
-
-        clases.forEach(
-            (clase) => {
-
-                clase.addEventListener(
-                    'dragstart',
-                    (event) => {
-
-                        bloqueArrastradoId =
-                            clase.dataset.id;
-
-
-                        clase.classList.add(
-                            'dragging'
-                        );
-
-
-                        event.dataTransfer.effectAllowed =
-                            'move';
-
-
-                        event.dataTransfer.setData(
-                            'text/plain',
-                            bloqueArrastradoId
-                        );
-
-                    }
-                );
-
-
-                clase.addEventListener(
-                    'dragend',
-                    () => {
-
-                        bloqueArrastradoId =
-                            null;
-
-
-                        clase.classList.remove(
-                            'dragging'
-                        );
-
-
-                        zonas.forEach(
-                            (zona) =>
-                                zona.classList.remove(
-                                    'drag-over'
+                            if (
+                                event.target.closest(
+                                    '.btn-eliminar-horario'
                                 )
-                        );
+                            ) {
 
-                    }
-                );
+                                event.preventDefault();
 
-            }
-        );
-
-
-        zonas.forEach(
-            (zona) => {
-
-                zona.addEventListener(
-                    'dragover',
-                    (event) => {
-
-                        event.preventDefault();
+                                return;
+                            }
 
 
-                        event.dataTransfer.dropEffect =
-                            'move';
+                            bloqueArrastradoId =
+                                clase.dataset.horarioId;
 
 
-                        zona.classList.add(
-                            'drag-over'
-                        );
-
-                    }
-                );
-
-
-                zona.addEventListener(
-                    'dragleave',
-                    () => {
-
-                        zona.classList.remove(
-                            'drag-over'
-                        );
-
-                    }
-                );
-
-
-                zona.addEventListener(
-                    'drop',
-                    (event) => {
-
-                        event.preventDefault();
-
-
-                        zona.classList.remove(
-                            'drag-over'
-                        );
-
-
-                        const id =
-                            event.dataTransfer.getData(
-                                'text/plain'
-                            ) ||
-                            bloqueArrastradoId;
-
-
-                        if (!id) {
-
-                            return;
-
-                        }
-
-
-                        const horarios =
-                            cargarHorarios();
-
-
-                        const bloque =
-                            horarios.find(
-                                (item) =>
-                                    String(
-                                        item.id
-                                    ) ===
-                                    String(id)
+                            clase.classList.add(
+                                'dragging'
                             );
 
 
-                        if (!bloque) {
+                            event.dataTransfer.effectAllowed =
+                                'move';
 
-                            return;
 
+                            event.dataTransfer.setData(
+                                'text/plain',
+                                bloqueArrastradoId
+                            );
                         }
+                    );
 
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | NO CAMBIAMOS EL PROPIETARIO DEL TABLERO
-                        |--------------------------------------------------------------------------
-                        */
+                    clase.addEventListener(
+                        'dragend',
+                        () => {
 
-                        const grupoEsperado =
-                            claveGrupoDelBloque(
+                            bloqueArrastradoId =
+                                null;
+
+
+                            clase.classList.remove(
+                                'dragging'
+                            );
+
+
+                            contenedor
+                                .querySelectorAll(
+                                    '.horario-dropzone'
+                                )
+                                .forEach(
+                                    limpiarEstadoDrag
+                                );
+                        }
+                    );
+                }
+            );
+
+
+        contenedor
+            .querySelectorAll(
+                '.horario-dropzone'
+            )
+            .forEach(
+                zona => {
+
+                    zona.addEventListener(
+                        'dragover',
+                        event => {
+
+                            event.preventDefault();
+
+
+                            const id =
+                                bloqueArrastradoId ||
+                                event.dataTransfer.getData(
+                                    'text/plain'
+                                );
+
+
+                            if (!id) {
+                                return;
+                            }
+
+
+                            const bloque =
+                                cargarHorarios()
+                                    .find(
+                                        horario =>
+                                            String(
+                                                horario.id
+                                            ) ===
+                                            String(id)
+                                    );
+
+
+                            if (!bloque) {
+                                return;
+                            }
+
+
+                            /*
+                             * No permitimos cambiar de profesor,
+                             * aula o grado arrastrando entre grupos.
+                             */
+                            if (
+                                zona.dataset.grupo !==
+                                claveGrupoBloque(
+                                    bloque
+                                )
+                            ) {
+
+                                zona.classList.remove(
+                                    'drag-over'
+                                );
+
+
+                                zona.style.background =
+                                    'rgba(219,8,8,.08)';
+
+
+                                zona.style.outline =
+                                    '2px dashed #DB0808';
+
+
+                                zona.style.outlineOffset =
+                                    '-4px';
+
+
+                                event.dataTransfer.dropEffect =
+                                    'none';
+
+
+                                return;
+                            }
+
+
+                            const validacion =
+                                obtenerValidacionZona(
+                                    bloque,
+                                    zona
+                                );
+
+
+                            if (
+                                validacion.valido
+                            ) {
+
+                                zona.style.background =
+                                    'rgba(16,185,129,.08)';
+
+
+                                zona.style.outline =
+                                    '2px dashed #10B981';
+
+
+                                zona.style.outlineOffset =
+                                    '-4px';
+
+
+                                event.dataTransfer.dropEffect =
+                                    'move';
+
+                            } else {
+
+                                zona.style.background =
+                                    'rgba(219,8,8,.08)';
+
+
+                                zona.style.outline =
+                                    '2px dashed #DB0808';
+
+
+                                zona.style.outlineOffset =
+                                    '-4px';
+
+
+                                event.dataTransfer.dropEffect =
+                                    'none';
+                            }
+                        }
+                    );
+
+
+                    zona.addEventListener(
+                        'dragleave',
+                        () => {
+
+                            limpiarEstadoDrag(
+                                zona
+                            );
+                        }
+                    );
+
+
+                    zona.addEventListener(
+                        'drop',
+                        event => {
+
+                            event.preventDefault();
+
+
+                            limpiarEstadoDrag(
+                                zona
+                            );
+
+
+                            const id =
+                                event.dataTransfer.getData(
+                                    'text/plain'
+                                ) ||
+                                bloqueArrastradoId;
+
+
+                            const bloque =
+                                cargarHorarios()
+                                    .find(
+                                        horario =>
+                                            String(
+                                                horario.id
+                                            ) ===
+                                            String(id)
+                                    );
+
+
+                            if (!bloque) {
+
+                                mostrarMensaje(
+                                    'No se encontró la clase arrastrada.',
+                                    'error'
+                                );
+
+                                return;
+                            }
+
+
+                            // -------------------------------------
+                            // MISMO GRUPO
+                            // -------------------------------------
+
+                            if (
+                                zona.dataset.grupo !==
+                                claveGrupoBloque(
+                                    bloque
+                                )
+                            ) {
+
+                                mostrarMensaje(
+                                    'Solo puedes cambiar el día y la hora. No puedes cambiar de profesor, aula o grado arrastrando.',
+                                    'error'
+                                );
+
+                                return;
+                            }
+
+
+                            const dia =
+                                Number(
+                                    zona.dataset.dia
+                                );
+
+
+                            const horaInicio =
+                                zona.dataset.horaInicio;
+
+
+                            const duracion =
+                                duracionMinutos(
+                                    bloque
+                                );
+
+
+                            const horaFin =
+                                aTexto(
+                                    aMinutos(
+                                        horaInicio
+                                    ) +
+                                    duracion
+                                );
+
+
+                            // -------------------------------------
+                            // VALIDACIÓN ANTES DE MOVER
+                            // -------------------------------------
+
+                            const validacion =
+                                validarMovimiento(
+                                    bloque,
+                                    dia,
+                                    horaInicio,
+                                    horaFin
+                                );
+
+
+                            if (
+                                !validacion.valido
+                            ) {
+
+                                mostrarMensaje(
+                                    validacion.mensaje,
+                                    'error'
+                                );
+
+                                return;
+                            }
+
+
+                            moverClase(
+                                id,
+                                dia,
+                                horaInicio
+                            );
+                        }
+                    );
+                }
+            );
+    }
+
+
+    // =========================================================
+    // EXPORT
+    // =========================================================
+
+    function limpiarNombreArchivo(
+        texto
+    ) {
+
+        return String(texto)
+            .normalize('NFD')
+            .replace(
+                /[\u0300-\u036f]/g,
+                ''
+            )
+            .replace(
+                /[^a-zA-Z0-9_-]+/g,
+                '_'
+            )
+            .replace(
+                /_+/g,
+                '_'
+            )
+            .replace(
+                /^_|_$/g,
+                ''
+            )
+            .toLowerCase();
+    }
+
+
+    function ordenarBloquesExportacion(
+        bloques
+    ) {
+
+        return [
+            ...bloques
+        ]
+            .sort(
+                (a,b) => {
+
+                    if (
+                        Number(
+                            a.dia_semana
+                        ) !==
+                        Number(
+                            b.dia_semana
+                        )
+                    ) {
+
+                        return (
+                            Number(
+                                a.dia_semana
+                            ) -
+                            Number(
+                                b.dia_semana
+                            )
+                        );
+                    }
+
+
+                    return (
+                        aMinutos(
+                            a.hora_inicio
+                        ) -
+                        aMinutos(
+                            b.hora_inicio
+                        )
+                    );
+                }
+            );
+    }
+
+
+    function exportarExcel(
+        bloques
+    ) {
+
+        if (!bloques.length) {
+
+            mostrarMensaje(
+                'No hay datos para exportar.',
+                'info'
+            );
+
+            return;
+        }
+
+
+        if (
+            typeof XLSX ===
+            'undefined'
+        ) {
+
+            mostrarMensaje(
+                'No se cargó Excel.',
+                'error'
+            );
+
+            return;
+        }
+
+
+        const filas = [[
+
+            'Institución',
+            'Día',
+            'Hora inicio',
+            'Hora fin',
+            'Duración',
+            'Profesor',
+            'Curso',
+            'Grado',
+            'Aula'
+
+        ]];
+
+
+        ordenarBloquesExportacion(
+            bloques
+        )
+            .forEach(
+                bloque => {
+
+                    const datos =
+                        datosClase(
+                            bloque
+                        );
+
+
+                    filas.push([
+
+                        textoInstitucion(),
+
+                        DIAS_NOMBRES[
+                            Number(
+                                bloque.dia_semana
+                            )
+                        ],
+
+                        bloque.hora_inicio,
+
+                        bloque.hora_fin,
+
+                        textoDuracion(
+                            bloque
+                        ),
+
+                        datos.profesor,
+
+                        datos.curso,
+
+                        datos.grado,
+
+                        datos.aula
+
+                    ]);
+                }
+            );
+
+
+        const hoja =
+            XLSX.utils.aoa_to_sheet(
+                filas
+            );
+
+
+        const libro =
+            XLSX.utils.book_new();
+
+
+        XLSX.utils.book_append_sheet(
+            libro,
+            hoja,
+            'Horarios'
+        );
+
+
+        XLSX.writeFile(
+            libro,
+            `horarios_${institucionActiva}.xlsx`
+        );
+
+
+        mostrarMensaje(
+            'Excel descargado correctamente.'
+        );
+    }
+
+
+    function exportarPdf(
+        bloques,
+        nombre
+    ) {
+
+        if (!bloques.length) {
+
+            mostrarMensaje(
+                'No hay datos para exportar.',
+                'info'
+            );
+
+            return;
+        }
+
+
+        const ventana =
+            window.open(
+                '',
+                '_blank'
+            );
+
+
+        if (!ventana) {
+
+            mostrarMensaje(
+                'Permite ventanas emergentes.',
+                'error'
+            );
+
+            return;
+        }
+
+
+        const filas =
+            ordenarBloquesExportacion(
+                bloques
+            )
+                .map(
+                    bloque => {
+
+                        const datos =
+                            datosClase(
                                 bloque
                             );
 
 
-                        if (
-                            zona.dataset.grupo !==
-                            grupoEsperado
-                        ) {
-
-                            mostrarMensaje(
-                                'error',
-                                'Movimiento no permitido',
-                                'Para cambiar profesor, aula o grado debes hacerlo desde Asignaciones.'
-                            );
-
-                            return;
-
-                        }
-
-
-                        moverClase(
-
-                            id,
-
-                            Number(
-                                zona.dataset.dia
-                            ),
-
-                            zona.dataset.hora
-
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-    }
-
-
-    // =========================================================
-    // CONSTRUIR TABLERO
-    // =========================================================
-
-    function construirTablero(
-        grupo
-    ) {
-
-        const completo =
-            isVistaCompleta();
-
-
-        const dias =
-            obtenerDias(
-                grupo.bloques,
-                completo
-            );
-
-
-        const slots =
-            construirSlots(
-                grupo.bloques,
-                completo
-            );
-
-
-        const matriz =
-            construirMatriz(
-                grupo.bloques,
-                dias,
-                slots
-            );
-
-
-        const icono =
-            getAgrupaPor() ===
-                'profesor'
-
-                ? '👨‍🏫'
-
-                : getAgrupaPor() ===
-                    'aula'
-
-                    ? '🏫'
-
-                    : '🎓';
-
-
-        const tarjeta =
-            document.createElement(
-                'div'
-            );
-
-
-        tarjeta.className =
-            'horario-card overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm';
-
-
-        // =====================================================
-        // CABECERA DÍAS
-        // =====================================================
-
-        const thead =
-            dias
-                .map(
-                    (dia) =>
-
-                        `
-                            <th
-                                class="border-r border-slate-700 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider"
-                            >
-                                ${DIAS_CORTOS[dia] ?? dia}
-                            </th>
-                        `
-
-                )
-                .join('');
-
-
-        // =====================================================
-        // FILAS
-        // =====================================================
-
-        const filasHTML =
-            slots
-                .map(
-                    (slot, indice) => {
-
-                        const celdas =
-                            dias
-                                .map(
-                                    (dia) => {
-
-                                        const celda =
-                                            matriz[dia][indice];
-
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | CONTINUACIÓN DE UNA CLASE LARGA
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        if (
-                                            celda &&
-                                            celda.tipo ===
-                                                'cont'
-                                        ) {
-
-                                            return '';
-
-                                        }
-
-
-                                        const dataDrop =
-                                            `
-                                                data-dia="${dia}"
-                                                data-hora="${aTexto(slot.ini)}"
-                                                data-grupo="${esc(grupo.clave)}"
-                                            `;
-
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | LIBRE
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        if (!celda) {
-
-                                            return `
-                                                <td
-                                                    class="horario-dropzone border-r border-slate-200 p-2 align-top"
-                                                    ${dataDrop}
-                                                >
-                                                    <div class="flex min-h-[72px] items-center justify-center rounded-lg border border-dashed border-slate-200">
-                                                        <span class="text-xs text-slate-400">
-                                                            Libre
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                            `;
-
-                                        }
-
-
-                                        // =================================================
-                                        // CLASE
-                                        // =================================================
-
-                                        const cuerpo =
-                                            celda.bloques
-                                                .map(
-                                                    (bloque) => {
-
-                                                        const lineas =
-                                                            getLineasBloque(
-                                                                bloque
-                                                            );
-
-
-                                                        const color =
-                                                            getColorCurso(
-                                                                lineas.curso
-                                                            );
-
-
-                                                        const draggable =
-                                                            puedeEditarHorario()
-                                                                ? 'true'
-                                                                : 'false';
-
-
-                                                        return `
-
-                                                            <div
-                                                                class="horario-clase rounded-lg p-3"
-                                                                draggable="${draggable}"
-                                                                data-id="${bloque.id}"
-                                                                style="background:${color.bg};"
-                                                            >
-
-                                                                <div class="flex items-start justify-between gap-2">
-
-                                                                    <p
-                                                                        class="text-sm font-semibold"
-                                                                        style="color:${color.text};"
-                                                                    >
-                                                                        ${esc(lineas.curso)}
-                                                                    </p>
-
-                                                                    ${
-                                                                        puedeEditarHorario()
-                                                                            ? `
-                                                                                <span
-                                                                                    class="shrink-0 text-xs opacity-40"
-                                                                                    title="Arrastrar clase"
-                                                                                >
-                                                                                    ⠿
-                                                                                </span>
-                                                                              `
-                                                                            : ''
-                                                                    }
-
-                                                                </div>
-
-
-                                                                <p
-                                                                    class="mt-1 text-xs"
-                                                                    style="color:${color.sub};"
-                                                                >
-                                                                    ${esc(lineas.sec)}
-                                                                </p>
-
-
-                                                                <p class="mt-1 text-xs text-slate-500">
-                                                                    ${esc(lineas.ter)}
-                                                                </p>
-
-
-                                                                <p class="mt-1 text-[11px] text-slate-400">
-                                                                    ${bloque.hora_inicio}
-                                                                    –
-                                                                    ${bloque.hora_fin}
-                                                                </p>
-
-                                                            </div>
-
-                                                        `;
-
-                                                    }
-                                                )
-                                                .join('');
-
-
-                                        const aviso =
-                                            celda.conflicto
-
-                                                ? `
-                                                    <p class="mb-1 text-[11px] font-semibold text-rose-600">
-                                                        ⚠ Cruce de horario
-                                                    </p>
-                                                  `
-
-                                                : '';
-
-
-                                        return `
-
-                                            <td
-                                                class="horario-dropzone border-r border-slate-200 p-2 align-top"
-                                                rowspan="${celda.span}"
-                                                ${dataDrop}
-                                            >
-
-                                                ${aviso}
-
-                                                <div class="space-y-1">
-                                                    ${cuerpo}
-                                                </div>
-
-                                            </td>
-
-                                        `;
-
-                                    }
-                                )
-                                .join('');
-
-
                         return `
+                            <tr>
+                                <td>${esc(
+                                    DIAS_NOMBRES[
+                                        Number(
+                                            bloque.dia_semana
+                                        )
+                                    ]
+                                )}</td>
 
-                            <tr class="border-b border-slate-200">
-
-                                <td class="bg-slate-50 px-4 py-3 text-center align-top">
-
-                                    <span class="text-sm font-semibold text-slate-700">
-                                        ${aTexto(slot.ini)}
-                                    </span>
-
-                                    <span class="block text-xs text-slate-400">
-                                        ${aTexto(slot.fin)}
-                                    </span>
-
+                                <td>
+                                    ${esc(
+                                        bloque.hora_inicio
+                                    )}
+                                    -
+                                    ${esc(
+                                        bloque.hora_fin
+                                    )}
                                 </td>
 
-                                ${celdas}
+                                <td>${esc(
+                                    datos.profesor
+                                )}</td>
 
+                                <td>${esc(
+                                    datos.curso
+                                )}</td>
+
+                                <td>${esc(
+                                    datos.grado
+                                )}</td>
+
+                                <td>${esc(
+                                    datos.aula
+                                )}</td>
                             </tr>
-
                         `;
-
                     }
                 )
                 .join('');
 
 
-        // =====================================================
-        // TARJETA
-        // =====================================================
+        ventana.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
 
-        tarjeta.innerHTML =
-            `
+                <title>${esc(
+                    nombre
+                )}</title>
 
-                <div class="border-b border-slate-200 px-5 py-4">
+                <style>
 
-                    <div class="flex flex-wrap items-center justify-between gap-2">
+                    body{
+                        font-family:Arial;
+                        padding:30px;
+                    }
 
-                        <div>
+                    h1{
+                        color:#0F2749;
+                    }
 
-                            <h2 class="font-semibold text-slate-900">
-                                ${icono}
-                                ${esc(grupo.nombre)}
-                            </h2>
+                    table{
+                        width:100%;
+                        border-collapse:collapse;
+                    }
 
-                            <p class="mt-1 text-xs text-slate-500">
-                                ${grupo.bloques.length}
-                                clase(s) asignadas
-                            </p>
+                    th{
+                        background:#0F2749;
+                        color:white;
+                    }
 
-                        </div>
+                    th,
+                    td{
+                        border:1px solid #ddd;
+                        padding:8px;
+                        font-size:11px;
+                    }
 
+                </style>
 
-                        <div class="flex items-center gap-2">
+            </head>
 
-                            ${
-                                puedeEditarHorario()
+            <body>
 
-                                    ? `
-                                        <span class="hidden text-[11px] text-slate-400 sm:inline">
-                                            Arrastra una clase para moverla
-                                        </span>
-                                      `
+                <h1>
+                    ${esc(
+                        tituloEl.textContent
+                    )}
+                </h1>
 
-                                    : ''
-                            }
+                <p>
+                    ${esc(
+                        textoInstitucion()
+                    )}
+                </p>
 
+                <table>
 
-                            <span class="inline-flex rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700">
-                                ${
-                                    institucionActiva ===
-                                    'colegio'
-                                        ? '🏫 Colegio'
-                                        : '🎓 Academia'
-                                }
-                            </span>
+                    <thead>
 
-                        </div>
+                        <tr>
 
-                    </div>
+                            <th>Día</th>
+                            <th>Horario</th>
+                            <th>Profesor</th>
+                            <th>Curso</th>
+                            <th>Grado</th>
+                            <th>Aula</th>
 
-                </div>
+                        </tr>
 
+                    </thead>
 
-                <div class="overflow-x-auto">
+                    <tbody>
+                        ${filas}
+                    </tbody>
 
-                    <table class="w-full min-w-[900px] border-collapse">
+                </table>
 
-                        <thead>
+                <script>
+                    setTimeout(
+                        () => window.print(),
+                        300
+                    );
+                <\/script>
 
-                            <tr class="bg-slate-900 text-white">
-
-                                <th class="w-24 border-r border-slate-700 px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
-                                    Hora
-                                </th>
-
-                                ${thead}
-
-                            </tr>
-
-                        </thead>
-
-
-                        <tbody>
-                            ${filasHTML}
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-            `;
+            </body>
+            </html>
+        `);
 
 
-        return tarjeta;
-
+        ventana.document.close();
     }
+
+
+    function exportarImagen(
+        bloques,
+        nombre
+    ) {
+
+        if (!bloques.length) {
+
+            mostrarMensaje(
+                'No hay datos para exportar.',
+                'info'
+            );
+
+            return;
+        }
+
+
+        mostrarMensaje(
+            'Usa el botón PDF para exportar el horario completo.',
+            'info'
+        );
+    }
+
+
+    // =========================================================
+    // BLOQUES VISIBLES
+    // =========================================================
+
+    function obtenerBloquesVisibles() {
+
+        const institucionales =
+            cargarHorarios()
+                .filter(
+                    horario =>
+                        horarioEsDeInstitucion(
+                            horario
+                        )
+                );
+
+
+        return aplicarFiltros(
+            institucionales
+        );
+    }
+
+
+    // =========================================================
+    // CLICK CONTENEDOR
+    // =========================================================
+
+    contenedor.addEventListener(
+        'click',
+        event => {
+
+            const botonEliminar =
+                event.target.closest(
+                    '.btn-eliminar-horario'
+                );
+
+
+            if (botonEliminar) {
+
+                event.preventDefault();
+
+                event.stopPropagation();
+
+
+                abrirModalEliminarHorario(
+                    botonEliminar.dataset
+                        .eliminarHorarioId
+                );
+
+
+                return;
+            }
+
+
+            const botonExportar =
+                event.target.closest(
+                    '.btn-exportar-grupo'
+                );
+
+
+            if (!botonExportar) {
+                return;
+            }
+
+
+            const grupo =
+                gruposVisibles.find(
+                    grupo =>
+                        grupo.clave ===
+                        botonExportar.dataset
+                            .exportarGrupo
+                );
+
+
+            if (!grupo) {
+                return;
+            }
+
+
+            const nombre =
+                `horario_${grupo.nombre}_${textoInstitucion()}`;
+
+
+            if (
+                botonExportar.dataset
+                    .formato ===
+                'pdf'
+            ) {
+
+                exportarPdf(
+                    grupo.bloques,
+                    nombre
+                );
+
+            } else {
+
+                exportarImagen(
+                    grupo.bloques,
+                    nombre
+                );
+            }
+        }
+    );
+
+
+    // =========================================================
+    // MODAL
+    // =========================================================
+
+    closeEliminarHorarioModal
+        ?.addEventListener(
+            'click',
+            cerrarModalEliminarHorario
+        );
+
+
+    cancelEliminarHorarioModal
+        ?.addEventListener(
+            'click',
+            cerrarModalEliminarHorario
+        );
+
+
+    eliminarHorarioOverlay
+        ?.addEventListener(
+            'click',
+            cerrarModalEliminarHorario
+        );
+
+
+    confirmEliminarHorario
+        ?.addEventListener(
+            'click',
+            eliminarHorarioSeleccionado
+        );
 
 
     // =========================================================
     // TÍTULOS
     // =========================================================
 
-    function actualizarTitulos() {
+    function actualizarTituloVista() {
 
-        const textos = {
+        const configuracion = {
 
-            profesor: [
+            profesor:[
                 'Horario por profesor',
                 'Consulta las clases asignadas a cada profesor.'
             ],
 
-            aula: [
+            aula:[
                 'Horario por aula',
-                'Consulta qué clase se dicta en cada aula, sin choques.'
+                'Consulta las clases programadas en cada aula.'
             ],
 
-            grado: [
+            'aula-completa':[
+                'Horario general por aulas',
+                'Vista completa por días y bloques horarios.'
+            ],
+
+            grado:[
                 'Horario por grado',
-                'Consulta las clases de un grado o sección.'
-            ],
-
-            'aula-completa': [
-                'Horario completo del aula',
-                'Semana completa con horas libres incluidas.'
+                'Consulta las clases correspondientes a cada grado o sección.'
             ]
-
         };
 
 
-        const [
-            titulo,
-            subtitulo
-        ] =
-            textos[vistaActual] ||
-            textos.profesor;
+        const actual =
+            configuracion[
+                vistaActual
+            ];
 
 
-        if (tituloEl) {
-
-            tituloEl.textContent =
-                titulo;
-
-        }
+        tituloEl.textContent =
+            actual[0];
 
 
-        if (subtituloEl) {
-
-            subtituloEl.textContent =
-                subtitulo;
-
-        }
-
+        subtituloEl.textContent =
+            actual[1];
     }
 
 
     // =========================================================
-    // ESTADÍSTICAS
+    // RENDER
     // =========================================================
 
-    function actualizarEstadisticas(
-        bloques
-    ) {
-
-        if (statProfesores) {
-
-            statProfesores.textContent =
-                new Set(
-                    bloques.map(
-                        (item) =>
-                            item.profesor_id
-                    )
-                ).size;
-
-        }
-
-
-        if (statAulas) {
-
-            statAulas.textContent =
-                new Set(
-                    bloques.map(
-                        (item) =>
-                            item.aula_id
-                    )
-                ).size;
-
-        }
-
-
-        if (statClases) {
-
-            statClases.textContent =
-                bloques.length;
-
-        }
-
-
-        const conflictos =
-            detectarConflictos(
-                bloques
-            );
-
-
-        if (statEstado) {
-
-            statEstado.textContent =
-                conflictos.length
-
-                    ? `${conflictos.length} conflicto(s)`
-
-                    : 'Sin conflictos';
-
-        }
-
-
-        if (statEstadoPunto) {
-
-            statEstadoPunto.style.background =
-                conflictos.length
-                    ? '#db0808'
-                    : '#10b981';
-
-        }
-
-    }
-
-
-    // =========================================================
-    // RENDER PRINCIPAL
-    // =========================================================
-
-    let gruposVisibles =
-        [];
-
-
-    function renderizar() {
-
-        actualizarTitulos();
-
+    function render() {
 
         const todos =
             cargarHorarios();
 
 
-        const bloquesInstitucion =
+        const institucionales =
             todos.filter(
-                (bloque) =>
-                    bloque.institucion ===
-                    institucionActiva
+                horario =>
+                    horarioEsDeInstitucion(
+                        horario
+                    )
+            );
+
+
+        cargarFiltros(
+            institucionales
+        );
+
+
+        const filtrados =
+            aplicarFiltros(
+                institucionales
             );
 
 
         actualizarEstadisticas(
-            bloquesInstitucion
+            filtrados
         );
 
 
-        cargarFiltros(
-            bloquesInstitucion
-        );
+        actualizarTituloVista();
 
 
-        if (
-            bloquesInstitucion.length ===
-            0
-        ) {
+        if (!filtrados.length) {
 
             gruposVisibles =
                 [];
 
 
-            contenedor.innerHTML =
-                `
+            contenedor.innerHTML = `
+                <div
+                    class="
+                        rounded-2xl
+                        border
+                        border-dashed
+                        border-slate-300
+                        bg-slate-50
+                        px-6
+                        py-14
+                        text-center
+                    "
+                >
 
-                    <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
+                    <h3 class="font-bold text-slate-800">
+                        Sin horarios
+                    </h3>
 
-                        <span class="mb-3 text-3xl">
-                            📭
-                        </span>
+                    <p class="mt-2 text-sm text-slate-500">
+                        No existen clases que coincidan con los filtros seleccionados.
+                    </p>
 
-                        <p class="text-sm font-medium text-slate-700">
-                            No hay horarios para ${
-                                institucionActiva ===
-                                'colegio'
-                                    ? 'Colegio'
-                                    : 'Academia'
-                            }
-                        </p>
-
-                        <p class="mt-1 max-w-sm text-xs text-slate-500">
-                            Ve a Asignaciones y crea una clase indicando profesor,
-                            curso, aula, día y horario.
-                        </p>
-
-                    </div>
-
-                `;
+                </div>
+            `;
 
 
             return;
-
-        }
-
-
-        let bloques =
-            bloquesInstitucion;
-
-
-        if (
-            filtroProfesor &&
-            filtroProfesor.value !==
-                'todos'
-        ) {
-
-            bloques =
-                bloques.filter(
-                    (item) =>
-                        String(
-                            item.profesor_id
-                        ) ===
-                        String(
-                            filtroProfesor.value
-                        )
-                );
-
-        }
-
-
-        if (
-            filtroAula &&
-            filtroAula.value !==
-                'todos'
-        ) {
-
-            bloques =
-                bloques.filter(
-                    (item) =>
-                        String(
-                            item.aula_id
-                        ) ===
-                        String(
-                            filtroAula.value
-                        )
-                );
-
-        }
-
-
-        if (
-            filtroGrado &&
-            filtroGrado.value !==
-                'todos'
-        ) {
-
-            bloques =
-                bloques.filter(
-                    (item) =>
-                        String(
-                            item.grado_id
-                        ) ===
-                        String(
-                            filtroGrado.value
-                        )
-                );
-
-        }
-
-
-        if (
-            filtroCurso &&
-            filtroCurso.value !==
-                'todos'
-        ) {
-
-            bloques =
-                bloques.filter(
-                    (item) =>
-                        String(
-                            item.curso_id
-                        ) ===
-                        String(
-                            filtroCurso.value
-                        )
-                );
-
-        }
-
-
-        if (
-            bloques.length ===
-            0
-        ) {
-
-            gruposVisibles =
-                [];
-
-
-            contenedor.innerHTML =
-                `
-
-                    <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-12 text-center">
-
-                        <span class="mb-3 text-3xl">
-                            🔍
-                        </span>
-
-                        <p class="text-sm font-medium text-slate-700">
-                            No hay horarios que coincidan con este filtro.
-                        </p>
-
-                        <p class="mt-1 text-xs text-slate-500">
-                            Ajusta los filtros para continuar.
-                        </p>
-
-                    </div>
-
-                `;
-
-
-            return;
-
         }
 
 
         gruposVisibles =
             agruparBloques(
-                bloques
+                filtrados
             );
 
 
         contenedor.innerHTML =
-            '';
+            gruposVisibles
+                .map(
+                    grupo =>
+                        renderTablaGrupo(
+                            grupo
+                        )
+                )
+                .join('');
 
-
-        gruposVisibles.forEach(
-            (grupo) => {
-
-                contenedor.appendChild(
-                    construirTablero(
-                        grupo
-                    )
-                );
-
-            }
-        );
-
-
-        // Después de crear el HTML,
-        // activamos drag & drop.
 
         activarDragDrop();
-
-    }
-
-
-    // =========================================================
-    // EXCEL
-    // =========================================================
-
-    function nombreArchivo(
-        extension
-    ) {
-
-        const fecha =
-            new Date()
-                .toISOString()
-                .slice(
-                    0,
-                    10
-                );
-
-
-        return (
-            `horarios_${institucionActiva}_${vistaActual}_${fecha}.${extension}`
-        );
-
-    }
-
-
-    function tablaExport(
-        grupo
-    ) {
-
-        const completo =
-            isVistaCompleta();
-
-
-        const dias =
-            obtenerDias(
-                grupo.bloques,
-                completo
-            );
-
-
-        const slots =
-            construirSlots(
-                grupo.bloques,
-                dias,
-                completo
-            );
-
-
-        const matriz =
-            construirMatriz(
-                grupo.bloques,
-                dias,
-                slots
-            );
-
-
-        return {
-            dias,
-            slots,
-            matriz
-        };
-
-    }
-
-
-    function lineasBloqueExcel(
-        bloque
-    ) {
-
-        const lineas =
-            getLineasBloque(
-                bloque
-            );
-
-
-        return (
-
-            `${lineas.curso} | ` +
-
-            `${lineas.sec} | ` +
-
-            `${lineas.ter} | ` +
-
-            `${bloque.hora_inicio}-${bloque.hora_fin}`
-
-        );
-
-    }
-
-
-    function exportarExcel() {
-
-        if (
-            !gruposVisibles.length
-        ) {
-
-            alert(
-                'No hay horarios para exportar.'
-            );
-
-            return;
-
-        }
-
-
-        if (!window.XLSX) {
-
-            alert(
-                'No se pudo cargar la librería para exportar Excel.'
-            );
-
-            return;
-
-        }
-
-
-        const workbook =
-            XLSX.utils.book_new();
-
-
-        const nombresUsados =
-            new Set();
-
-
-        gruposVisibles.forEach(
-            (grupo) => {
-
-                const data =
-                    tablaExport(
-                        grupo
-                    );
-
-
-                const filas = [
-
-                    [
-                        'Hora',
-                        ...data.dias.map(
-                            (dia) =>
-                                DIAS_NOMBRES[dia] ??
-                                dia
-                        )
-                    ]
-
-                ];
-
-
-                data.slots.forEach(
-                    (slot, indice) => {
-
-                        const fila = [
-
-                            `${aTexto(slot.ini)} - ${aTexto(slot.fin)}`
-
-                        ];
-
-
-                        data.dias.forEach(
-                            (dia) => {
-
-                                const celda =
-                                    data.matriz[dia][indice];
-
-
-                                if (!celda) {
-
-                                    fila.push(
-                                        'Libre'
-                                    );
-
-                                    return;
-
-                                }
-
-
-                                const propietario =
-                                    celda.tipo ===
-                                        'cont'
-
-                                        ? data.matriz[dia][
-                                            celda.dueno
-                                        ]
-
-                                        : celda;
-
-
-                                fila.push(
-
-                                    propietario.bloques
-                                        .map(
-                                            lineasBloqueExcel
-                                        )
-                                        .join(
-                                            ' /// '
-                                        )
-
-                                );
-
-                            }
-                        );
-
-
-                        filas.push(
-                            fila
-                        );
-
-                    }
-                );
-
-
-                let nombre =
-                    (
-                        grupo.nombre ||
-                        'Horario'
-                    )
-                        .replace(
-                            /[\\/?*[\]:]/g,
-                            ' '
-                        )
-                        .slice(
-                            0,
-                            28
-                        );
-
-
-                let contador =
-                    2;
-
-
-                const nombreBase =
-                    nombre;
-
-
-                while (
-                    nombresUsados.has(
-                        nombre
-                    )
-                ) {
-
-                    nombre =
-                        `${nombreBase.slice(0, 24)} ${contador}`;
-
-                    contador++;
-
-                }
-
-
-                nombresUsados.add(
-                    nombre
-                );
-
-
-                const worksheet =
-                    XLSX.utils.aoa_to_sheet(
-                        filas
-                    );
-
-
-                worksheet['!cols'] =
-                    filas[0].map(
-                        (_, indice) => ({
-
-                            wch:
-                                indice === 0
-                                    ? 16
-                                    : 34
-
-                        })
-                    );
-
-
-                XLSX.utils.book_append_sheet(
-
-                    workbook,
-
-                    worksheet,
-
-                    nombre
-
-                );
-
-            }
-        );
-
-
-        XLSX.writeFile(
-            workbook,
-            nombreArchivo(
-                'xlsx'
-            )
-        );
-
-    }
-
-
-    // =========================================================
-    // PDF
-    // =========================================================
-
-    function exportarPdf() {
-
-        if (
-            !gruposVisibles.length
-        ) {
-
-            alert(
-                'No hay horarios para exportar.'
-            );
-
-            return;
-
-        }
-
-
-        if (
-            !window.html2pdf
-        ) {
-
-            window.print();
-
-            return;
-
-        }
-
-
-        const wrapper =
-            document.createElement(
-                'div'
-            );
-
-
-        wrapper.style.padding =
-            '20px';
-
-
-        wrapper.innerHTML =
-            `
-
-                <h1
-                    style="
-                        font-family:Arial;
-                        font-size:20px;
-                        margin-bottom:16px;
-                    "
-                >
-                    Horarios académicos —
-                    Next Level School
-                </h1>
-
-                ${contenedor.innerHTML}
-
-            `;
-
-
-        wrapper
-            .querySelectorAll(
-                '.horario-clase'
-            )
-            .forEach(
-                (clase) => {
-
-                    clase.removeAttribute(
-                        'draggable'
-                    );
-
-                }
-            );
-
-
-        html2pdf()
-            .set({
-
-                margin:
-                    8,
-
-                filename:
-                    nombreArchivo(
-                        'pdf'
-                    ),
-
-                html2canvas: {
-
-                    scale:
-                        2,
-
-                    useCORS:
-                        true
-
-                },
-
-                jsPDF: {
-
-                    unit:
-                        'mm',
-
-                    format:
-                        'a4',
-
-                    orientation:
-                        'landscape'
-
-                }
-
-            })
-            .from(
-                wrapper
-            )
-            .save();
-
     }
 
 
@@ -3625,64 +4873,50 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
 
     tabsInstitucion.forEach(
-        (tab) => {
+        tab => {
 
             tab.addEventListener(
                 'click',
                 () => {
 
                     institucionActiva =
-                        tab.dataset.institucion;
+                        tab.dataset
+                            .institucion;
 
 
                     tabsInstitucion.forEach(
-                        (otra) => {
+                        boton => {
 
-                            const activa =
-                                otra === tab;
+                            if (
+                                boton === tab
+                            ) {
 
-
-                            if (activa) {
-
-                                otra.style.background =
+                                boton.style.background =
                                     'linear-gradient(135deg,#1B3A6B,#0F2749)';
 
-
-                                otra.classList.add(
-                                    'text-white'
-                                );
-
-
-                                otra.classList.remove(
-                                    'text-slate-600'
-                                );
+                                boton.style.color =
+                                    '#FFFFFF';
 
                             } else {
 
-                                otra.style.background =
-                                    '';
+                                boton.style.background =
+                                    '#FFFFFF';
 
-
-                                otra.classList.remove(
-                                    'text-white'
-                                );
-
-
-                                otra.classList.add(
-                                    'text-slate-600'
-                                );
-
+                                boton.style.color =
+                                    '#475569';
                             }
-
                         }
                     );
 
 
-                    renderizar();
+                    limpiarFiltros();
 
+                    cerrarTodosFiltros();
+
+
+                    render();
                 }
             );
-
         }
     );
 
@@ -3692,79 +4926,60 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
 
     vistaBotones.forEach(
-        (boton) => {
+        boton => {
 
             boton.addEventListener(
                 'click',
                 () => {
 
                     vistaActual =
-                        boton.dataset.vista;
+                        boton.dataset
+                            .vista;
 
 
                     vistaBotones.forEach(
-                        (otro) => {
+                        item => {
 
                             const activo =
-                                otro === boton;
+                                item ===
+                                boton;
 
 
-                            if (activo) {
-
-                                otro.style.borderColor =
-                                    '#1B3A6B';
-
-
-                                otro.style.background =
-                                    'rgba(27,58,107,.045)';
-
-                            } else {
-
-                                otro.style.borderColor =
-                                    '';
+                            item.style.borderColor =
+                                activo
+                                    ? '#1B3A6B'
+                                    : '#E2E8F0';
 
 
-                                otro.style.background =
-                                    '';
-
-                            }
-
+                            item.style.background =
+                                activo
+                                    ? 'rgba(27,58,107,.05)'
+                                    : '#FFFFFF';
                         }
                     );
 
 
-                    if (
-                        chkCompleto
-                    ) {
+                    if (chkCompleto) {
+
+                        chkCompleto.checked =
+                            vistaActual ===
+                            'aula-completa';
+
 
                         chkCompleto.disabled =
                             vistaActual ===
                             'aula-completa';
-
                     }
 
 
-                    renderizar();
+                    limpiarFiltros();
 
+
+                    render();
                 }
             );
-
         }
     );
-
-
-    // =========================================================
-    // SEMANA COMPLETA
-    // =========================================================
-
-    if (chkCompleto) {
-
-        chkCompleto.addEventListener(
-            'change',
-            renderizar
-        );
-
-    }
 
 
     // =========================================================
@@ -3776,98 +4991,79 @@ document.addEventListener('DOMContentLoaded', () => {
         filtroAula,
         filtroGrado,
         filtroCurso
-    ].forEach(
-        (elemento) => {
+    ]
+        .filter(Boolean)
+        .forEach(
+            filtro => {
 
-            if (elemento) {
-
-                elemento.addEventListener(
+                filtro.addEventListener(
                     'change',
-                    renderizar
+                    () => {
+
+                        actualizarCustomFiltro(
+                            filtro
+                        );
+
+
+                        render();
+                    }
                 );
-
             }
-
-        }
-    );
+        );
 
 
-    // =========================================================
-    // RESET
-    // =========================================================
-
-    if (btnReset) {
-
-        btnReset.addEventListener(
+    btnReset
+        ?.addEventListener(
             'click',
             () => {
 
-                [
-                    filtroProfesor,
-                    filtroAula,
-                    filtroGrado,
-                    filtroCurso
-                ].forEach(
-                    (elemento) => {
+                limpiarFiltros();
 
-                        if (elemento) {
+                cerrarTodosFiltros();
 
-                            elemento.value =
-                                'todos';
-
-                        }
-
-                    }
-                );
-
-
-                if (chkCompleto) {
-
-                    chkCompleto.checked =
-                        false;
-
-                }
-
-
-                renderizar();
-
+                render();
             }
         );
 
-    }
-
 
     // =========================================================
-    // EXPORTAR
+    // EXPORT
     // =========================================================
 
-    if (btnPdf) {
-
-        btnPdf.addEventListener(
+    btnPdf
+        ?.addEventListener(
             'click',
-            exportarPdf
+            () => {
+
+                exportarPdf(
+
+                    obtenerBloquesVisibles(),
+
+                    `horarios_${institucionActiva}`
+                );
+            }
         );
 
-    }
 
-
-    if (btnExcel) {
-
-        btnExcel.addEventListener(
+    btnExcel
+        ?.addEventListener(
             'click',
-            exportarExcel
-        );
+            () => {
 
-    }
+                exportarExcel(
+                    obtenerBloquesVisibles()
+                );
+            }
+        );
 
 
     // =========================================================
-    // STORAGE
+    // ACTUALIZACIONES
     // =========================================================
 
     window.addEventListener(
         'storage',
-        (event) => {
+        event => {
 
             if (
                 Object.values(
@@ -3877,24 +5073,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 )
             ) {
 
-                renderizar();
-
+                render();
             }
-
         }
     );
 
 
     window.addEventListener(
         'focus',
-        renderizar
+        () => {
+
+            render();
+        }
     );
 
 
     // =========================================================
-    // INICIAR
+    // INICIO
     // =========================================================
 
-    renderizar();
+    actualizarTodosCustomFiltros();
+
+    render();
 
 });

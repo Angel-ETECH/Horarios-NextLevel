@@ -1,23 +1,3 @@
-// =========================================================
-// DISPONIBILIDAD DE PROFESORES
-// =========================================================
-//
-// Esta sección SOLO registra cuándo puede trabajar
-// un profesor.
-//
-// NO crea clases.
-// NO genera horarios.
-// NO asigna cursos.
-// NO ocupa aulas.
-//
-// Los profesores se leen desde:
-// nextlevel_profesores
-//
-// La disponibilidad se guarda en:
-// nextlevel_disponibilidades
-//
-// =========================================================
-
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================
@@ -32,6 +12,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const slots =
         document.querySelectorAll('.availability-slot');
+
+
+    if (
+        !profesorSelect ||
+        !institucionSelect ||
+        slots.length === 0
+    ) {
+        return;
+    }
+
 
     const selectAllButton =
         document.getElementById('select-all-availability');
@@ -62,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // HORARIOS PERSONALIZADOS
+    // PERSONALIZADOS
     // =========================================================
 
     const diaPersonalizadoSelect =
@@ -85,16 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // VERIFICAR PÁGINA
-    // =========================================================
-
-    if (!profesorSelect || slots.length === 0) {
-        return;
-    }
-
-
-    // =========================================================
-    // CONFIGURACIÓN
+    // STORAGE
     // =========================================================
 
     const PROFESORES_KEY =
@@ -102,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const DISPONIBILIDAD_KEY =
         'nextlevel_disponibilidades';
+
 
     const DURACION_BLOQUE_GRID_MIN =
         60;
@@ -120,25 +102,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // ESTADO EN MEMORIA
+    // ESTADO
     // =========================================================
 
-    const disponibilidades = {};
+    const disponibilidades =
+        {};
 
-    const personalizados = {};
+    const personalizados =
+        {};
 
 
     // =========================================================
-    // LOCAL STORAGE
+    // STORAGE HELPERS
     // =========================================================
 
-    function leerStorage(clave) {
+    function leerStorage(
+        clave
+    ) {
 
         try {
 
-            return JSON.parse(
-                localStorage.getItem(clave)
-            ) || [];
+            const datos =
+                JSON.parse(
+                    localStorage.getItem(
+                        clave
+                    ) || '[]'
+                );
+
+
+            return Array.isArray(
+                datos
+            )
+                ? datos
+                : [];
 
         } catch (error) {
 
@@ -147,10 +143,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 error
             );
 
+
             return [];
-
         }
-
     }
 
 
@@ -161,9 +156,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         localStorage.setItem(
             clave,
-            JSON.stringify(datos)
+            JSON.stringify(
+                datos
+            )
         );
-
     }
 
 
@@ -172,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return leerStorage(
             DISPONIBILIDAD_KEY
         );
-
     }
 
 
@@ -184,8 +179,682 @@ document.addEventListener('DOMContentLoaded', () => {
             DISPONIBILIDAD_KEY,
             lista
         );
-
     }
+
+
+    // =========================================================
+    // UTILIDADES
+    // =========================================================
+
+    function normalizarTexto(
+        valor
+    ) {
+
+        return String(
+            valor ?? ''
+        )
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(
+                /[\u0300-\u036f]/g,
+                ''
+            );
+    }
+
+
+    function esc(
+        valor
+    ) {
+
+        return String(
+            valor ?? ''
+        )
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+
+    // =========================================================
+    // ICONOS CUSTOM SELECT
+    // =========================================================
+
+    function iconoSelect(
+        tipo
+    ) {
+
+        const iconos = {
+
+            profesor: `
+                <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                >
+                    <circle cx="12" cy="7" r="4"/>
+                    <path d="M20 21a8 8 0 0 0-16 0"/>
+                </svg>
+            `,
+
+
+            institucion: `
+                <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                >
+                    <path d="M4 21V6h16v15"/>
+                    <path d="M2 21h20"/>
+                    <path d="M8 10h2"/>
+                    <path d="M14 10h2"/>
+                    <path d="M9 21v-4h6v4"/>
+                </svg>
+            `,
+
+
+            dia: `
+                <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                >
+                    <path d="M8 2v4M16 2v4"/>
+                    <rect x="3" y="5" width="18" height="16" rx="2"/>
+                    <path d="M3 10h18"/>
+                </svg>
+            `
+        };
+
+
+        return (
+            iconos[tipo] ||
+            iconos.profesor
+        );
+    }
+
+
+    // =========================================================
+    // CUSTOM SELECT
+    // =========================================================
+
+    function obtenerWrapperSelect(
+        select
+    ) {
+
+        if (!select) {
+            return null;
+        }
+
+
+        return document.querySelector(
+            `[data-disponibilidad-select="${select.id}"]`
+        );
+    }
+
+
+    function construirCustomSelect(
+        wrapper
+    ) {
+
+        if (
+            !wrapper ||
+            wrapper.dataset.ready ===
+            'true'
+        ) {
+            return;
+        }
+
+
+        const select =
+            document.getElementById(
+                wrapper.dataset
+                    .disponibilidadSelect
+            );
+
+
+        if (!select) {
+            return;
+        }
+
+
+        const label =
+            wrapper.dataset.label ||
+            'Seleccionar';
+
+
+        const placeholder =
+            wrapper.dataset.placeholder ||
+            'Seleccionar';
+
+
+        const icono =
+            wrapper.dataset.icon ||
+            'profesor';
+
+
+        const usarBusqueda =
+            wrapper.dataset.search !==
+            'false';
+
+
+        wrapper.innerHTML = `
+
+            <button
+                type="button"
+                class="disponibilidad-select-trigger"
+                aria-expanded="false"
+            >
+
+                <span class="disponibilidad-select-icon">
+
+                    ${iconoSelect(
+                        icono
+                    )}
+
+                </span>
+
+
+                <span class="disponibilidad-select-content">
+
+                    <span class="disponibilidad-select-label">
+
+                        ${esc(
+                            label
+                        )}
+
+                    </span>
+
+
+                    <span class="disponibilidad-select-text">
+
+                        ${esc(
+                            placeholder
+                        )}
+
+                    </span>
+
+                </span>
+
+
+                <svg
+                    class="disponibilidad-select-arrow"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path d="m6 9 6 6 6-6"/>
+                </svg>
+
+            </button>
+
+
+            <div class="disponibilidad-select-menu">
+
+                ${
+                    usarBusqueda
+
+                        ? `
+                            <div class="disponibilidad-select-search-wrap">
+
+                                <svg
+                                    class="disponibilidad-select-search-icon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <circle cx="11" cy="11" r="7"/>
+                                    <path d="m20 20-3.5-3.5"/>
+                                </svg>
+
+
+                                <input
+                                    type="text"
+                                    class="disponibilidad-select-search"
+                                    placeholder="Buscar..."
+                                    autocomplete="off"
+                                >
+
+                            </div>
+                        `
+
+                        : ''
+                }
+
+
+                <div class="disponibilidad-select-options">
+                </div>
+
+            </div>
+        `;
+
+
+        wrapper.dataset.ready =
+            'true';
+
+
+        const trigger =
+            wrapper.querySelector(
+                '.disponibilidad-select-trigger'
+            );
+
+
+        const search =
+            wrapper.querySelector(
+                '.disponibilidad-select-search'
+            );
+
+
+        trigger.addEventListener(
+            'click',
+            () => {
+
+                if (
+                    trigger.disabled
+                ) {
+                    return;
+                }
+
+
+                cerrarTodosCustomSelects(
+                    wrapper
+                );
+
+
+                wrapper.classList.toggle(
+                    'open'
+                );
+
+
+                trigger.setAttribute(
+                    'aria-expanded',
+
+                    wrapper.classList.contains(
+                        'open'
+                    )
+                        ? 'true'
+                        : 'false'
+                );
+
+
+                if (
+                    wrapper.classList.contains(
+                        'open'
+                    )
+                ) {
+
+                    if (search) {
+
+                        search.value =
+                            '';
+                    }
+
+
+                    renderOpcionesCustomSelect(
+                        wrapper
+                    );
+
+
+                    if (search) {
+
+                        setTimeout(
+                            () =>
+                                search.focus(),
+                            40
+                        );
+                    }
+                }
+            }
+        );
+
+
+        search?.addEventListener(
+            'input',
+            () => {
+
+                renderOpcionesCustomSelect(
+                    wrapper,
+                    search.value
+                );
+            }
+        );
+
+
+        actualizarCustomSelect(
+            select
+        );
+    }
+
+
+    function cerrarCustomSelect(
+        wrapper
+    ) {
+
+        wrapper?.classList.remove(
+            'open'
+        );
+
+
+        wrapper
+            ?.querySelector(
+                '.disponibilidad-select-trigger'
+            )
+            ?.setAttribute(
+                'aria-expanded',
+                'false'
+            );
+    }
+
+
+    function cerrarTodosCustomSelects(
+        excepto = null
+    ) {
+
+        document
+            .querySelectorAll(
+                '[data-disponibilidad-select]'
+            )
+            .forEach(
+                wrapper => {
+
+                    if (
+                        wrapper !==
+                        excepto
+                    ) {
+
+                        cerrarCustomSelect(
+                            wrapper
+                        );
+                    }
+                }
+            );
+    }
+
+
+    function renderOpcionesCustomSelect(
+        wrapper,
+        busqueda = ''
+    ) {
+
+        const select =
+            document.getElementById(
+                wrapper.dataset
+                    .disponibilidadSelect
+            );
+
+
+        const container =
+            wrapper.querySelector(
+                '.disponibilidad-select-options'
+            );
+
+
+        if (
+            !select ||
+            !container
+        ) {
+            return;
+        }
+
+
+        const query =
+            normalizarTexto(
+                busqueda
+            );
+
+
+        const opciones =
+            Array.from(
+                select.options
+            )
+                .filter(
+                    option =>
+
+                        !option.disabled &&
+
+                        normalizarTexto(
+                            option.textContent
+                        ).includes(
+                            query
+                        )
+                );
+
+
+        if (
+            !opciones.length
+        ) {
+
+            container.innerHTML = `
+
+                <div class="disponibilidad-select-empty">
+                    No hay opciones disponibles
+                </div>
+            `;
+
+
+            return;
+        }
+
+
+        container.innerHTML =
+            opciones
+                .map(
+                    option => {
+
+                        const selected =
+                            String(
+                                option.value
+                            ) ===
+                            String(
+                                select.value
+                            );
+
+
+                        return `
+
+                            <button
+                                type="button"
+                                class="
+                                    disponibilidad-select-option
+                                    ${
+                                        selected
+                                            ? 'selected'
+                                            : ''
+                                    }
+                                "
+                                data-value="${esc(
+                                    option.value
+                                )}"
+                            >
+
+                                <span class="disponibilidad-option-icon">
+
+                                    ${iconoSelect(
+                                        wrapper.dataset.icon
+                                    )}
+
+                                </span>
+
+
+                                <span class="disponibilidad-option-text">
+
+                                    ${esc(
+                                        option.textContent
+                                    )}
+
+                                </span>
+
+
+                                <svg
+                                    class="disponibilidad-option-check"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                >
+                                    <path d="m5 12 4 4L19 6"/>
+                                </svg>
+
+                            </button>
+                        `;
+                    }
+                )
+                .join('');
+
+
+        container
+            .querySelectorAll(
+                '.disponibilidad-select-option'
+            )
+            .forEach(
+                button => {
+
+                    button.addEventListener(
+                        'click',
+                        () => {
+
+                            select.value =
+                                button.dataset.value;
+
+
+                            select.dispatchEvent(
+                                new Event(
+                                    'change',
+                                    {
+                                        bubbles:
+                                            true
+                                    }
+                                )
+                            );
+
+
+                            actualizarCustomSelect(
+                                select
+                            );
+
+
+                            cerrarCustomSelect(
+                                wrapper
+                            );
+                        }
+                    );
+                }
+            );
+    }
+
+
+    function actualizarCustomSelect(
+        select
+    ) {
+
+        if (!select) {
+            return;
+        }
+
+
+        const wrapper =
+            obtenerWrapperSelect(
+                select
+            );
+
+
+        if (!wrapper) {
+            return;
+        }
+
+
+        const trigger =
+            wrapper.querySelector(
+                '.disponibilidad-select-trigger'
+            );
+
+
+        const texto =
+            wrapper.querySelector(
+                '.disponibilidad-select-text'
+            );
+
+
+        if (
+            !trigger ||
+            !texto
+        ) {
+            return;
+        }
+
+
+        trigger.disabled =
+            select.disabled;
+
+
+        const opcion =
+            select.options[
+                select.selectedIndex
+            ];
+
+
+        texto.textContent =
+            opcion?.textContent ||
+            wrapper.dataset.placeholder ||
+            'Seleccionar';
+
+
+        renderOpcionesCustomSelect(
+            wrapper
+        );
+    }
+
+
+    function actualizarTodosCustomSelects() {
+
+        [
+            profesorSelect,
+            institucionSelect,
+            diaPersonalizadoSelect
+        ]
+            .filter(Boolean)
+            .forEach(
+                actualizarCustomSelect
+            );
+    }
+
+
+    document
+        .querySelectorAll(
+            '[data-disponibilidad-select]'
+        )
+        .forEach(
+            construirCustomSelect
+        );
+
+
+    document.addEventListener(
+        'click',
+        event => {
+
+            if (
+                !event.target.closest(
+                    '[data-disponibilidad-select]'
+                )
+            ) {
+
+                cerrarTodosCustomSelects();
+            }
+        }
+    );
 
 
     // =========================================================
@@ -205,132 +874,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         const institucionActual =
-            institucionSelect
-                ? institucionSelect.value
-                : 'colegio';
+            institucionSelect.value ||
+            'colegio';
 
-
-        // Limpiamos el select.
 
         profesorSelect.innerHTML = `
 
             <option value="">
                 Seleccionar profesor
             </option>
-
         `;
 
 
-        // =====================================================
-        // FILTRAR PROFESORES
-        // =====================================================
+        const disponibles =
+            profesores
+                .filter(
+                    profesor => {
 
-        const profesoresDisponibles =
-            profesores.filter(
-                (profesor) => {
+                        /*
+                         * Solo profesores activos.
+                         */
+                        if (
+                            profesor.estado &&
+                            profesor.estado !==
+                            'activo'
+                        ) {
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ESTADO
-                    |--------------------------------------------------------------------------
-                    |
-                    | Solo mostramos profesores activos.
-                    |
-                    */
+                            return false;
+                        }
 
-                    if (
-                        profesor.estado &&
-                        profesor.estado !== 'activo'
-                    ) {
 
-                        return false;
+                        /*
+                         * Compatibilidad con profesores antiguos.
+                         */
+                        if (
+                            !Array.isArray(
+                                profesor.instituciones
+                            ) ||
+                            !profesor.instituciones.length
+                        ) {
 
+                            return true;
+                        }
+
+
+                        return profesor.instituciones.includes(
+                            institucionActual
+                        );
                     }
+                )
+                .sort(
+                    (a, b) => {
+
+                        const nombreA =
+                            [
+                                a.nombre,
+                                a.apellido_paterno,
+                                a.apellido_materno
+                            ]
+                                .filter(Boolean)
+                                .join(' ');
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | PROFESORES ANTIGUOS
-                    |--------------------------------------------------------------------------
-                    |
-                    | Algunos profesores pueden haber sido creados antes
-                    | de agregar el campo "instituciones".
-                    |
-                    | Para no perderlos, si no tienen ese campo los
-                    | mostramos tanto en Colegio como Academia.
-                    |
-                    */
+                        const nombreB =
+                            [
+                                b.nombre,
+                                b.apellido_paterno,
+                                b.apellido_materno
+                            ]
+                                .filter(Boolean)
+                                .join(' ');
 
-                    if (
-                        !Array.isArray(
-                            profesor.instituciones
-                        ) ||
-                        profesor.instituciones.length === 0
-                    ) {
 
-                        return true;
-
+                        return nombreA.localeCompare(
+                            nombreB,
+                            'es'
+                        );
                     }
-
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | FILTRO POR INSTITUCIÓN
-                    |--------------------------------------------------------------------------
-                    */
-
-                    return profesor.instituciones.includes(
-                        institucionActual
-                    );
-
-                }
-            );
-
-
-        // =====================================================
-        // ORDENAR POR NOMBRE
-        // =====================================================
-
-        profesoresDisponibles.sort(
-            (a, b) => {
-
-                const nombreA = [
-
-                    a.nombre,
-                    a.apellido_paterno,
-                    a.apellido_materno
-
-                ]
-                    .filter(Boolean)
-                    .join(' ');
-
-
-                const nombreB = [
-
-                    b.nombre,
-                    b.apellido_paterno,
-                    b.apellido_materno
-
-                ]
-                    .filter(Boolean)
-                    .join(' ');
-
-
-                return nombreA.localeCompare(
-                    nombreB,
-                    'es'
                 );
 
-            }
-        );
 
-
-        // =====================================================
-        // CREAR OPCIONES
-        // =====================================================
-
-        profesoresDisponibles.forEach(
-            (profesor) => {
+        disponibles.forEach(
+            profesor => {
 
                 const option =
                     document.createElement(
@@ -344,71 +969,51 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
 
 
-                const nombreCompleto = [
+                const nombreCompleto =
+                    [
+                        profesor.nombre,
+                        profesor.apellido_paterno,
+                        profesor.apellido_materno
+                    ]
+                        .filter(Boolean)
+                        .join(' ');
 
-                    profesor.nombre,
-                    profesor.apellido_paterno,
-                    profesor.apellido_materno
 
-                ]
-                    .filter(Boolean)
-                    .join(' ');
+                option.textContent =
+                    profesor.codigo
 
+                        ? `${nombreCompleto} · ${profesor.codigo}`
 
-                if (profesor.codigo) {
-
-                    option.textContent =
-                        `${nombreCompleto} · ${profesor.codigo}`;
-
-                } else {
-
-                    option.textContent =
-                        nombreCompleto;
-
-                }
+                        : nombreCompleto;
 
 
                 profesorSelect.appendChild(
                     option
                 );
-
             }
         );
 
 
-        // =====================================================
-        // RESTAURAR SELECCIÓN
-        // =====================================================
-
         const seleccionExiste =
             Array.from(
                 profesorSelect.options
-            ).some(
-                (option) =>
-                    option.value ===
-                    profesorSeleccionado
-            );
+            )
+                .some(
+                    option =>
+                        option.value ===
+                        profesorSeleccionado
+                );
 
 
-        if (seleccionExiste) {
+        profesorSelect.value =
+            seleccionExiste
+                ? profesorSeleccionado
+                : '';
 
-            profesorSelect.value =
-                profesorSeleccionado;
-
-        } else {
-
-            profesorSelect.value =
-                '';
-
-        }
-
-
-        // =====================================================
-        // SIN PROFESORES
-        // =====================================================
 
         if (
-            profesoresDisponibles.length === 0
+            disponibles.length ===
+            0
         ) {
 
             const option =
@@ -425,93 +1030,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             option.textContent =
-                institucionActual === 'academia'
+                institucionActual ===
+                'academia'
+
                     ? 'No hay profesores activos para Academia'
+
                     : 'No hay profesores activos para Colegio';
 
 
             profesorSelect.appendChild(
                 option
             );
-
         }
 
+
+        actualizarCustomSelect(
+            profesorSelect
+        );
     }
 
 
     // =========================================================
-    // CLAVE PROFESOR + INSTITUCIÓN
+    // CLAVE
     // =========================================================
 
     function claveActual() {
 
-        const profesorId =
-            profesorSelect.value;
-
-
-        const institucion =
-            institucionSelect
-                ? institucionSelect.value
-                : 'colegio';
-
-
-        return `${profesorId}-${institucion}`;
-
+        return `${
+            profesorSelect.value
+        }-${
+            institucionSelect.value ||
+            'colegio'
+        }`;
     }
 
 
     // =========================================================
-    // OBTENER BLOQUES SELECCIONADOS
+    // OBTENER SELECCIONADOS
     // =========================================================
 
     function obtenerSeleccionados() {
 
-        const identificadores =
+        const ids =
             new Set();
 
 
-        document.querySelectorAll(
-            '.availability-slot.selected'
-        ).forEach(
-            (slot) => {
+        document
+            .querySelectorAll(
+                '.availability-slot.selected'
+            )
+            .forEach(
+                slot => {
 
-                identificadores.add(
-                    `${slot.dataset.dia}-${slot.dataset.hora}`
-                );
-
-            }
-        );
+                    ids.add(
+                        `${slot.dataset.dia}-${slot.dataset.hora}`
+                    );
+                }
+            );
 
 
         return Array.from(
-            identificadores
+            ids
         );
-
     }
 
 
     // =========================================================
-    // HORARIOS PERSONALIZADOS ACTUALES
+    // PERSONALIZADOS ACTUALES
     // =========================================================
 
     function personalizadosActuales() {
 
-        if (!profesorSelect.value) {
+        if (
+            !profesorSelect.value
+        ) {
 
             return [];
-
         }
 
 
         return personalizados[
             claveActual()
         ] || [];
-
     }
 
 
     // =========================================================
-    // CALCULAR MINUTOS
+    // MINUTOS
     // =========================================================
 
     function minutosEntre(
@@ -520,8 +1125,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
 
         const [
-            horaInicioNumero,
-            minutoInicio
+            hInicio,
+            mInicio
         ] =
             horaInicio
                 .split(':')
@@ -529,34 +1134,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         const [
-            horaFinNumero,
-            minutoFin
+            hFin,
+            mFin
         ] =
             horaFin
                 .split(':')
                 .map(Number);
 
 
-        const inicio =
-            horaInicioNumero * 60 +
-            minutoInicio;
-
-
-        const fin =
-            horaFinNumero * 60 +
-            minutoFin;
-
-
         return Math.max(
             0,
-            fin - inicio
-        );
 
+            (
+                hFin * 60 +
+                mFin
+            ) -
+
+            (
+                hInicio * 60 +
+                mInicio
+            )
+        );
     }
 
 
     // =========================================================
-    // ACTUALIZAR RESUMEN
+    // RESUMEN
     // =========================================================
 
     function actualizarResumen() {
@@ -569,23 +1172,22 @@ document.addEventListener('DOMContentLoaded', () => {
             new Set();
 
 
-        // =====================================================
-        // BLOQUES DEL GRID
-        // =====================================================
-
         seleccionados.forEach(
-            (identificador) => {
+            identificador => {
 
                 const [
                     dia
                 ] =
-                    identificador.split('-');
+                    identificador.split(
+                        '-'
+                    );
 
 
                 dias.add(
-                    String(dia)
+                    String(
+                        dia
+                    )
                 );
-
             }
         );
 
@@ -595,16 +1197,12 @@ document.addEventListener('DOMContentLoaded', () => {
             DURACION_BLOQUE_GRID_MIN;
 
 
-        // =====================================================
-        // HORARIOS PERSONALIZADOS
-        // =====================================================
-
         const personalizadosData =
             personalizadosActuales();
 
 
         personalizadosData.forEach(
-            (item) => {
+            item => {
 
                 dias.add(
                     String(
@@ -618,58 +1216,37 @@ document.addEventListener('DOMContentLoaded', () => {
                         item.horaInicio,
                         item.horaFin
                     );
-
             }
         );
 
 
-        // =====================================================
-        // TOTAL BLOQUES
-        // =====================================================
-
-        if (countElement) {
-
-            countElement.textContent =
-                seleccionados.length +
-                personalizadosData.length;
-
-        }
+        countElement.textContent =
+            seleccionados.length +
+            personalizadosData.length;
 
 
-        // =====================================================
-        // TOTAL DÍAS
-        // =====================================================
-
-        if (daysElement) {
-
-            daysElement.textContent =
-                dias.size;
-
-        }
+        daysElement.textContent =
+            dias.size;
 
 
-        // =====================================================
-        // TOTAL HORAS
-        // =====================================================
-
-        if (hoursElement) {
-
-            const horas =
-                minutosTotales / 60;
+        const horas =
+            minutosTotales /
+            60;
 
 
-            hoursElement.textContent =
-                Number.isInteger(horas)
-                    ? horas
-                    : horas.toFixed(1);
-
-        }
-
+        hoursElement.textContent =
+            Number.isInteger(
+                horas
+            )
+                ? horas
+                : horas.toFixed(
+                    1
+                );
     }
 
 
     // =========================================================
-    // MARCAR / DESMARCAR SLOT
+    // MARCAR SLOT
     // =========================================================
 
     function marcarSlot(
@@ -677,34 +1254,41 @@ document.addEventListener('DOMContentLoaded', () => {
         seleccionado
     ) {
 
-        if (seleccionado) {
-
-            slot.classList.remove(
-                'bg-white',
-                'hover:bg-indigo-50'
-            );
+        slot.classList.toggle(
+            'selected',
+            seleccionado
+        );
 
 
-            slot.classList.add(
-                'bg-indigo-600',
-                'selected'
-            );
+        /*
+         * En móvil mantenemos texto legible.
+         */
+        if (
+            slot.closest(
+                '.mobile-day-panel'
+            )
+        ) {
 
-        } else {
-
-            slot.classList.remove(
-                'bg-indigo-600',
-                'selected'
-            );
+            const texto =
+                slot.querySelector(
+                    'span:first-child'
+                );
 
 
-            slot.classList.add(
-                'bg-white',
-                'hover:bg-indigo-50'
-            );
+            if (texto) {
 
+                texto.classList.toggle(
+                    'text-white',
+                    seleccionado
+                );
+
+
+                texto.classList.toggle(
+                    'text-slate-600',
+                    !seleccionado
+                );
+            }
         }
-
     }
 
 
@@ -715,21 +1299,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function limpiarGrid() {
 
         slots.forEach(
-            (slot) => {
-
+            slot =>
                 marcarSlot(
                     slot,
                     false
-                );
-
-            }
+                )
         );
-
     }
 
 
     // =========================================================
-    // CARGAR DISPONIBILIDAD VISUAL
+    // CARGAR VISUAL
     // =========================================================
 
     function cargarDisponibilidad() {
@@ -737,12 +1317,13 @@ document.addEventListener('DOMContentLoaded', () => {
         limpiarGrid();
 
 
-        if (!profesorSelect.value) {
+        if (
+            !profesorSelect.value
+        ) {
 
             actualizarResumen();
 
             return;
-
         }
 
 
@@ -753,66 +1334,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         slots.forEach(
-            (slot) => {
+            slot => {
 
-                const identificador =
+                const id =
                     `${slot.dataset.dia}-${slot.dataset.hora}`;
 
 
-                if (
+                marcarSlot(
+                    slot,
                     datos.includes(
-                        identificador
+                        id
                     )
-                ) {
-
-                    marcarSlot(
-                        slot,
-                        true
-                    );
-
-                }
-
+                );
             }
         );
 
 
         actualizarResumen();
-
     }
 
 
     // =========================================================
-    // HIDRATAR DISPONIBILIDAD DESDE STORAGE
+    // HIDRATAR STORAGE
     // =========================================================
 
     function hidratarDesdeStorage(
         clave
     ) {
 
-        /*
-        |--------------------------------------------------------------------------
-        | YA CARGADO
-        |--------------------------------------------------------------------------
-        */
-
         if (
-            disponibilidades[clave] !== undefined ||
-            personalizados[clave] !== undefined
+            disponibilidades[clave] !==
+            undefined ||
+            personalizados[clave] !==
+            undefined
         ) {
 
             return;
-
         }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SEPARAR PROFESOR E INSTITUCIÓN
-        |--------------------------------------------------------------------------
-        */
-
         const separador =
-            clave.lastIndexOf('-');
+            clave.lastIndexOf(
+                '-'
+            );
 
 
         const profesorId =
@@ -828,36 +1392,24 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | BUSCAR DISPONIBILIDAD
-        |--------------------------------------------------------------------------
-        */
-
         const guardadas =
             cargarTodasLasDisponibilidades()
                 .filter(
-                    (item) => {
+                    item => {
 
-                        const idGuardado =
+                        const id =
                             item.profesor_id ??
                             item.profesorId;
 
 
                         return (
 
-                            String(
-                                idGuardado
-                            ) ===
-                                String(
-                                    profesorId
-                                ) &&
+                            String(id) ===
+                            String(profesorId) &&
 
                             item.institucion ===
-                                institucion
-
+                            institucion
                         );
-
                     }
                 );
 
@@ -865,13 +1417,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const idsGrid =
             [];
 
-
         const custom =
             [];
 
 
         guardadas.forEach(
-            (item) => {
+            item => {
 
                 const dia =
                     Number(
@@ -897,13 +1448,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 ) {
 
                     return;
-
                 }
 
 
                 const [
-                    horaInicial,
-                    minutoInicial
+                    hi,
+                    mi
                 ] =
                     horaInicio
                         .split(':')
@@ -911,106 +1461,98 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 const [
-                    horaFinal,
-                    minutoFinal
+                    hf,
+                    mf
                 ] =
                     horaFin
                         .split(':')
                         .map(Number);
 
 
-                const inicioMinutos =
-                    horaInicial * 60 +
-                    minutoInicial;
+                const inicioMin =
+                    hi * 60 +
+                    mi;
 
 
-                const finMinutos =
-                    horaFinal * 60 +
-                    minutoFinal;
+                const finMin =
+                    hf * 60 +
+                    mf;
 
 
                 const duracion =
-                    finMinutos -
-                    inicioMinutos;
+                    finMin -
+                    inicioMin;
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | ¿SE PUEDE REPRESENTAR EN EL GRID?
-                |--------------------------------------------------------------------------
-                */
+                const alineado =
 
-                const alineadoGrid =
+                    mi === 0 &&
 
-                    minutoInicial === 0 &&
-
-                    minutoFinal === 0 &&
+                    mf === 0 &&
 
                     duracion > 0 &&
 
                     duracion %
-                        DURACION_BLOQUE_GRID_MIN ===
-                        0;
+                    DURACION_BLOQUE_GRID_MIN ===
+                    0;
 
 
-                if (alineadoGrid) {
+                if (alineado) {
 
                     let cursor =
-                        inicioMinutos;
+                        inicioMin;
 
 
                     while (
                         cursor <
-                        finMinutos
+                        finMin
                     ) {
 
                         const hora =
                             Math.floor(
-                                cursor / 60
+                                cursor /
+                                60
                             );
 
 
                         const minuto =
-                            cursor % 60;
+                            cursor %
+                            60;
 
 
                         idsGrid.push(
 
-                            `${dia}-${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}`
+                            `${dia}-${String(hora).padStart(
+                                2,
+                                '0'
+                            )}:${String(minuto).padStart(
+                                2,
+                                '0'
+                            )}`
 
                         );
 
 
                         cursor +=
                             DURACION_BLOQUE_GRID_MIN;
-
                     }
 
                 } else {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | HORARIO PERSONALIZADO
-                    |--------------------------------------------------------------------------
-                    */
 
                     custom.push({
 
                         id:
                             `${Date.now()}-${Math.random()
                                 .toString(36)
-                                .slice(2, 8)}`,
+                                .slice(2,8)}`,
 
                         dia,
 
                         horaInicio,
 
                         horaFin
-
                     });
-
                 }
-
             }
         );
 
@@ -1029,17 +1571,23 @@ document.addEventListener('DOMContentLoaded', () => {
             clave
         ] =
             custom;
-
     }
 
 
     // =========================================================
-    // CAMBIO DE PROFESOR
+    // CAMBIO PROFESOR
     // =========================================================
 
     function alCambiarSeleccion() {
 
-        if (!profesorSelect.value) {
+        actualizarCustomSelect(
+            profesorSelect
+        );
+
+
+        if (
+            !profesorSelect.value
+        ) {
 
             limpiarGrid();
 
@@ -1048,7 +1596,6 @@ document.addEventListener('DOMContentLoaded', () => {
             actualizarResumen();
 
             return;
-
         }
 
 
@@ -1066,7 +1613,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderizarPersonalizados();
 
         actualizarResumen();
-
     }
 
 
@@ -1077,67 +1623,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // CAMBIO DE INSTITUCIÓN
+    // CAMBIO INSTITUCIÓN
     // =========================================================
 
-    if (institucionSelect) {
+    institucionSelect.addEventListener(
+        'change',
+        () => {
 
-        institucionSelect.addEventListener(
-            'change',
-            () => {
-
-                /*
-                |--------------------------------------------------------------------------
-                | RECARGAR PROFESORES
-                |--------------------------------------------------------------------------
-                |
-                | Si un profesor fue registrado solo para Colegio,
-                | no aparecerá al seleccionar Academia.
-                |
-                */
-
-                cargarProfesores();
+            actualizarCustomSelect(
+                institucionSelect
+            );
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | LIMPIAR VISUAL
-                |--------------------------------------------------------------------------
-                */
-
-                limpiarGrid();
-
-                renderizarPersonalizados();
-
-                actualizarResumen();
+            cargarProfesores();
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | SI CONSERVÓ PROFESOR SELECCIONADO
-                |--------------------------------------------------------------------------
-                */
+            limpiarGrid();
 
-                if (
-                    profesorSelect.value
-                ) {
+            renderizarPersonalizados();
 
-                    alCambiarSeleccion();
+            actualizarResumen();
 
-                }
 
+            if (
+                profesorSelect.value
+            ) {
+
+                alCambiarSeleccion();
             }
-        );
-
-    }
+        }
+    );
 
 
     // =========================================================
-    // CLICK EN BLOQUE
+    // CAMBIO DÍA PERSONALIZADO
+    // =========================================================
+
+    diaPersonalizadoSelect?.addEventListener(
+        'change',
+        () => {
+
+            actualizarCustomSelect(
+                diaPersonalizadoSelect
+            );
+        }
+    );
+
+
+    // =========================================================
+    // SLOT
     // =========================================================
 
     slots.forEach(
-        (slot) => {
+        slot => {
 
             slot.addEventListener(
                 'click',
@@ -1152,10 +1690,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
 
 
-                        profesorSelect.focus();
-
                         return;
-
                     }
 
 
@@ -1173,30 +1708,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
 
 
-                    /*
-                    |--------------------------------------------------------------------------
-                    | SINCRONIZAR ESCRITORIO Y MÓVIL
-                    |--------------------------------------------------------------------------
-                    */
-
-                    const copias =
-                        document.querySelectorAll(
-
+                    document
+                        .querySelectorAll(
                             `.availability-slot[data-dia="${dia}"][data-hora="${hora}"]`
+                        )
+                        .forEach(
+                            copia => {
 
+                                marcarSlot(
+                                    copia,
+                                    seleccionar
+                                );
+                            }
                         );
-
-
-                    copias.forEach(
-                        (copia) => {
-
-                            marcarSlot(
-                                copia,
-                                seleccionar
-                            );
-
-                        }
-                    );
 
 
                     disponibilidades[
@@ -1206,20 +1730,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                     actualizarResumen();
-
                 }
             );
-
         }
     );
 
 
     // =========================================================
-    // SELECCIONAR DÍA COMPLETO
+    // DÍA COMPLETO
     // =========================================================
 
     dayButtons.forEach(
-        (button) => {
+        button => {
 
             button.addEventListener(
                 'click',
@@ -1234,10 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
 
 
-                        profesorSelect.focus();
-
                         return;
-
                     }
 
 
@@ -1247,79 +1766,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const bloques =
                         document.querySelectorAll(
-
                             `.availability-slot[data-dia="${dia}"]`
-
                         );
 
 
-                    const bloquesAgrupados =
+                    const grupos =
                         new Map();
 
 
                     bloques.forEach(
-                        (slot) => {
+                        slot => {
 
-                            const identificador =
+                            const id =
                                 `${slot.dataset.dia}-${slot.dataset.hora}`;
 
 
                             if (
-                                !bloquesAgrupados.has(
-                                    identificador
+                                !grupos.has(
+                                    id
                                 )
                             ) {
 
-                                bloquesAgrupados.set(
-                                    identificador,
+                                grupos.set(
+                                    id,
                                     []
                                 );
-
                             }
 
 
-                            bloquesAgrupados
+                            grupos
                                 .get(
-                                    identificador
+                                    id
                                 )
                                 .push(
                                     slot
                                 );
-
                         }
                     );
 
 
                     const todosSeleccionados =
                         Array.from(
-                            bloquesAgrupados.values()
-                        ).every(
-                            (copias) =>
+                            grupos.values()
+                        )
+                            .every(
+                                copias =>
+                                    copias.some(
+                                        slot =>
+                                            slot.classList.contains(
+                                                'selected'
+                                            )
+                                    )
+                            );
 
-                                copias.some(
-                                    (slot) =>
-                                        slot.classList.contains(
-                                            'selected'
-                                        )
-                                )
 
-                        );
-
-
-                    bloquesAgrupados.forEach(
-                        (copias) => {
+                    grupos.forEach(
+                        copias => {
 
                             copias.forEach(
-                                (slot) => {
+                                slot => {
 
                                     marcarSlot(
                                         slot,
                                         !todosSeleccionados
                                     );
-
                                 }
                             );
-
                         }
                     );
 
@@ -1331,115 +1843,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                     actualizarResumen();
-
                 }
             );
-
         }
     );
 
 
     // =========================================================
-    // SELECCIONAR TODO
+    // TODO
     // =========================================================
 
-    if (selectAllButton) {
+    selectAllButton?.addEventListener(
+        'click',
+        () => {
 
-        selectAllButton.addEventListener(
-            'click',
-            () => {
+            if (
+                !profesorSelect.value
+            ) {
 
-                if (
-                    !profesorSelect.value
-                ) {
-
-                    alert(
-                        'Primero selecciona un profesor.'
-                    );
-
-
-                    profesorSelect.focus();
-
-                    return;
-
-                }
-
-
-                slots.forEach(
-                    (slot) => {
-
-                        marcarSlot(
-                            slot,
-                            true
-                        );
-
-                    }
+                alert(
+                    'Primero selecciona un profesor.'
                 );
 
 
-                disponibilidades[
-                    claveActual()
-                ] =
-                    obtenerSeleccionados();
-
-
-                actualizarResumen();
-
+                return;
             }
-        );
 
-    }
+
+            slots.forEach(
+                slot =>
+                    marcarSlot(
+                        slot,
+                        true
+                    )
+            );
+
+
+            disponibilidades[
+                claveActual()
+            ] =
+                obtenerSeleccionados();
+
+
+            actualizarResumen();
+        }
+    );
 
 
     // =========================================================
-    // LIMPIAR DISPONIBILIDAD
+    // LIMPIAR
     // =========================================================
 
-    if (clearButton) {
+    clearButton?.addEventListener(
+        'click',
+        () => {
 
-        clearButton.addEventListener(
-            'click',
-            () => {
+            if (
+                !profesorSelect.value
+            ) {
 
-                if (
-                    !profesorSelect.value
-                ) {
-
-                    alert(
-                        'Primero selecciona un profesor.'
-                    );
+                alert(
+                    'Primero selecciona un profesor.'
+                );
 
 
-                    profesorSelect.focus();
-
-                    return;
-
-                }
-
-
-                limpiarGrid();
-
-
-                disponibilidades[
-                    claveActual()
-                ] =
-                    [];
-
-
-                actualizarResumen();
-
+                return;
             }
-        );
 
-    }
+
+            limpiarGrid();
+
+
+            disponibilidades[
+                claveActual()
+            ] =
+                [];
+
+
+            actualizarResumen();
+        }
+    );
 
 
     // =========================================================
-    // PESTAÑAS MÓVILES
+    // MOBILE DAYS
     // =========================================================
 
     mobileDayTabs.forEach(
-        (tab) => {
+        tab => {
 
             tab.addEventListener(
                 'click',
@@ -1450,64 +1941,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                     mobileDayPanels.forEach(
-                        (panel) => {
+                        panel => {
 
                             panel.classList.toggle(
-
                                 'hidden',
-
                                 panel.dataset.diaPanel !==
-                                    dia
-
+                                dia
                             );
-
                         }
                     );
 
 
                     mobileDayTabs.forEach(
-                        (otraTab) => {
+                        otro => {
 
-                            const activa =
-                                otraTab ===
-                                tab;
-
-
-                            otraTab.classList.toggle(
-                                'bg-indigo-600',
-                                activa
+                            otro.classList.toggle(
+                                'active-mobile-day',
+                                otro === tab
                             );
-
-
-                            otraTab.classList.toggle(
-                                'text-white',
-                                activa
-                            );
-
-
-                            otraTab.classList.toggle(
-                                'bg-slate-100',
-                                !activa
-                            );
-
-
-                            otraTab.classList.toggle(
-                                'text-slate-600',
-                                !activa
-                            );
-
                         }
                     );
-
                 }
             );
-
         }
     );
 
 
     // =========================================================
-    // CONVERTIR GRID A FRANJAS
+    // GRID A FRANJAS
     // =========================================================
 
     function bloquesGridAFranjas(
@@ -1519,10 +1980,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         identificadores.forEach(
-            (identificador) => {
+            identificador => {
 
                 const separador =
-                    identificador.indexOf('-');
+                    identificador.indexOf(
+                        '-'
+                    );
 
 
                 const dia =
@@ -1538,18 +2001,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
 
 
-                if (!porDia[dia]) {
+                if (
+                    !porDia[dia]
+                ) {
 
                     porDia[dia] =
                         [];
-
                 }
 
 
                 porDia[dia].push(
                     hora
                 );
-
             }
         );
 
@@ -1560,231 +2023,189 @@ document.addEventListener('DOMContentLoaded', () => {
 
         Object.keys(
             porDia
-        ).forEach(
-            (dia) => {
+        )
+            .forEach(
+                dia => {
 
-                const horas =
-                    Array.from(
-                        new Set(
-                            porDia[dia]
+                    const horas =
+                        Array.from(
+                            new Set(
+                                porDia[dia]
+                            )
                         )
-                    ).sort();
+                            .sort();
 
 
-                let inicio =
-                    null;
+                    let inicio =
+                        null;
 
 
-                let anterior =
-                    null;
+                    let anterior =
+                        null;
 
 
-                horas.forEach(
-                    (hora) => {
+                    horas.forEach(
+                        hora => {
 
-                        if (
-                            inicio ===
-                            null
-                        ) {
+                            if (
+                                inicio ===
+                                null
+                            ) {
 
-                            inicio =
-                                hora;
-
-                            anterior =
-                                hora;
-
-                            return;
-
-                        }
+                                inicio =
+                                    hora;
 
 
-                        const [
-                            horaAnterior,
-                            minutoAnterior
-                        ] =
-                            anterior
-                                .split(':')
-                                .map(Number);
+                                anterior =
+                                    hora;
 
 
-                        const anteriorMinutos =
+                                return;
+                            }
 
-                            horaAnterior * 60 +
-                            minutoAnterior;
-
-
-                        const esperadoMinutos =
-
-                            anteriorMinutos +
-                            DURACION_BLOQUE_GRID_MIN;
-
-
-                        const horaEsperada =
-
-                            `${String(
-                                Math.floor(
-                                    esperadoMinutos /
-                                    60
-                                )
-                            ).padStart(
-                                2,
-                                '0'
-                            )}:${String(
-                                esperadoMinutos %
-                                60
-                            ).padStart(
-                                2,
-                                '0'
-                            )}`;
-
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | CORTE
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if (
-                            hora !==
-                            horaEsperada
-                        ) {
 
                             const [
-                                horaFinAnterior,
-                                minutoFinAnterior
+                                hAnterior,
+                                mAnterior
                             ] =
                                 anterior
                                     .split(':')
                                     .map(Number);
 
 
-                            const finMinutos =
-
-                                horaFinAnterior *
-                                    60 +
-
-                                minutoFinAnterior +
-
+                            const esperado =
+                                hAnterior * 60 +
+                                mAnterior +
                                 DURACION_BLOQUE_GRID_MIN;
 
 
-                            franjas.push({
-
-                                dia_semana:
-                                    Number(
-                                        dia
-                                    ),
-
-                                hora_inicio:
-                                    inicio,
-
-                                hora_fin:
-
-                                    `${String(
-                                        Math.floor(
-                                            finMinutos /
-                                            60
-                                        )
-                                    ).padStart(
-                                        2,
-                                        '0'
-                                    )}:${String(
-                                        finMinutos %
+                            const esperadoTexto =
+                                `${String(
+                                    Math.floor(
+                                        esperado /
                                         60
-                                    ).padStart(
-                                        2,
-                                        '0'
-                                    )}`
-
-                            });
-
-
-                            inicio =
-                                hora;
-
-                        }
-
-
-                        anterior =
-                            hora;
-
-                    }
-                );
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | CERRAR ÚLTIMA FRANJA
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    inicio !== null &&
-                    anterior !== null
-                ) {
-
-                    const [
-                        horaAnterior,
-                        minutoAnterior
-                    ] =
-                        anterior
-                            .split(':')
-                            .map(Number);
-
-
-                    const finMinutos =
-
-                        horaAnterior *
-                            60 +
-
-                        minutoAnterior +
-
-                        DURACION_BLOQUE_GRID_MIN;
-
-
-                    franjas.push({
-
-                        dia_semana:
-                            Number(
-                                dia
-                            ),
-
-                        hora_inicio:
-                            inicio,
-
-                        hora_fin:
-
-                            `${String(
-                                Math.floor(
-                                    finMinutos /
+                                    )
+                                ).padStart(
+                                    2,
+                                    '0'
+                                )}:${String(
+                                    esperado %
                                     60
-                                )
-                            ).padStart(
-                                2,
-                                '0'
-                            )}:${String(
-                                finMinutos %
-                                60
-                            ).padStart(
-                                2,
-                                '0'
-                            )}`
+                                ).padStart(
+                                    2,
+                                    '0'
+                                )}`;
 
-                    });
 
+                            if (
+                                hora !==
+                                esperadoTexto
+                            ) {
+
+                                const fin =
+                                    hAnterior * 60 +
+                                    mAnterior +
+                                    DURACION_BLOQUE_GRID_MIN;
+
+
+                                franjas.push({
+
+                                    dia_semana:
+                                        Number(
+                                            dia
+                                        ),
+
+                                    hora_inicio:
+                                        inicio,
+
+                                    hora_fin:
+                                        `${String(
+                                            Math.floor(
+                                                fin /
+                                                60
+                                            )
+                                        ).padStart(
+                                            2,
+                                            '0'
+                                        )}:${String(
+                                            fin %
+                                            60
+                                        ).padStart(
+                                            2,
+                                            '0'
+                                        )}`
+                                });
+
+
+                                inicio =
+                                    hora;
+                            }
+
+
+                            anterior =
+                                hora;
+                        }
+                    );
+
+
+                    if (
+                        inicio !== null &&
+                        anterior !== null
+                    ) {
+
+                        const [
+                            hAnterior,
+                            mAnterior
+                        ] =
+                            anterior
+                                .split(':')
+                                .map(Number);
+
+
+                        const fin =
+                            hAnterior * 60 +
+                            mAnterior +
+                            DURACION_BLOQUE_GRID_MIN;
+
+
+                        franjas.push({
+
+                            dia_semana:
+                                Number(
+                                    dia
+                                ),
+
+                            hora_inicio:
+                                inicio,
+
+                            hora_fin:
+                                `${String(
+                                    Math.floor(
+                                        fin /
+                                        60
+                                    )
+                                ).padStart(
+                                    2,
+                                    '0'
+                                )}:${String(
+                                    fin %
+                                    60
+                                ).padStart(
+                                    2,
+                                    '0'
+                                )}`
+                        });
+                    }
                 }
-
-            }
-        );
+            );
 
 
         return franjas;
-
     }
 
 
     // =========================================================
-    // RENDER HORARIOS PERSONALIZADOS
+    // PERSONALIZADOS
     // =========================================================
 
     function renderizarPersonalizados() {
@@ -1792,9 +2213,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (
             !listaPersonalizadosEl
         ) {
-
             return;
-
         }
 
 
@@ -1803,11 +2222,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 '.chip-personalizado'
             )
             .forEach(
-                (elemento) => {
-
-                    elemento.remove();
-
-                }
+                item =>
+                    item.remove()
             );
 
 
@@ -1815,35 +2231,25 @@ document.addEventListener('DOMContentLoaded', () => {
             personalizadosActuales();
 
 
-        if (
-            personalizadosVacioEl
-        ) {
-
-            personalizadosVacioEl.classList.toggle(
-
-                'hidden',
-
-                items.length > 0
-
-            );
-
-        }
+        personalizadosVacioEl?.classList.toggle(
+            'hidden',
+            items.length >
+            0
+        );
 
 
         items
             .slice()
             .sort(
-                (a, b) =>
-
+                (a,b) =>
                     a.dia -
-                        b.dia ||
-
+                    b.dia ||
                     a.horaInicio.localeCompare(
                         b.horaInicio
                     )
             )
             .forEach(
-                (item) => {
+                item => {
 
                     const chip =
                         document.createElement(
@@ -1852,357 +2258,316 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                     chip.className =
-
-                        'chip-personalizado inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700';
+                        'chip-personalizado inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold';
 
 
                     chip.innerHTML = `
 
                         ${diasCortos[item.dia] ?? 'Día'}
+
                         ·
+
                         ${item.horaInicio}
+
                         –
+
                         ${item.horaFin}
+
 
                         <button
                             type="button"
-                            class="quitar-personalizado text-indigo-400 hover:text-indigo-700"
-                            data-id="${item.id}"
+                            class="
+                                quitar-personalizado
+                                inline-flex
+                                h-5 w-5
+                                items-center
+                                justify-center
+                                rounded-full
+                                transition
+                                hover:bg-white
+                            "
+                            data-id="${esc(
+                                item.id
+                            )}"
                             title="Eliminar horario"
                         >
-                            ✕
-                        </button>
 
+                            <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.2"
+                            >
+                                <path d="M18 6 6 18"/>
+                                <path d="M6 6l12 12"/>
+                            </svg>
+
+                        </button>
                     `;
 
 
-                    listaPersonalizadosEl.appendChild(
-                        chip
-                    );
-
+                    listaPersonalizadosEl
+                        .appendChild(
+                            chip
+                        );
                 }
             );
 
 
         actualizarResumen();
-
     }
 
 
     // =========================================================
-    // AGREGAR HORARIO PERSONALIZADO
+    // AGREGAR PERSONALIZADO
     // =========================================================
 
-    if (
-        agregarPersonalizadoButton
-    ) {
+    agregarPersonalizadoButton?.addEventListener(
+        'click',
+        () => {
 
-        agregarPersonalizadoButton.addEventListener(
-            'click',
-            () => {
+            if (
+                !profesorSelect.value
+            ) {
 
-                if (
-                    !profesorSelect.value
-                ) {
-
-                    alert(
-                        'Primero selecciona un profesor.'
-                    );
+                alert(
+                    'Primero selecciona un profesor.'
+                );
 
 
-                    profesorSelect.focus();
-
-                    return;
-
-                }
+                return;
+            }
 
 
-                if (
-                    !diaPersonalizadoSelect ||
-                    !inicioPersonalizadoInput ||
-                    !finPersonalizadoInput
-                ) {
-
-                    return;
-
-                }
+            const dia =
+                Number(
+                    diaPersonalizadoSelect.value
+                );
 
 
-                const dia =
-                    Number(
-                        diaPersonalizadoSelect.value
-                    );
+            const horaInicio =
+                inicioPersonalizadoInput.value;
 
 
-                const horaInicio =
-                    inicioPersonalizadoInput.value;
+            const horaFin =
+                finPersonalizadoInput.value;
 
 
-                const horaFin =
-                    finPersonalizadoInput.value;
+            if (
+                !dia ||
+                !horaInicio ||
+                !horaFin
+            ) {
+
+                alert(
+                    'Completa el día, hora de inicio y hora de fin.'
+                );
 
 
-                if (
-                    !dia ||
-                    !horaInicio ||
-                    !horaFin
-                ) {
-
-                    alert(
-                        'Completa el día, hora de inicio y hora de fin.'
-                    );
-
-                    return;
-
-                }
+                return;
+            }
 
 
-                if (
-                    horaInicio >=
-                    horaFin
-                ) {
+            if (
+                horaInicio >=
+                horaFin
+            ) {
 
-                    alert(
-                        'La hora de fin debe ser posterior a la hora de inicio.'
-                    );
-
-                    return;
-
-                }
+                alert(
+                    'La hora de fin debe ser posterior a la hora de inicio.'
+                );
 
 
-                const clave =
-                    claveActual();
+                return;
+            }
 
 
-                if (
-                    !personalizados[
-                        clave
-                    ]
-                ) {
-
-                    personalizados[
-                        clave
-                    ] =
-                        [];
-
-                }
+            const clave =
+                claveActual();
 
 
-                // =================================================
-                // VALIDAR TRASLAPE
-                // =================================================
-
-                const traslape =
-                    personalizados[
-                        clave
-                    ].some(
-                        (item) =>
-
-                            item.dia ===
-                                dia &&
-
-                            horaInicio <
-                                item.horaFin &&
-
-                            item.horaInicio <
-                                horaFin
-
-                    );
-
-
-                if (traslape) {
-
-                    alert(
-                        'Ese horario se traslapa con otro horario personalizado del mismo día.'
-                    );
-
-                    return;
-
-                }
-
+            if (
+                !personalizados[
+                    clave
+                ]
+            ) {
 
                 personalizados[
                     clave
-                ].push({
+                ] =
+                    [];
+            }
+
+
+            const traslape =
+                personalizados[
+                    clave
+                ]
+                    .some(
+                        item =>
+
+                            item.dia ===
+                            dia &&
+
+                            horaInicio <
+                            item.horaFin &&
+
+                            item.horaInicio <
+                            horaFin
+                    );
+
+
+            if (
+                traslape
+            ) {
+
+                alert(
+                    'Ese horario se traslapa con otro horario personalizado del mismo día.'
+                );
+
+
+                return;
+            }
+
+
+            personalizados[
+                clave
+            ]
+                .push({
 
                     id:
                         `${Date.now()}-${Math.random()
                             .toString(36)
-                            .slice(2, 8)}`,
+                            .slice(2,8)}`,
 
                     dia,
 
                     horaInicio,
 
                     horaFin
-
                 });
 
 
-                inicioPersonalizadoInput.value =
-                    '';
+            inicioPersonalizadoInput.value =
+                '';
 
 
-                finPersonalizadoInput.value =
-                    '';
+            finPersonalizadoInput.value =
+                '';
 
 
-                renderizarPersonalizados();
+            renderizarPersonalizados();
+        }
+    );
 
+
+    // =========================================================
+    // QUITAR PERSONALIZADO
+    // =========================================================
+
+    listaPersonalizadosEl?.addEventListener(
+        'click',
+        event => {
+
+            const button =
+                event.target.closest(
+                    '.quitar-personalizado'
+                );
+
+
+            if (
+                !button ||
+                !profesorSelect.value
+            ) {
+                return;
             }
-        );
-
-    }
 
 
-    // =========================================================
-    // QUITAR HORARIO PERSONALIZADO
-    // =========================================================
-
-    if (
-        listaPersonalizadosEl
-    ) {
-
-        listaPersonalizadosEl.addEventListener(
-            'click',
-            (event) => {
-
-                const boton =
-                    event.target.closest(
-                        '.quitar-personalizado'
-                    );
+            const clave =
+                claveActual();
 
 
-                if (!boton) {
-
-                    return;
-
-                }
-
-
-                if (
-                    !profesorSelect.value
-                ) {
-
-                    return;
-
-                }
-
-
-                const clave =
-                    claveActual();
-
-
-                personalizados[
-                    clave
-                ] =
-                    (
-                        personalizados[
-                            clave
-                        ] || []
-                    ).filter(
-                        (item) =>
-
+            personalizados[
+                clave
+            ] =
+                (
+                    personalizados[
+                        clave
+                    ] || []
+                )
+                    .filter(
+                        item =>
                             item.id !==
-                            boton.dataset.id
-
+                            button.dataset.id
                     );
 
 
-                renderizarPersonalizados();
+            renderizarPersonalizados();
+        }
+    );
 
+
+    // =========================================================
+    // GUARDAR
+    // =========================================================
+
+    saveButton?.addEventListener(
+        'click',
+        () => {
+
+            const profesorId =
+                profesorSelect.value;
+
+
+            const institucion =
+                institucionSelect.value ||
+                'colegio';
+
+
+            if (
+                !profesorId
+            ) {
+
+                alert(
+                    'Primero selecciona un profesor.'
+                );
+
+
+                return;
             }
-        );
-
-    }
 
 
-    // =========================================================
-    // GUARDAR DISPONIBILIDAD
-    // =========================================================
-
-    if (saveButton) {
-
-        saveButton.addEventListener(
-            'click',
-            () => {
-
-                const profesorId =
-                    profesorSelect.value;
+            disponibilidades[
+                claveActual()
+            ] =
+                obtenerSeleccionados();
 
 
-                const institucion =
-                    institucionSelect
-                        ? institucionSelect.value
-                        : 'colegio';
-
-
-                // =================================================
-                // VALIDACIONES
-                // =================================================
-
-                if (!profesorId) {
-
-                    alert(
-                        'Primero selecciona un profesor.'
-                    );
-
-
-                    profesorSelect.focus();
-
-                    return;
-
-                }
-
-
-                if (!institucion) {
-
-                    alert(
-                        'Selecciona una institución.'
-                    );
-
-                    return;
-
-                }
-
-
-                // =================================================
-                // GUARDAR ESTADO DEL GRID
-                // =================================================
-
+            const seleccionados =
                 disponibilidades[
                     claveActual()
-                ] =
-                    obtenerSeleccionados();
+                ] || [];
 
 
-                const seleccionados =
-                    disponibilidades[
-                        claveActual()
-                    ] || [];
+            const franjasGrid =
+                bloquesGridAFranjas(
+                    seleccionados
+                );
 
 
-                const franjasGrid =
-                    bloquesGridAFranjas(
-                        seleccionados
-                    );
+            const personalizadosData =
+                personalizadosActuales();
 
 
-                const personalizadosData =
-                    personalizadosActuales();
-
-
-                // =================================================
-                // UNIR FRANJAS
-                // =================================================
-
-                const todasLasFranjas = [
+            const todasLasFranjas =
+                [
 
                     ...franjasGrid,
 
                     ...personalizadosData.map(
-                        (item) => ({
+                        item => ({
 
                             dia_semana:
                                 item.dia,
@@ -2212,142 +2577,113 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             hora_fin:
                                 item.horaFin
-
                         })
                     )
-
                 ];
 
 
-                // =================================================
-                // DATOS ACTUALES
-                // =================================================
-
-                const todas =
-                    cargarTodasLasDisponibilidades();
+            const todas =
+                cargarTodasLasDisponibilidades();
 
 
-                // =================================================
-                // ELIMINAR DISPONIBILIDAD ANTERIOR
-                // =================================================
+            const restantes =
+                todas.filter(
+                    item => {
 
-                const restantes =
-                    todas.filter(
-                        (item) => {
-
-                            const idGuardado =
-                                item.profesor_id ??
-                                item.profesorId;
+                        const id =
+                            item.profesor_id ??
+                            item.profesorId;
 
 
-                            return !(
+                        return !(
 
-                                String(
-                                    idGuardado
-                                ) ===
-                                    String(
-                                        profesorId
-                                    ) &&
+                            String(
+                                id
+                            ) ===
+                            String(
+                                profesorId
+                            ) &&
 
-                                item.institucion ===
-                                    institucion
-
-                            );
-
-                        }
-                    );
-
-
-                // =================================================
-                // AGREGAR NUEVAS FRANJAS
-                // =================================================
-
-                todasLasFranjas.forEach(
-                    (franja) => {
-
-                        restantes.push({
-
-                            profesor_id:
-                                String(
-                                    profesorId
-                                ),
-
-                            institucion,
-
-                            dia_semana:
-                                Number(
-                                    franja.dia_semana
-                                ),
-
-                            hora_inicio:
-                                franja.hora_inicio,
-
-                            hora_fin:
-                                franja.hora_fin
-
-                        });
-
+                            item.institucion ===
+                            institucion
+                        );
                     }
                 );
 
 
-                // =================================================
-                // GUARDAR
-                // =================================================
+            todasLasFranjas.forEach(
+                franja => {
 
-                guardarTodasLasDisponibilidades(
-                    restantes
-                );
+                    restantes.push({
 
+                        profesor_id:
+                            String(
+                                profesorId
+                            ),
 
-                // =================================================
-                // MENSAJE
-                // =================================================
+                        institucion,
 
-                const nombreProfesor =
-                    profesorSelect.options[
-                        profesorSelect.selectedIndex
-                    ]?.text ||
-                    'Profesor';
+                        dia_semana:
+                            Number(
+                                franja.dia_semana
+                            ),
 
+                        hora_inicio:
+                            franja.hora_inicio,
 
-                const institucionTexto =
-                    institucion ===
-                    'academia'
-                        ? 'Academia'
-                        : 'Colegio';
-
-
-                alert(
-
-                    `✅ Disponibilidad guardada correctamente.\n\n` +
-
-                    `Profesor: ${nombreProfesor}\n` +
-
-                    `Institución: ${institucionTexto}\n\n` +
-
-                    `Esta información solamente indica cuándo puede trabajar el profesor.\n` +
-
-                    `Todavía no se ha creado ninguna clase.`
-
-                );
+                        hora_fin:
+                            franja.hora_fin
+                    });
+                }
+            );
 
 
-                actualizarResumen();
+            guardarTodasLasDisponibilidades(
+                restantes
+            );
 
-            }
-        );
 
-    }
+            const nombreProfesor =
+                profesorSelect.options[
+                    profesorSelect.selectedIndex
+                ]?.text ||
+                'Profesor';
+
+
+            const institucionTexto =
+                institucion ===
+                'academia'
+                    ? 'Academia'
+                    : 'Colegio';
+
+
+            alert(
+
+                `✅ Disponibilidad guardada correctamente.\n\n` +
+
+                `Profesor: ${nombreProfesor}\n` +
+
+                `Institución: ${institucionTexto}\n\n` +
+
+                `Esta información solamente indica cuándo puede trabajar el profesor.\n` +
+
+                `Todavía no se ha creado ninguna clase.`
+
+            );
+
+
+            actualizarResumen();
+        }
+    );
 
 
     // =========================================================
-    // ACTUALIZAR PROFESORES SI CAMBIAN
+    // STORAGE
     // =========================================================
 
     window.addEventListener(
         'storage',
-        (event) => {
+        event => {
 
             if (
                 event.key ===
@@ -2355,45 +2691,37 @@ document.addEventListener('DOMContentLoaded', () => {
             ) {
 
                 cargarProfesores();
-
             }
 
 
             if (
                 event.key ===
-                DISPONIBILIDAD_KEY
+                DISPONIBILIDAD_KEY &&
+                profesorSelect.value
             ) {
 
-                if (
-                    profesorSelect.value
-                ) {
-
-                    const clave =
-                        claveActual();
+                const clave =
+                    claveActual();
 
 
-                    delete disponibilidades[
-                        clave
-                    ];
+                delete disponibilidades[
+                    clave
+                ];
 
 
-                    delete personalizados[
-                        clave
-                    ];
+                delete personalizados[
+                    clave
+                ];
 
 
-                    alCambiarSeleccion();
-
-                }
-
+                alCambiarSeleccion();
             }
-
         }
     );
 
 
     // =========================================================
-    // ACTUALIZAR AL REGRESAR A LA PESTAÑA
+    // FOCUS
     // =========================================================
 
     window.addEventListener(
@@ -2407,28 +2735,55 @@ document.addEventListener('DOMContentLoaded', () => {
             cargarProfesores();
 
 
-            if (
-                seleccionado &&
+            const existe =
                 Array.from(
                     profesorSelect.options
-                ).some(
-                    (option) =>
-                        option.value ===
-                        seleccionado
                 )
+                    .some(
+                        option =>
+                            option.value ===
+                            seleccionado
+                    );
+
+
+            if (
+                seleccionado &&
+                existe
             ) {
 
                 profesorSelect.value =
                     seleccionado;
-
             }
 
+
+            actualizarCustomSelect(
+                profesorSelect
+            );
         }
     );
 
 
     // =========================================================
-    // ESTADO INICIAL
+    // ESCAPE
+    // =========================================================
+
+    document.addEventListener(
+        'keydown',
+        event => {
+
+            if (
+                event.key ===
+                'Escape'
+            ) {
+
+                cerrarTodosCustomSelects();
+            }
+        }
+    );
+
+
+    // =========================================================
+    // INICIO
     // =========================================================
 
     cargarProfesores();
@@ -2438,5 +2793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderizarPersonalizados();
 
     actualizarResumen();
+
+    actualizarTodosCustomSelects();
 
 });

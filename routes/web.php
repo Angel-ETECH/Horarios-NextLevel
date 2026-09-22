@@ -29,3 +29,11 @@ Route::get('/asignaciones', function () {
 Route::get('/horarios', function () {
     return view('horarios.index');
 })->name('horarios.index');
+
+Route::get('/login', function () {
+    return view('login');
+})->name('login');
+
+Route::get('/consulta-horarios', function () {
+    return view('horarios.consulta');
+})->name('horarios.consulta');
