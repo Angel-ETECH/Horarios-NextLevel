@@ -12,210 +12,171 @@ use App\Http\Controllers\Api\ProfesorController;
 use App\Http\Controllers\Api\CursoController;
 use App\Http\Controllers\Api\GradoController;
 use App\Http\Controllers\Api\ConfiguracionHorarioController;
-
 use Illuminate\Support\Facades\Route;
 
 // ============================================
-// RUTAS DE PROFESORES
+// RUTAS PÚBLICAS (sin autenticación)
 // ============================================
-Route::prefix('profesores')->group(function () {
-    Route::get('/', [ProfesorController::class, 'index']);
-    Route::get('/estadisticas', [ProfesorController::class, 'estadisticas']);
-    Route::get('/{id}', [ProfesorController::class, 'show']);
-    Route::post('/', [ProfesorController::class, 'store']);
-    Route::put('/{id}', [ProfesorController::class, 'update']);
-    Route::delete('/{id}', [ProfesorController::class, 'destroy']);
-    Route::post('/{id}/restore', [ProfesorController::class, 'restore']);
+Route::prefix('auth')->group(function () {
+    // Aquí van las rutas de login/registro que ya tienes
+    // Route::post('/login', [AuthController::class, 'login']);
+    // Route::post('/register', [AuthController::class, 'register']);
 });
 
 // ============================================
-// RUTAS DE CURSOS
+// RUTAS PROTEGIDAS (requieren autenticación)
 // ============================================
-Route::prefix('cursos')->group(function () {
-    Route::get('/', [CursoController::class, 'index']);
-    Route::get('/estadisticas', [CursoController::class, 'estadisticas']);
-    Route::get('/{id}', [CursoController::class, 'show']);
-    Route::post('/', [CursoController::class, 'store']);
-    Route::put('/{id}', [CursoController::class, 'update']);
-    Route::delete('/{id}', [CursoController::class, 'destroy']);
-    Route::post('/{id}/restore', [CursoController::class, 'restore']);
-});
+Route::middleware('auth:sanctum')->group(function () {
 
-// ============================================
-// RUTAS DE GRADOS
-// ============================================
-Route::prefix('grados')->group(function () {
-    Route::get('/', [GradoController::class, 'index']);
-    Route::get('/estadisticas', [GradoController::class, 'estadisticas']);
-    Route::get('/{id}', [GradoController::class, 'show']);
-    Route::post('/', [GradoController::class, 'store']);
-    Route::put('/{id}', [GradoController::class, 'update']);
-    Route::delete('/{id}', [GradoController::class, 'destroy']);
-    Route::post('/{id}/restore', [GradoController::class, 'restore']);
-});
+    // ============================================
+    // PROFESORES
+    // ============================================
+    Route::prefix('profesores')->group(function () {
+        Route::get('/', [ProfesorController::class, 'index']);
+        Route::get('/estadisticas', [ProfesorController::class, 'estadisticas']);
+        Route::get('/{id}', [ProfesorController::class, 'show']);
+        Route::post('/', [ProfesorController::class, 'store']);
+        Route::put('/{id}', [ProfesorController::class, 'update']);
+        Route::delete('/{id}', [ProfesorController::class, 'destroy']);
+        Route::post('/{id}/restore', [ProfesorController::class, 'restore']);
+    });
 
-// ============================================
-// RUTAS DE DISPONIBILIDADES
-// ============================================
-Route::prefix('disponibilidades')->group(function () {
-    // GET
-    Route::get('/', [DisponibilidadController::class, 'index']);
-    Route::get('/profesor/{profesorId}', [DisponibilidadController::class, 'getByProfesor']);
-    Route::get('/bloques/{profesorId}/{dia}', [DisponibilidadController::class, 'getBloquesDisponibles']);
-    Route::get('/{id}', [DisponibilidadController::class, 'show']);
+    // ============================================
+    // CURSOS
+    // ============================================
+    Route::prefix('cursos')->group(function () {
+        Route::get('/', [CursoController::class, 'index']);
+        Route::get('/estadisticas', [CursoController::class, 'estadisticas']);
+        Route::get('/{id}', [CursoController::class, 'show']);
+        Route::post('/', [CursoController::class, 'store']);
+        Route::put('/{id}', [CursoController::class, 'update']);
+        Route::delete('/{id}', [CursoController::class, 'destroy']);
+        Route::post('/{id}/restore', [CursoController::class, 'restore']);
+    });
 
-    // POST
-    Route::post('/', [DisponibilidadController::class, 'store']);
-    Route::post('/verificar', [DisponibilidadController::class, 'verificarDisponibilidad']);
+    // ============================================
+    // GRADOS
+    // ============================================
+    Route::prefix('grados')->group(function () {
+        Route::get('/', [GradoController::class, 'index']);
+        Route::get('/estadisticas', [GradoController::class, 'estadisticas']);
+        Route::get('/{id}', [GradoController::class, 'show']);
+        Route::post('/', [GradoController::class, 'store']);
+        Route::put('/{id}', [GradoController::class, 'update']);
+        Route::delete('/{id}', [GradoController::class, 'destroy']);
+        Route::post('/{id}/restore', [GradoController::class, 'restore']);
+    });
 
-    // PUT
-    Route::put('/{id}', [DisponibilidadController::class, 'update']);
+    // ============================================
+    // DISPONIBILIDADES
+    // ============================================
+    Route::prefix('disponibilidades')->group(function () {
+        Route::get('/', [DisponibilidadController::class, 'index']);
+        Route::get('/profesor/{profesorId}', [DisponibilidadController::class, 'getByProfesor']);
+        Route::get('/bloques/{profesorId}/{dia}', [DisponibilidadController::class, 'getBloquesDisponibles']);
+        Route::get('/{id}', [DisponibilidadController::class, 'show']);
+        Route::post('/', [DisponibilidadController::class, 'store']);
+        Route::post('/verificar', [DisponibilidadController::class, 'verificarDisponibilidad']);
+        Route::put('/{id}', [DisponibilidadController::class, 'update']);
+        Route::delete('/{id}', [DisponibilidadController::class, 'destroy']);
+        Route::delete('/profesor/{profesorId}', [DisponibilidadController::class, 'destroyByProfesor']);
+    });
 
-    // DELETE
-    Route::delete('/{id}', [DisponibilidadController::class, 'destroy']);
-    Route::delete('/profesor/{profesorId}', [DisponibilidadController::class, 'destroyByProfesor']);
-});
+    // ============================================
+    // ASIGNACIONES
+    // ============================================
+    Route::prefix('asignaciones')->group(function () {
+        Route::get('/', [AsignacionController::class, 'index']);
+        Route::get('/profesor/{profesorId}', [AsignacionController::class, 'getByProfesor']);
+        Route::get('/curso/{cursoId}', [AsignacionController::class, 'getByCurso']);
+        Route::get('/grado/{gradoId}', [AsignacionController::class, 'getByGrado']);
+        Route::get('/profesores-disponibles/{cursoId}/{gradoId}', [AsignacionController::class, 'getProfesoresDisponibles']);
+        Route::get('/estadisticas', [AsignacionController::class, 'estadisticas']);
+        Route::get('/{id}', [AsignacionController::class, 'show']);
+        Route::post('/', [AsignacionController::class, 'store']);
+        Route::post('/{id}/desactivar', [AsignacionController::class, 'desactivar']);
+        Route::post('/{id}/activar', [AsignacionController::class, 'activar']);
+        Route::put('/{id}', [AsignacionController::class, 'update']);
+        Route::delete('/{id}', [AsignacionController::class, 'destroy']);
+    });
 
-// ============================================
-// RUTAS DE ASIGNACIONES
-// ============================================
-Route::prefix('asignaciones')->group(function () {
-    // GET
-    Route::get('/', [AsignacionController::class, 'index']);
-    Route::get('/profesor/{profesorId}', [AsignacionController::class, 'getByProfesor']);
-    Route::get('/curso/{cursoId}', [AsignacionController::class, 'getByCurso']);
-    Route::get('/grado/{gradoId}', [AsignacionController::class, 'getByGrado']);
-    Route::get('/profesores-disponibles/{cursoId}/{gradoId}', [AsignacionController::class, 'getProfesoresDisponibles']);
-    Route::get('/estadisticas', [AsignacionController::class, 'estadisticas']);
-    Route::get('/{id}', [AsignacionController::class, 'show']);
+    // ============================================
+    // AULAS
+    // ============================================
+    Route::prefix('aulas')->group(function () {
+        Route::get('/', [AulaController::class, 'index']);
+        Route::post('/', [AulaController::class, 'store']);
+        Route::get('/{id}', [AulaController::class, 'show']);
+        Route::put('/{id}', [AulaController::class, 'update']);
+        Route::delete('/{id}', [AulaController::class, 'destroy']);
+        Route::get('/nivel/{nivel}', [AulaController::class, 'getByNivel']);
+        Route::get('/estadisticas', [AulaController::class, 'estadisticas']);
+        Route::get('/disponibilidad/disponibles', [AulaController::class, 'getDisponibles']);
+        Route::get('/disponibilidad/verificar', [AulaController::class, 'verificarDisponibilidad']);
+        Route::get('/disponibles/{dia}/{horaInicio}/{horaFin}', [AulaController::class, 'getDisponiblesPorRuta']);
+    });
 
-    // POST
-    Route::post('/', [AsignacionController::class, 'store']);
-    Route::post('/{id}/desactivar', [AsignacionController::class, 'desactivar']);
-    Route::post('/{id}/activar', [AsignacionController::class, 'activar']);
+    // ============================================
+    // CONFIGURACIÓN DE HORARIOS
+    // ============================================
+    Route::prefix('configuraciones-horario')->group(function () {
+        Route::get('/vigente', [ConfiguracionHorarioController::class, 'vigente']);
+        Route::get('/', [ConfiguracionHorarioController::class, 'index']);
+        Route::get('/{id}', [ConfiguracionHorarioController::class, 'show']);
+        Route::post('/', [ConfiguracionHorarioController::class, 'store']);
+        Route::put('/{id}', [ConfiguracionHorarioController::class, 'update']);
+        Route::delete('/{id}', [ConfiguracionHorarioController::class, 'destroy']);
+    });
 
-    // PUT
-    Route::put('/{id}', [AsignacionController::class, 'update']);
+    // ============================================
+    // GENERACIÓN DE HORARIOS
+    // ============================================
+    Route::prefix('horarios/generar')->group(function () {
+        Route::post('/', [HorarioGeneratorController::class, 'generar']);
+        Route::post('/profesor/{profesorId}', [HorarioGeneratorController::class, 'generarPorProfesor']);
+        Route::post('/grado/{gradoId}', [HorarioGeneratorController::class, 'generarPorGrado']);
+        Route::get('/vista-previa', [HorarioGeneratorController::class, 'vistaPrevia']);
+        Route::get('/configuraciones', [HorarioGeneratorController::class, 'configuraciones']);
+        Route::get('/estadisticas', [HorarioGeneratorController::class, 'estadisticas']);
+        Route::delete('/limpiar', [HorarioGeneratorController::class, 'limpiar']);
+    });
 
-    // DELETE
-    Route::delete('/{id}', [AsignacionController::class, 'destroy']);
-});
+    // ============================================
+    // HORARIOS
+    // ============================================
+    Route::prefix('horarios')->group(function () {
+        Route::get('/', [HorarioController::class, 'index']);
+        Route::get('/profesor/{profesorId}', [HorarioController::class, 'getByProfesor']);
+        Route::get('/grado/{gradoId}', [HorarioController::class, 'getByGrado']);
+        Route::get('/dia/{dia}', [HorarioController::class, 'getByDia']);
+        Route::get('/{id}', [HorarioController::class, 'show']);
+        Route::put('/{id}', [HorarioController::class, 'update']);
+        Route::delete('/{id}', [HorarioController::class, 'destroy']);
+    });
 
-// ============================================
-// RUTAS DE AULAS
-// ============================================
-Route::prefix('aulas')->group(function () {
-    // CRUD básico
-    Route::get('/', [AulaController::class, 'index']);
-    Route::post('/', [AulaController::class, 'store']);
-    Route::get('/{id}', [AulaController::class, 'show']);
-    Route::put('/{id}', [AulaController::class, 'update']);
-    Route::delete('/{id}', [AulaController::class, 'destroy']);
+    // ============================================
+    // HISTORIAL
+    // ============================================
+    Route::prefix('historial')->group(function () {
+        Route::get('/', [HistorialController::class, 'index']);
+        Route::get('/horario/{horarioId}', [HistorialController::class, 'getByHorario']);
+        Route::get('/versiones/{horarioId}', [HistorialController::class, 'getVersiones']);
+        Route::get('/estadisticas', [HistorialController::class, 'estadisticas']);
+        Route::get('/{id}', [HistorialController::class, 'show']);
+        Route::post('/revertir/{historialId}', [HistorialController::class, 'revertir']);
+        Route::post('/restaurar/{horarioId}', [HistorialController::class, 'restaurar']);
+    });
 
-    // Consultas específicas
-    Route::get('/nivel/{nivel}', [AulaController::class, 'getByNivel']);
-    Route::get('/estadisticas', [AulaController::class, 'estadisticas']);
-
-    // Disponibilidad (query params - MÁS FLEXIBLE)
-    Route::get('/disponibilidad/disponibles', [AulaController::class, 'getDisponibles']);
-    Route::get('/disponibilidad/verificar', [AulaController::class, 'verificarDisponibilidad']);
-
-    // Disponibilidad (ruta RESTful - compatibilidad)
-    Route::get('/disponibles/{dia}/{horaInicio}/{horaFin}',
-        [AulaController::class, 'getDisponiblesPorRuta']);
-});
-
-// ============================================
-// RUTAS DE CONFIGURACIÓN DE HORARIOS
-// ============================================
-Route::prefix('configuraciones-horario')->group(function () {
-    Route::get('/vigente', [ConfiguracionHorarioController::class, 'vigente']);
-    Route::get('/', [ConfiguracionHorarioController::class, 'index']);
-    Route::get('/{id}', [ConfiguracionHorarioController::class, 'show']);
-    Route::post('/', [ConfiguracionHorarioController::class, 'store']);
-    Route::put('/{id}', [ConfiguracionHorarioController::class, 'update']);
-    Route::delete('/{id}', [ConfiguracionHorarioController::class, 'destroy']);
-});
-
-// ============================================
-// RUTAS DE GENERACIÓN DE HORARIOS
-// ============================================
-Route::prefix('horarios/generar')->group(function () {
-    // Generación general
-    Route::post('/', [HorarioGeneratorController::class, 'generar'])
-        ->name('horarios.generar');
-
-    // Generación específica
-    Route::post('/profesor/{profesorId}', [HorarioGeneratorController::class, 'generarPorProfesor'])
-        ->name('horarios.generar.profesor');
-
-    Route::post('/grado/{gradoId}', [HorarioGeneratorController::class, 'generarPorGrado'])
-        ->name('horarios.generar.grado');
-
-    // Vista previa y configuraciones
-    Route::get('/vista-previa', [HorarioGeneratorController::class, 'vistaPrevia'])
-        ->name('horarios.generar.vista-previa');
-
-    Route::get('/configuraciones', [HorarioGeneratorController::class, 'configuraciones'])
-        ->name('horarios.generar.configuraciones');
-
-    // Estadísticas
-    Route::get('/estadisticas', [HorarioGeneratorController::class, 'estadisticas'])
-        ->name('horarios.generar.estadisticas');
-
-    // Limpieza
-    Route::delete('/limpiar', [HorarioGeneratorController::class, 'limpiar'])
-        ->name('horarios.generar.limpiar');
-});
-
-// ============================================
-// RUTAS DE HORARIOS (Vista y Búsqueda)
-// ============================================
-Route::prefix('horarios')->group(function () {
-    // GET - Listar y buscar
-    Route::get('/', [HorarioController::class, 'index']);
-    Route::get('/profesor/{profesorId}', [HorarioController::class, 'getByProfesor']);
-    Route::get('/grado/{gradoId}', [HorarioController::class, 'getByGrado']);
-    Route::get('/dia/{dia}', [HorarioController::class, 'getByDia']);
-    Route::get('/{id}', [HorarioController::class, 'show']);
-
-    // PUT - Actualizar (con historial)
-    Route::put('/{id}', [HorarioController::class, 'update']);
-
-    // DELETE - Eliminar (con historial)
-    Route::delete('/{id}', [HorarioController::class, 'destroy']);
-});
-
-// ============================================
-// RUTAS DE HISTORIAL Y CONTROL DE CAMBIOS
-// ============================================
-Route::prefix('historial')->group(function () {
-    // GET - Listar historial
-    Route::get('/', [HistorialController::class, 'index']);
-    Route::get('/horario/{horarioId}', [HistorialController::class, 'getByHorario']);
-    Route::get('/versiones/{horarioId}', [HistorialController::class, 'getVersiones']);
-    Route::get('/estadisticas', [HistorialController::class, 'estadisticas']);
-    Route::get('/{id}', [HistorialController::class, 'show']);
-
-    // POST - Revertir cambios
-    Route::post('/revertir/{historialId}', [HistorialController::class, 'revertir']);
-});
-
-// ============================================
-// RUTAS DE EXPORTACIÓN
-// ============================================
-Route::prefix('exportar')->group(function () {
-    // Excel
-    Route::post('/excel', [ExportController::class, 'exportExcel']);
-    Route::get('/excel/download', [ExportController::class, 'downloadExcel']);
-
-    // PDF
-    Route::post('/pdf', [ExportController::class, 'exportPdf']);
-    Route::get('/pdf/download', [ExportController::class, 'downloadPdf']);
-
-    // Imagen (HTML para captura)
-    Route::get('/imagen/html', [ExportController::class, 'getHtmlForImage']);
-
-    // CSV
-    Route::post('/csv', [ExportController::class, 'exportCsv']);
+    // ============================================
+    // EXPORTACIÓN
+    // ============================================
+    Route::prefix('exportar')->group(function () {
+        Route::get('/filtros', [ExportController::class, 'filtrosDisponibles']);
+        Route::post('/excel', [ExportController::class, 'exportExcel']);
+        Route::get('/excel/download', [ExportController::class, 'downloadExcel']);
+        Route::post('/pdf', [ExportController::class, 'exportPdf']);
+        Route::get('/pdf/download', [ExportController::class, 'downloadPdf']);
+        Route::get('/imagen/html', [ExportController::class, 'getHtmlForImage']);
+        Route::post('/csv', [ExportController::class, 'exportCsv']);
+    });
 });
