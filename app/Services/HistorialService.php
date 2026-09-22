@@ -42,7 +42,7 @@ class HistorialService
     {
         return HistorialCambio::deHorario($horarioId)
             ->with('usuario')
-            ->orderBy('created_at', 'desc')
+            ->recientes()
             ->get();
     }
 
@@ -51,27 +51,49 @@ class HistorialService
      */
     public function getHistorialGeneral(array $filtros = []): \Illuminate\Database\Eloquent\Collection
     {
-        $query = HistorialCambio::with(['horario.profesor', 'horario.curso', 'usuario']);
+        $query = HistorialCambio::with([
+            'horario.profesor',
+            'horario.curso',
+            'horario.grado',
+            'horario.aula',
+            'usuario'
+        ]);
 
-        if (isset($filtros['accion'])) {
-            $query->accion($filtros['accion']);
+        // Filtros existentes
+        if (!empty($filtros['accion'])) {
+            $query->porAccion($filtros['accion']);
         }
 
-        if (isset($filtros['usuario_id'])) {
-            $query->usuario($filtros['usuario_id']);
+        if (!empty($filtros['usuario_id'])) {
+            $query->porUsuario($filtros['usuario_id']);
         }
 
-        if (isset($filtros['fecha_inicio']) && isset($filtros['fecha_fin'])) {
-            $query->fecha($filtros['fecha_inicio'], $filtros['fecha_fin']);
+        if (!empty($filtros['fecha_inicio']) && !empty($filtros['fecha_fin'])) {
+            $query->porFecha($filtros['fecha_inicio'], $filtros['fecha_fin']);
         }
 
-        if (isset($filtros['profesor_id'])) {
-            $query->whereHas('horario', function($q) use ($filtros) {
-                $q->where('profesor_id', $filtros['profesor_id']);
-            });
+        if (!empty($filtros['profesor_id'])) {
+            $query->porProfesor($filtros['profesor_id']);
         }
 
-        return $query->orderBy('created_at', 'desc')
+        // NUEVOS FILTROS
+        if (!empty($filtros['grado_id'])) {
+            $query->porGrado($filtros['grado_id']);
+        }
+
+        if (!empty($filtros['aula_id'])) {
+            $query->porAula($filtros['aula_id']);
+        }
+
+        if (!empty($filtros['institucion'])) {
+            $query->porInstitucion($filtros['institucion']);
+        }
+
+        if (!empty($filtros['horario_id'])) {
+            $query->porHorario($filtros['horario_id']);
+        }
+
+        return $query->recientes()
             ->limit($filtros['limit'] ?? 100)
             ->get();
     }
@@ -83,37 +105,69 @@ class HistorialService
     {
         return DB::transaction(function () use ($historialId, $motivo) {
             $registro = HistorialCambio::findOrFail($historialId);
-            $horario = Horario::findOrFail($registro->horario_id);
+            $horario = Horario::withTrashed()->findOrFail($registro->horario_id);
 
             // Guardar el estado actual antes de revertir
             $estadoActual = $horario->toArray();
 
             // Si es una eliminación, restaurar
-            if ($registro->accion === 'eliminar') {
-                $horario->restore();
+            if ($registro->accion === HistorialCambio::ACCION_ELIMINAR) {
+                if ($horario->trashed()) {
+                    $horario->restore();
+                }
                 $horario->update(['estado' => 'activo']);
 
                 $this->registrarCambio(
                     $horario->id,
-                    'restaurar',
+                    HistorialCambio::ACCION_RESTAURAR,
+                    $estadoActual,
+                    $horario->fresh()->toArray(),
+                    $motivo ?? 'Revertido desde historial'
+                );
+
+                return $horario->fresh();
+            }
+
+            // Si es una actualización o creación, restaurar datos anteriores
+            if ($registro->accion === HistorialCambio::ACCION_ACTUALIZAR && $registro->datos_anteriores) {
+
+                // Si el horario está eliminado, restaurarlo primero
+                if ($horario->trashed()) {
+                    $horario->restore();
+                }
+
+                // Limpiar campos que no deben actualizarse
+                $datosAnteriores = $registro->datos_anteriores;
+                unset(
+                    $datosAnteriores['id'],
+                    $datosAnteriores['created_at'],
+                    $datosAnteriores['updated_at'],
+                    $datosAnteriores['deleted_at']
+                );
+
+                $horario->update($datosAnteriores);
+
+                $this->registrarCambio(
+                    $horario->id,
+                    HistorialCambio::ACCION_REVERTIR,
                     $estadoActual,
                     $horario->toArray(),
                     $motivo ?? 'Revertido desde historial'
                 );
 
-                return $horario;
+                return $horario->fresh();
             }
 
-            // Si es una actualización o creación, restaurar datos anteriores
-            if ($registro->accion === 'actualizar' && $registro->datos_anteriores) {
-                $horario->update($registro->datos_anteriores);
+            // Si es una creación, eliminar (soft delete)
+            if ($registro->accion === HistorialCambio::ACCION_CREAR) {
+                $horario->delete();
 
                 $this->registrarCambio(
                     $horario->id,
-                    'revertir',
+                    HistorialCambio::ACCION_ELIMINAR,
                     $estadoActual,
-                    $horario->toArray(),
-                    $motivo ?? 'Revertido desde historial'
+                    null,
+                    $motivo ?? 'Revertido desde historial (creación)'
                 );
 
                 return $horario;
@@ -140,7 +194,8 @@ class HistorialService
                 'version' => $versionActual,
                 'fecha' => $registro->created_at,
                 'accion' => $registro->accion,
-                'usuario' => $registro->usuario?->name ?? 'Sistema',
+                'accion_formateada' => $registro->accion_formateada,
+                'usuario' => $registro->usuario_nombre,
                 'datos' => $registro->datos_nuevos ?? $registro->datos_anteriores,
                 'motivo' => $registro->motivo,
                 'id_historial' => $registro->id,
@@ -149,20 +204,51 @@ class HistorialService
         }
 
         // Agregar la versión actual del horario
-        $horario = Horario::find($horarioId);
+        $horario = Horario::withTrashed()->find($horarioId);
         if ($horario) {
             $versiones[] = [
                 'version' => $versionActual,
                 'fecha' => $horario->updated_at,
-                'accion' => 'actual',
+                'accion' => $horario->trashed() ? 'eliminado' : 'actual',
+                'accion_formateada' => $horario->trashed() ? 'Eliminado' : 'Estado actual',
                 'usuario' => 'Sistema',
                 'datos' => $horario->toArray(),
-                'motivo' => 'Estado actual del horario',
+                'motivo' => $horario->trashed() ? 'Horario eliminado' : 'Estado actual del horario',
                 'id_historial' => null,
             ];
         }
 
         return array_reverse($versiones);
+    }
+
+    /**
+     * Restaurar un horario eliminado
+     */
+    public function restaurarHorario(int $horarioId, ?string $motivo = null): Horario
+    {
+        return DB::transaction(function () use ($horarioId, $motivo) {
+            $horario = Horario::withTrashed()->findOrFail($horarioId);
+
+            if (!$horario->trashed()) {
+                throw ValidationException::withMessages([
+                    'horario' => 'El horario no está eliminado'
+                ]);
+            }
+
+            $estadoAnterior = $horario->toArray();
+            $horario->restore();
+            $horario->update(['estado' => 'activo']);
+
+            $this->registrarCambio(
+                $horario->id,
+                HistorialCambio::ACCION_RESTAURAR,
+                $estadoAnterior,
+                $horario->fresh()->toArray(),
+                $motivo ?? 'Restauración manual'
+            );
+
+            return $horario->fresh();
+        });
     }
 
     /**
@@ -187,8 +273,21 @@ class HistorialService
         ->limit(7)
         ->get();
 
+        $cambiosPorUsuario = HistorialCambio::select('usuario_id', DB::raw('count(*) as total'))
+            ->with('usuario:id,name')
+            ->groupBy('usuario_id')
+            ->orderBy('total', 'desc')
+            ->limit(5)
+            ->get();
+
+        $cambiosPorInstitucion = HistorialCambio::with('horario')
+            ->get()
+            ->groupBy(fn($c) => $c->horario?->institucion ?? 'desconocido')
+            ->map(fn($group) => $group->count())
+            ->toArray();
+
         $ultimosCambios = HistorialCambio::with(['horario.profesor', 'usuario'])
-            ->orderBy('created_at', 'desc')
+            ->recientes()
             ->limit(10)
             ->get();
 
@@ -196,6 +295,8 @@ class HistorialService
             'total_cambios' => $totalCambios,
             'cambios_por_accion' => $cambiosPorAccion,
             'cambios_por_dia' => $cambiosPorDia,
+            'cambios_por_usuario' => $cambiosPorUsuario,
+            'cambios_por_institucion' => $cambiosPorInstitucion,
             'ultimos_cambios' => $ultimosCambios,
         ];
     }

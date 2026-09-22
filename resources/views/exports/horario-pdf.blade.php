@@ -145,6 +145,7 @@
                 <th>Curso</th>
                 <th>Grado</th>
                 <th>Aula</th>
+                <th>Institución</th>
                 <th>Día</th>
                 <th>Hora Inicio</th>
                 <th>Hora Fin</th>
@@ -160,6 +161,7 @@
                     <td>{{ $h->curso->nombre ?? 'N/A' }}</td>
                     <td>{{ $h->grado->nombre_completo ?? 'N/A' }}</td>
                     <td>{{ $h->aula->nombre ?? 'N/A' }}</td>
+                    <td>{{ ucfirst($h->institucion ?? 'N/A') }}</td>
                     <td>{{ ucfirst($h->dia_semana) }}</td>
                     <td>{{ $h->hora_inicio }}</td>
                     <td>{{ $h->hora_fin }}</td>
@@ -172,7 +174,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="10" style="text-align: center; padding: 20px;">
+                    <td colspan="11" style="text-align: center; padding: 20px;">
                         No hay horarios disponibles
                     </td>
                 </tr>

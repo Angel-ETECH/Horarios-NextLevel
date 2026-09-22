@@ -19,11 +19,23 @@ class HistorialController extends Controller
 
     /**
      * GET /api/historial
-     * Obtener todo el historial de cambios
+     * Obtener todo el historial
      */
     public function index(Request $request): JsonResponse
     {
-        $filtros = $request->only(['accion', 'usuario_id', 'fecha_inicio', 'fecha_fin', 'profesor_id', 'limit']);
+        $filtros = $request->only([
+            'accion',
+            'usuario_id',
+            'fecha_inicio',
+            'fecha_fin',
+            'profesor_id',
+            'grado_id',
+            'curso_id',
+            'aula_id',
+            'institucion',
+            'horario_id',
+            'limit',
+        ]);
 
         $historial = $this->historialService->getHistorialGeneral($filtros);
 
@@ -37,7 +49,6 @@ class HistorialController extends Controller
 
     /**
      * GET /api/historial/horario/{horarioId}
-     * Obtener historial de un horario específico
      */
     public function getByHorario(int $horarioId): JsonResponse
     {
@@ -53,7 +64,6 @@ class HistorialController extends Controller
 
     /**
      * GET /api/historial/versiones/{horarioId}
-     * Obtener versiones de un horario
      */
     public function getVersiones(int $horarioId): JsonResponse
     {
@@ -69,7 +79,6 @@ class HistorialController extends Controller
 
     /**
      * POST /api/historial/revertir/{historialId}
-     * Revertir a una versión anterior
      */
     public function revertir(int $historialId, Request $request): JsonResponse
     {
@@ -85,18 +94,56 @@ class HistorialController extends Controller
                 'data' => $horario->load(['profesor', 'curso', 'aula', 'grado']),
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al revertir el cambio',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/historial/restaurar/{horarioId}
+     * Restaurar un horario eliminado
+     */
+    public function restaurar(int $horarioId, Request $request): JsonResponse
+    {
+        try {
+            $horario = $this->historialService->restaurarHorario(
+                $horarioId,
+                $request->motivo ?? 'Restauración manual'
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Horario restaurado exitosamente',
+                'data' => $horario->load(['profesor', 'curso', 'aula', 'grado']),
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
             ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al restaurar el horario',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     /**
      * GET /api/historial/estadisticas
-     * Obtener estadísticas de cambios
      */
     public function estadisticas(): JsonResponse
     {
@@ -110,7 +157,6 @@ class HistorialController extends Controller
 
     /**
      * GET /api/historial/{id}
-     * Obtener un registro de historial específico
      */
     public function show(int $id): JsonResponse
     {

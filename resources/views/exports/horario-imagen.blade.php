@@ -181,15 +181,16 @@
             <thead>
                 <tr>
                     <th style="width: 40px;">#</th>
-                    <th style="width: 180px;">Profesor</th>
-                    <th style="width: 180px;">Curso</th>
-                    <th style="width: 140px;">Grado</th>
-                    <th style="width: 100px;">Aula</th>
-                    <th style="width: 80px;">Día</th>
-                    <th style="width: 90px;">Hora Inicio</th>
-                    <th style="width: 90px;">Hora Fin</th>
-                    <th style="width: 70px;">Turno</th>
-                    <th style="width: 80px;">Estado</th>
+                    <th style="width: 160px;">Profesor</th>
+                    <th style="width: 160px;">Curso</th>
+                    <th style="width: 120px;">Grado</th>
+                    <th style="width: 80px;">Aula</th>
+                    <th style="width: 90px;">Institución</th>
+                    <th style="width: 70px;">Día</th>
+                    <th style="width: 80px;">Hora Inicio</th>
+                    <th style="width: 80px;">Hora Fin</th>
+                    <th style="width: 60px;">Turno</th>
+                    <th style="width: 70px;">Estado</th>
                 </tr>
             </thead>
             <tbody>
@@ -209,6 +210,7 @@
                             <br>
                             <small style="color: #999; font-size: 10px;">Cap: {{ $h->aula->capacidad ?? 0 }}</small>
                         </td>
+                        <td>{{ ucfirst($h->institucion ?? 'N/A') }}</td>
                         <td>{{ ucfirst($h->dia_semana) }}</td>
                         <td>{{ $h->hora_inicio }}</td>
                         <td>{{ $h->hora_fin }}</td>
@@ -221,7 +223,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10" style="text-align: center; padding: 40px; color: #999;">
+                        <td colspan="11" style="text-align: center; padding: 40px; color: #999;">
                             📭 No hay horarios disponibles para exportar
                         </td>
                     </tr>
