@@ -23,19 +23,43 @@ import './secciones/horarios';
 // =========================================================
 // CONFIGURACIÓN DE AUTENTICACIÓN SIMULADA
 // =========================================================
+//
+// IMPORTANTE:
+//
+// Actualmente solamente el login utiliza una simulación
+// mediante localStorage.
+//
+// El registro NO almacenará contraseñas en localStorage.
+//
+// Cuando el backend esté terminado, esta autenticación
+// simulada será reemplazada por la autenticación real.
+//
+// =========================================================
 
 const AUTH_KEY =
     'nextlevel_auth';
 
+
 const RUTA_LOGIN =
     '/login';
+
+
+const RUTA_REGISTRO =
+    '/registro';
+
 
 const RUTA_DASHBOARD =
     '/';
 
+
 const RUTAS_PUBLICAS = [
+
     '/login',
+
+    '/registro',
+
     '/consulta-horarios'
+
 ];
 
 
@@ -76,18 +100,14 @@ function estaAutenticado() {
     return (
         localStorage.getItem(
             AUTH_KEY
-        ) === 'true'
+        ) ===
+        'true'
     );
 }
 
 
 // =========================================================
 // MOSTRAR LA PÁGINA
-// =========================================================
-//
-// El layout del panel utiliza "invisible" para evitar
-// que se vea el contenido antes de comprobar la sesión.
-//
 // =========================================================
 
 function mostrarPagina() {
@@ -101,28 +121,12 @@ function mostrarPagina() {
 // =========================================================
 // PROTEGER NAVEGACIÓN
 // =========================================================
-//
-// REGLAS:
-//
-// 1. /login
-//    Si YA existe sesión, no puede quedarse en Login.
-//    Se envía al Dashboard.
-//
-// 2. /consulta-horarios
-//    Siempre es pública.
-//
-// 3. Cualquier ruta del panel
-//    necesita nextlevel_auth = true.
-//
-// window.location.replace() evita agregar la redirección
-// al historial del navegador.
-//
-// =========================================================
 
 function protegerNavegacion() {
 
     const rutaActual =
         obtenerRutaActual();
+
 
     const autenticado =
         estaAutenticado();
@@ -130,12 +134,6 @@ function protegerNavegacion() {
 
     // =====================================================
     // LOGIN
-    // =====================================================
-    //
-    // Si el usuario ya inició sesión e intenta volver
-    // al Login mediante la flecha Atrás, lo devolvemos
-    // inmediatamente al Dashboard.
-    //
     // =====================================================
 
     if (
@@ -160,7 +158,36 @@ function protegerNavegacion() {
 
 
     // =====================================================
-    // CONSULTA PÚBLICA DE HORARIOS
+    // REGISTRO
+    // =====================================================
+
+    if (
+        rutaActual ===
+        RUTA_REGISTRO
+    ) {
+
+        /*
+         * Si ya inició sesión, no tiene sentido
+         * permanecer en Registro.
+         */
+        if (autenticado) {
+
+            window.location.replace(
+                RUTA_DASHBOARD
+            );
+
+            return false;
+        }
+
+
+        mostrarPagina();
+
+        return true;
+    }
+
+
+    // =====================================================
+    // DEMÁS RUTAS PÚBLICAS
     // =====================================================
 
     if (
@@ -176,12 +203,7 @@ function protegerNavegacion() {
 
 
     // =====================================================
-    // RUTAS PRIVADAS DEL PANEL
-    // =====================================================
-    //
-    // Si cerró sesión y usa Atrás, no permitimos volver
-    // al Dashboard ni a ningún módulo administrativo.
-    //
+    // RUTAS PRIVADAS
     // =====================================================
 
     if (!autenticado) {
@@ -194,7 +216,6 @@ function protegerNavegacion() {
     }
 
 
-    // Sesión válida
     mostrarPagina();
 
     return true;
@@ -231,9 +252,13 @@ document.addEventListener(
             'click',
             () => {
 
-                // =========================================
-                // ELIMINAR SOLO DATOS DE SESIÓN
-                // =========================================
+                /*
+                 * Solamente eliminamos información
+                 * relacionada con la sesión.
+                 *
+                 * NO eliminamos profesores, horarios,
+                 * cursos, aulas, etc.
+                 */
 
                 localStorage.removeItem(
                     'nextlevel_auth'
@@ -248,15 +273,6 @@ document.addEventListener(
                 );
 
 
-                // =========================================
-                // IR AL LOGIN
-                // =========================================
-                //
-                // replace() evita que el Dashboard quede
-                // como la página inmediatamente anterior.
-                //
-                // =========================================
-
                 window.location.replace(
                     RUTA_LOGIN
                 );
@@ -267,17 +283,7 @@ document.addEventListener(
 
 
 // =========================================================
-// PROTECCIÓN CONTRA ATRÁS / ADELANTE
-// =========================================================
-//
-// Los navegadores pueden recuperar una página desde
-// BFCache sin volver a ejecutar DOMContentLoaded.
-//
-// "pageshow" se ejecuta también cuando una página vuelve
-// mediante las flechas Atrás o Adelante.
-//
-// Por eso volvemos a comprobar la sesión aquí.
-//
+// ATRÁS / ADELANTE DEL NAVEGADOR
 // =========================================================
 
 window.addEventListener(
@@ -290,12 +296,7 @@ window.addEventListener(
 
 
 // =========================================================
-// DETECTAR CAMBIOS DE SESIÓN ENTRE PESTAÑAS
-// =========================================================
-//
-// Si se cierra la sesión desde otra pestaña, esta página
-// también vuelve a validar su acceso.
-//
+// CAMBIOS DE SESIÓN ENTRE PESTAÑAS
 // =========================================================
 
 window.addEventListener(

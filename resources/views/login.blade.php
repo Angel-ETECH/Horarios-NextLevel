@@ -762,6 +762,32 @@
                         </button>
 
                     </form>
+                    {{-- =================================================
+     REGISTRO DE NUEVO USUARIO
+================================================= --}}
+
+<div class="mt-5 text-center">
+
+    <p class="text-sm text-slate-500">
+
+        ¿No tienes una cuenta?
+
+        <a
+            href="{{ route('register') }}"
+            class="
+                ml-1
+                font-bold
+                transition
+                hover:underline
+            "
+            style="color:#1B3A6B;"
+        >
+            Crear cuenta
+        </a>
+
+    </p>
+
+</div>
 
 
 
