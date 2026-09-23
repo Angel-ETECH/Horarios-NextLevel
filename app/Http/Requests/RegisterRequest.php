@@ -21,10 +21,9 @@ class RegisterRequest extends FormRequest
             'password' => [
                 'required',
                 'confirmed',
-                Password::min(6)
-                    ->letters()
-                    ->numbers(),
+                Password::min(6)->letters()->numbers(),
             ],
+            'codigo_invitacion' => 'required|string',
         ];
     }
 
@@ -39,6 +38,7 @@ class RegisterRequest extends FormRequest
             'password.required' => 'La contraseña es obligatoria',
             'password.confirmed' => 'Las contraseñas no coinciden',
             'password.min' => 'La contraseña debe tener al menos 6 caracteres',
+            'codigo_invitacion.required' => 'El código de invitación es obligatorio',
         ];
     }
 }

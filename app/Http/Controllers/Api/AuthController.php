@@ -63,11 +63,21 @@ class AuthController extends Controller
 
     /**
      * POST /api/auth/register
-     * Registrar nuevo administrador
+     * Registrar nuevo administrador (requiere código de invitación)
      */
     public function register(RegisterRequest $request): JsonResponse
     {
         try {
+            $codigoEsperado = config('auth.admin_invitation_code');
+            $codigoRecibido = $request->codigo_invitacion;
+
+            if (empty($codigoEsperado) || $codigoRecibido !== $codigoEsperado) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El código de invitación es inválido',
+                ], 403);
+            }
+
             // Crear usuario
             $user = User::create([
                 'name' => $request->name,
@@ -80,7 +90,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Usuario registrado exitosamente',
+                'message' => 'Usuario administrador registrado exitosamente',
                 'data' => [
                     'user' => [
                         'id' => $user->id,
