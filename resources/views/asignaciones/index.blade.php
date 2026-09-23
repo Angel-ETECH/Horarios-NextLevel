@@ -94,6 +94,7 @@
     .nl-select-trigger:focus {
         outline: none;
         border-color: var(--azul-noche);
+
         box-shadow:
             0 0 0 4px rgba(27, 58, 107, .08),
             0 7px 18px rgba(15, 39, 73, .07);
@@ -101,6 +102,7 @@
 
     .nl-select.open .nl-select-trigger {
         border-color: var(--azul-noche);
+
         box-shadow:
             0 0 0 4px rgba(27, 58, 107, .08),
             0 7px 18px rgba(15, 39, 73, .07);
@@ -123,11 +125,12 @@
 
         border-radius: 10px;
 
-        background: linear-gradient(
-            135deg,
-            #EEF4FB,
-            #E3EBF5
-        );
+        background:
+            linear-gradient(
+                135deg,
+                #EEF4FB,
+                #E3EBF5
+            );
 
         color: var(--azul-noche);
     }
@@ -186,7 +189,8 @@
 
         color: #64748B;
 
-        transition: transform .2s ease;
+        transition:
+            transform .2s ease;
     }
 
     .nl-select.open .nl-select-arrow {
@@ -420,34 +424,6 @@
     }
 
     /* =========================================================
-       DÍAS
-    ========================================================= */
-
-    .dia-asignacion-label {
-        transition:
-            border-color .18s ease,
-            background .18s ease,
-            color .18s ease,
-            box-shadow .18s ease,
-            transform .18s ease;
-    }
-
-    .dia-asignacion-label:hover {
-        border-color: #A9BAD0;
-    }
-
-    .dia-asignacion-label.activo {
-        border-color: var(--azul-noche);
-
-        background: rgba(27, 58, 107, .07);
-
-        color: var(--azul-oscuro);
-
-        box-shadow:
-            0 0 0 3px rgba(27, 58, 107, .055);
-    }
-
-    /* =========================================================
        BOTONES
     ========================================================= */
 
@@ -464,6 +440,13 @@
             0 12px 28px rgba(219, 8, 8, .22);
     }
 
+    .asignaciones-primary:disabled {
+        cursor: not-allowed;
+        opacity: .65;
+        transform: none;
+        box-shadow: none;
+    }
+
     .asignaciones-secondary {
         transition:
             transform .2s ease,
@@ -474,21 +457,24 @@
     .asignaciones-secondary:hover {
         transform: translateY(-1px);
 
-        border-color: rgba(27, 58, 107, .25);
+        border-color:
+            rgba(27, 58, 107, .25);
 
         background: #F8FAFC;
     }
 
     .asignaciones-table-row {
-        transition: background .18s ease;
+        transition:
+            background .18s ease;
     }
 
     .asignaciones-table-row:hover {
-        background: linear-gradient(
-            90deg,
-            rgba(27, 58, 107, .025),
-            rgba(219, 8, 8, .015)
-        );
+        background:
+            linear-gradient(
+                90deg,
+                rgba(27, 58, 107, .025),
+                rgba(219, 8, 8, .015)
+            );
     }
 
     /* =========================================================
@@ -496,7 +482,6 @@
     ========================================================= */
 
     @media (max-width: 640px) {
-
         .nl-select-trigger {
             min-height: 50px;
 
@@ -525,7 +510,6 @@
             max-height: 215px;
         }
     }
-
 </style>
 
 
@@ -580,7 +564,7 @@
             </h1>
 
             <p class="mt-1 text-sm text-slate-500">
-                Asigna manualmente una clase respetando la disponibilidad del profesor.
+                Asigna profesores a cursos y grados según su carga horaria.
             </p>
 
         </div>
@@ -592,7 +576,14 @@
          INFORMACIÓN
     ========================================================== --}}
 
-    <div class="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+    <div
+        class="
+            rounded-2xl
+            border border-blue-200
+            bg-blue-50
+            p-4
+        "
+    >
 
         <div class="flex items-start gap-3">
 
@@ -624,12 +615,12 @@
             <div>
 
                 <p class="text-sm font-semibold text-slate-800">
-                    Asignación manual validada
+                    Asignación académica
                 </p>
 
                 <p class="mt-1 text-xs leading-5 text-slate-600">
-                    El horario debe respetar la disponibilidad registrada del profesor
-                    y no generar conflictos con otras clases.
+                    Define qué profesor estará asociado a un curso y grado,
+                    cuántas horas tendrá asignadas y cuál será su rol.
                 </p>
 
             </div>
@@ -643,7 +634,16 @@
          FORMULARIO
     ========================================================== --}}
 
-    <div class="asignaciones-card overflow-visible rounded-2xl bg-white">
+    <div
+        class="
+            asignaciones-card
+            overflow-visible
+            rounded-2xl
+            bg-white
+        "
+    >
+
+        {{-- HEADER FORMULARIO --}}
 
         <div
             class="
@@ -668,7 +668,9 @@
                     items-center justify-center
                     rounded-xl
                 "
-                style="background:rgba(27,58,107,.08);"
+                style="
+                    background:rgba(27,58,107,.08);
+                "
             >
 
                 <svg
@@ -694,7 +696,7 @@
                 </h2>
 
                 <p class="mt-1 text-xs text-slate-500">
-                    Elige profesor, institución, curso, aula, días y horario.
+                    Completa los datos académicos de la asignación.
                 </p>
 
             </div>
@@ -721,7 +723,10 @@
             <div>
 
                 <label
-                    class="mb-2 block text-sm font-semibold"
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
                     style="color:#0F2749;"
                 >
                     Profesor
@@ -754,7 +759,10 @@
             <div>
 
                 <label
-                    class="mb-2 block text-sm font-semibold"
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
                     style="color:#0F2749;"
                 >
                     Institución
@@ -765,6 +773,7 @@
                     id="asignacion-institucion"
                     class="nl-native-select"
                 >
+
                     <option value="">
                         Seleccionar institución
                     </option>
@@ -776,6 +785,7 @@
                     <option value="academia">
                         Academia
                     </option>
+
                 </select>
 
                 <div
@@ -795,10 +805,13 @@
             <div>
 
                 <label
-                    class="mb-2 block text-sm font-semibold"
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
                     style="color:#0F2749;"
                 >
-                    Curso / Carrera
+                    Curso
                     <span class="text-red-600">*</span>
                 </label>
 
@@ -806,9 +819,11 @@
                     id="asignacion-curso"
                     class="nl-native-select"
                 >
+
                     <option value="">
                         Seleccionar curso
                     </option>
+
                 </select>
 
                 <div
@@ -825,22 +840,28 @@
 
             {{-- GRADO --}}
 
-            <div id="grado-container">
+            <div>
 
                 <label
-                    class="mb-2 block text-sm font-semibold"
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
                     style="color:#0F2749;"
                 >
                     Grado / Sección
+                    <span class="text-red-600">*</span>
                 </label>
 
                 <select
                     id="asignacion-grado"
                     class="nl-native-select"
                 >
+
                     <option value="">
                         Seleccionar grado
                     </option>
+
                 </select>
 
                 <div
@@ -854,211 +875,148 @@
 
                 <p
                     id="grado-help"
-                    class="mt-1.5 text-xs text-slate-500"
+                    class="
+                        mt-1.5
+                        text-xs
+                        text-slate-500
+                    "
                 >
-                    Selecciona el grado y sección del colegio.
+                    Selecciona el grado asociado a la asignación.
                 </p>
 
             </div>
 
 
-            {{-- AULA --}}
+            {{-- HORAS ASIGNADAS --}}
 
             <div>
 
                 <label
-                    class="mb-2 block text-sm font-semibold"
+                    for="asignacion-horas"
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
                     style="color:#0F2749;"
                 >
-                    Aula
+                    Horas asignadas
+                    <span class="text-red-600">*</span>
+                </label>
+
+                <div class="relative">
+
+                    <div
+                        class="
+                            pointer-events-none
+                            absolute
+                            left-4 top-1/2
+                            -translate-y-1/2
+                            text-slate-400
+                        "
+                    >
+
+                        <svg
+                            class="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                        >
+                            <circle cx="12" cy="12" r="9"/>
+                            <path d="M12 7v5l3 2"/>
+                        </svg>
+
+                    </div>
+
+                    <input
+                        id="asignacion-horas"
+                        type="number"
+                        min="1"
+                        max="40"
+                        step="1"
+                        placeholder="Ej. 6"
+                        class="
+                            asignaciones-input
+                            min-h-[52px]
+                            w-full
+                            rounded-xl
+                            border border-slate-200
+                            bg-white
+                            pl-12 pr-4
+                            text-sm
+                            text-slate-700
+                            outline-none
+                        "
+                    >
+
+                </div>
+
+                <p class="mt-1.5 text-xs text-slate-500">
+                    Entre 1 y 40 horas.
+                </p>
+
+            </div>
+
+
+            {{-- ROL --}}
+
+            <div>
+
+                <label
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
+                    style="color:#0F2749;"
+                >
+                    Rol
                     <span class="text-red-600">*</span>
                 </label>
 
                 <select
-                    id="asignacion-aula"
+                    id="asignacion-rol"
                     class="nl-native-select"
                 >
+
                     <option value="">
-                        Seleccionar aula
+                        Seleccionar rol
                     </option>
+
+                    <option value="titular">
+                        Titular
+                    </option>
+
+                    <option value="asistente">
+                        Asistente
+                    </option>
+
+                    <option value="suplente">
+                        Suplente
+                    </option>
+
                 </select>
 
                 <div
                     class="nl-select"
-                    data-custom-select="asignacion-aula"
-                    data-label="Aula"
-                    data-search="true"
-                    data-placeholder="Seleccionar aula"
-                    data-icon="aula"
+                    data-custom-select="asignacion-rol"
+                    data-label="Rol"
+                    data-search="false"
+                    data-placeholder="Seleccionar rol"
+                    data-icon="rol"
                 ></div>
 
             </div>
 
 
-            {{-- DÍAS --}}
+            {{-- ESTADO --}}
 
             <div>
 
                 <label
-                    class="mb-2 block text-sm font-semibold"
-                    style="color:#0F2749;"
-                >
-                    Días
-                    <span class="text-red-600">*</span>
-                </label>
-
-                <div
-                    id="asignacion-dias"
                     class="
-                        min-h-[52px]
-                        rounded-xl
-                        border border-slate-200
-                        bg-white
-                        p-2
+                        mb-2 block
+                        text-sm font-semibold
                     "
-                >
-
-                    <span class="px-2 text-xs text-slate-400">
-                        Selecciona profesor e institución.
-                    </span>
-
-                </div>
-
-                <p class="mt-1.5 text-xs text-slate-500">
-                    Puedes seleccionar uno o varios días disponibles.
-                </p>
-
-            </div>
-
-
-            {{-- HORA INICIO --}}
-
-            <div>
-
-                <label
-                    class="mb-2 block text-sm font-semibold"
-                    style="color:#0F2749;"
-                >
-                    Hora inicio
-                    <span class="text-red-600">*</span>
-                </label>
-
-                <input
-                    id="asignacion-hora-inicio"
-                    type="time"
-                    step="60"
-                    disabled
-                    class="
-                        asignaciones-input
-                        min-h-[52px]
-                        w-full
-                        rounded-xl
-                        border border-slate-200
-                        bg-white
-                        px-4
-                        text-sm
-                        outline-none
-                        disabled:bg-slate-100
-                        disabled:text-slate-400
-                    "
-                >
-
-            </div>
-
-
-            {{-- HORA FIN --}}
-
-            <div>
-
-                <label
-                    class="mb-2 block text-sm font-semibold"
-                    style="color:#0F2749;"
-                >
-                    Hora fin
-                    <span class="text-red-600">*</span>
-                </label>
-
-                <input
-                    id="asignacion-hora-fin"
-                    type="time"
-                    step="60"
-                    disabled
-                    class="
-                        asignaciones-input
-                        min-h-[52px]
-                        w-full
-                        rounded-xl
-                        border border-slate-200
-                        bg-white
-                        px-4
-                        text-sm
-                        outline-none
-                        disabled:bg-slate-100
-                        disabled:text-slate-400
-                    "
-                >
-
-            </div>
-
-        </div>
-
-
-        {{-- =====================================================
-             DISPONIBILIDAD
-        ====================================================== --}}
-
-        <div class="border-t border-slate-200 px-5 py-5">
-
-            <div class="mb-3">
-
-                <h3
-                    class="text-sm font-bold"
-                    style="color:#0F2749;"
-                >
-                    Disponibilidad del profesor
-                </h3>
-
-                <p class="mt-1 text-xs text-slate-500">
-                    Rangos configurados en el módulo Disponibilidad.
-                </p>
-
-            </div>
-
-            <div
-                id="resumen-disponibilidad-profesor"
-                class="flex flex-wrap gap-2"
-            >
-
-                <span class="text-xs text-slate-400">
-                    Selecciona profesor e institución.
-                </span>
-
-            </div>
-
-            <div
-                id="estado-disponibilidad-asignacion"
-                class="mt-4 hidden rounded-xl border p-3 text-sm"
-            ></div>
-
-        </div>
-
-
-        {{-- =====================================================
-             ESTADO
-        ====================================================== --}}
-
-        <div
-            class="
-                border-t border-slate-200
-                px-5 py-5
-            "
-            style="background:rgba(248,250,252,.55);"
-        >
-
-            <div class="max-w-sm">
-
-                <label
-                    class="mb-2 block text-sm font-semibold"
                     style="color:#0F2749;"
                 >
                     Estado
@@ -1068,13 +1026,15 @@
                     id="asignacion-estado"
                     class="nl-native-select"
                 >
-                    <option value="activo">
+
+                    <option value="1">
                         Activo
                     </option>
 
-                    <option value="inactivo">
+                    <option value="0">
                         Inactivo
                     </option>
+
                 </select>
 
                 <div
@@ -1088,7 +1048,85 @@
 
             </div>
 
+
+            {{-- OBSERVACIONES --}}
+
+            <div
+                class="
+                    md:col-span-2
+                    xl:col-span-4
+                "
+            >
+
+                <label
+                    for="asignacion-observaciones"
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
+                    style="color:#0F2749;"
+                >
+                    Observaciones
+                </label>
+
+                <textarea
+                    id="asignacion-observaciones"
+                    rows="3"
+                    maxlength="255"
+                    placeholder="Añade alguna observación sobre la asignación..."
+                    class="
+                        asignaciones-input
+                        w-full
+                        resize-none
+                        rounded-xl
+                        border border-slate-200
+                        bg-white
+                        px-4 py-3
+                        text-sm
+                        text-slate-700
+                        outline-none
+                    "
+                ></textarea>
+
+                <div
+                    class="
+                        mt-1.5
+                        flex items-center
+                        justify-between
+                        gap-3
+                    "
+                >
+
+                    <p class="text-xs text-slate-500">
+                        Campo opcional.
+                    </p>
+
+                    <p
+                        id="asignacion-observaciones-contador"
+                        class="text-xs text-slate-400"
+                    >
+                        0 / 255
+                    </p>
+
+                </div>
+
+            </div>
+
         </div>
+
+
+        {{-- =====================================================
+             MENSAJE / ESTADO
+        ====================================================== --}}
+
+        <div
+            id="estado-asignacion"
+            class="
+                hidden
+                border-t border-slate-200
+                px-5 py-4
+            "
+        ></div>
 
 
         {{-- =====================================================
@@ -1119,31 +1157,50 @@
                 type="button"
                 class="
                     asignaciones-secondary
-                    inline-flex items-center
+                    inline-flex
+                    items-center
                     justify-center
                     gap-2
                     rounded-xl
                     border border-slate-200
                     bg-white
                     px-5 py-2.5
-                    text-sm font-semibold
+                    text-sm
+                    font-semibold
                     text-slate-600
                 "
             >
+
+                <svg
+                    class="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <path d="M4 7h16"/>
+                    <path d="M6 7l1 13h10l1-13"/>
+                    <path d="M9 7V4h6v3"/>
+                </svg>
+
                 Limpiar
+
             </button>
+
 
             <button
                 id="guardar-asignacion"
                 type="button"
                 class="
                     asignaciones-primary
-                    inline-flex items-center
+                    inline-flex
+                    items-center
                     justify-center
                     gap-2
                     rounded-xl
                     px-5 py-2.5
-                    text-sm font-semibold
+                    text-sm
+                    font-semibold
                     text-white
                 "
                 style="
@@ -1166,7 +1223,9 @@
                     <path d="M12 5v14M5 12h14"/>
                 </svg>
 
-                Crear asignación
+                <span id="guardar-asignacion-texto">
+                    Crear asignación
+                </span>
 
             </button>
 
@@ -1179,7 +1238,14 @@
          TABLA
     ========================================================== --}}
 
-    <div class="asignaciones-card overflow-hidden rounded-2xl bg-white">
+    <div
+        class="
+            asignaciones-card
+            overflow-hidden
+            rounded-2xl
+            bg-white
+        "
+    >
 
         <div
             class="
@@ -1202,66 +1268,190 @@
                 </h2>
 
                 <p class="mt-1 text-xs text-slate-500">
-                    Clases actualmente ubicadas en el horario.
+                    Profesores asociados a cursos y grados.
                 </p>
 
             </div>
 
-            <input
-                id="buscar-asignacion"
-                type="text"
-                placeholder="Buscar asignación..."
+
+            <div
                 class="
-                    asignaciones-input
-                    w-full
-                    rounded-xl
-                    border border-slate-200
-                    px-4 py-2.5
-                    text-sm
-                    outline-none
-                    md:w-72
+                    flex w-full
+                    flex-col gap-2
+                    sm:flex-row
+                    md:w-auto
                 "
             >
 
+                <select
+                    id="filtro-institucion-asignaciones"
+                    class="
+                        asignaciones-input
+                        rounded-xl
+                        border border-slate-200
+                        bg-white
+                        px-3 py-2.5
+                        text-sm
+                        text-slate-600
+                        outline-none
+                    "
+                >
+                    <option value="">
+                        Todas las instituciones
+                    </option>
+
+                    <option value="colegio">
+                        Colegio
+                    </option>
+
+                    <option value="academia">
+                        Academia
+                    </option>
+                </select>
+
+
+                <div class="relative w-full md:w-72">
+
+                    <svg
+                        class="
+                            absolute
+                            left-3 top-1/2
+                            h-4 w-4
+                            -translate-y-1/2
+                            text-slate-400
+                        "
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <circle cx="11" cy="11" r="7"/>
+                        <path d="m20 20-3.5-3.5"/>
+                    </svg>
+
+                    <input
+                        id="buscar-asignacion"
+                        type="text"
+                        placeholder="Buscar asignación..."
+                        class="
+                            asignaciones-input
+                            w-full
+                            rounded-xl
+                            border border-slate-200
+                            pl-10 pr-4
+                            py-2.5
+                            text-sm
+                            outline-none
+                        "
+                    >
+
+                </div>
+
+            </div>
+
         </div>
+
 
         <div class="overflow-x-auto">
 
-            <table class="w-full min-w-[1100px] text-left">
+            <table
+                class="
+                    w-full
+                    min-w-[1050px]
+                    text-left
+                "
+            >
 
                 <thead class="bg-slate-50">
 
                     <tr class="border-b border-slate-200">
 
-                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
                             Profesor
                         </th>
 
-                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
+                            Institución
+                        </th>
+
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
                             Curso
                         </th>
 
-                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
                             Grado
                         </th>
 
-                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
-                            Aula
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
+                            Horas
                         </th>
 
-                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
-                            Día
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
+                            Rol
                         </th>
 
-                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
-                            Horario
-                        </th>
-
-                        <th class="px-5 py-3 text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
                             Estado
                         </th>
 
-                        <th class="px-5 py-3 text-right text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
+                        <th
+                            class="
+                                px-5 py-3
+                                text-right
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
                             Acciones
                         </th>
 
@@ -1269,10 +1459,29 @@
 
                 </thead>
 
+
                 <tbody
                     id="asignaciones-body"
                     class="divide-y divide-slate-100"
-                ></tbody>
+                >
+
+                    <tr id="asignaciones-cargando">
+
+                        <td
+                            colspan="8"
+                            class="
+                                px-5 py-14
+                                text-center
+                                text-sm
+                                text-slate-400
+                            "
+                        >
+                            Cargando asignaciones...
+                        </td>
+
+                    </tr>
+
+                </tbody>
 
             </table>
 
