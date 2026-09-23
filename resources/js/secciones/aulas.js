@@ -4,272 +4,192 @@ document.addEventListener('DOMContentLoaded', () => {
     // GUARD
     // =========================================================
 
-    const modal =
-        document.getElementById('aula-modal');
+    const modal = document.getElementById('aula-modal');
+    const formulario = document.getElementById('aula-form');
+    const tabla = document.getElementById('aulas-body');
 
-    const formulario =
-        document.getElementById('aula-form');
-
-    const tabla =
-        document.getElementById('aulas-body');
-
-
-    if (
-        !modal ||
-        !formulario ||
-        !tabla
-    ) {
+    if (!modal || !formulario || !tabla) {
         return;
     }
 
-
     // =========================================================
-    // STORAGE
-    // =========================================================
-
-    const AULAS_KEY =
-        'nextlevel_aulas';
-
-
-    // =========================================================
-    // ELEMENTOS MODAL
+    // API
     // =========================================================
 
-    const abrirModal =
-        document.getElementById('open-aula-modal');
+    const API_URL = '/api/aulas';
 
-    const cerrarModalBtn =
-        document.getElementById('close-aula-modal');
+    // =========================================================
+    // ELEMENTOS
+    // =========================================================
 
-    const cancelarModal =
-        document.getElementById('cancel-aula-modal');
+    const abrirModal = document.getElementById('open-aula-modal');
+    const cerrarModalBtn = document.getElementById('close-aula-modal');
+    const cancelarModal = document.getElementById('cancel-aula-modal');
+    const overlay = document.getElementById('aula-modal-overlay');
 
-    const overlay =
-        document.getElementById('aula-modal-overlay');
+    const codigoInput = document.getElementById('aula-codigo');
+    const nombreInput = document.getElementById('aula-nombre');
+    const capacidadInput = document.getElementById('aula-capacidad');
+    const tipoInput = document.getElementById('aula-tipo');
+    const nivelInput = document.getElementById('aula-nivel');
+    const equipamientoInput = document.getElementById('aula-equipamiento');
+    const estadoInput = document.getElementById('aula-estado');
+    const observacionesInput = document.getElementById('aula-observaciones');
 
-
-    const codigoInput =
-        document.getElementById('aula-codigo');
-
-    const nombreInput =
-        document.getElementById('aula-nombre');
-
-    const capacidadInput =
-        document.getElementById('aula-capacidad');
-
-    const tipoInput =
-        document.getElementById('aula-tipo');
-
-    const nivelInput =
-        document.getElementById('aula-nivel');
-
-    const equipamientoInput =
-        document.getElementById('aula-equipamiento');
-
-    const estadoInput =
-        document.getElementById('aula-estado');
-
-    const observacionesInput =
-        document.getElementById('aula-observaciones');
-
-    const modalTitle =
-        document.getElementById('aula-modal-title');
-
-    const submitText =
-        document.getElementById('aula-submit-text');
-
+    const modalTitle = document.getElementById('aula-modal-title');
+    const submitText = document.getElementById('aula-submit-text');
+    const submitButton = document.getElementById('aula-submit-button');
 
     // =========================================================
     // FILTROS
     // =========================================================
 
-    const buscador =
-        document.getElementById('buscar-aula');
-
-    const filtroEstado =
-        document.getElementById('filtro-aula-estado');
-
-    const filtroTipo =
-        document.getElementById('filtro-aula-tipo');
-
-    const filtroNivel =
-        document.getElementById('filtro-aula-nivel');
-
+    const buscador = document.getElementById('buscar-aula');
+    const filtroEstado = document.getElementById('filtro-aula-estado');
+    const filtroTipo = document.getElementById('filtro-aula-tipo');
+    const filtroNivel = document.getElementById('filtro-aula-nivel');
 
     // =========================================================
     // CONTADORES
     // =========================================================
 
-    const totalAulas =
-        document.getElementById('total-aulas');
+    const totalAulas = document.getElementById('total-aulas');
+    const aulasActivas = document.getElementById('aulas-activas');
+    const aulasInactivas = document.getElementById('aulas-inactivas');
 
-    const aulasActivas =
-        document.getElementById('aulas-activas');
+    const resultadosAulas = document.getElementById('resultados-aulas');
+    const resultadosFooter = document.getElementById('resultados-aulas-footer');
+    const totalResultadosFooter = document.getElementById('total-resultados-aulas');
 
-    const aulasInactivas =
-        document.getElementById('aulas-inactivas');
-
-    const resultadosAulas =
-        document.getElementById('resultados-aulas');
-
-    const resultadosFooter =
-        document.getElementById('resultados-aulas-footer');
-
-    const totalResultadosFooter =
-        document.getElementById('total-resultados-aulas');
-
-    const paginacion =
-        document.getElementById('aulas-paginacion');
-
+    const paginacion = document.getElementById('aulas-paginacion');
 
     // =========================================================
     // MODAL ELIMINAR
     // =========================================================
 
-    const eliminarModal =
-        document.getElementById('delete-aula-modal');
-
-    const overlayEliminar =
-        document.getElementById('delete-aula-overlay');
-
-    const closeEliminar =
-        document.getElementById('close-delete-aula-modal');
-
-    const cancelEliminar =
-        document.getElementById('cancel-delete-aula');
-
-    const confirmEliminar =
-        document.getElementById('confirm-delete-aula');
-
-    const eliminarNombre =
-        document.getElementById('delete-aula-name');
-
+    const eliminarModal = document.getElementById('delete-aula-modal');
+    const overlayEliminar = document.getElementById('delete-aula-overlay');
+    const closeEliminar = document.getElementById('close-delete-aula-modal');
+    const cancelEliminar = document.getElementById('cancel-delete-aula');
+    const confirmEliminar = document.getElementById('confirm-delete-aula');
+    const eliminarNombre = document.getElementById('delete-aula-name');
 
     // =========================================================
     // ESTADO
     // =========================================================
 
-    let aulaEditandoId =
-        null;
+    let aulas = [];
+    let aulaEditandoId = null;
+    let aulaAEliminarId = null;
 
-    let aulaAEliminarId =
-        null;
+    let paginaActual = 1;
 
-    let paginaActual =
-        1;
-
-    const POR_PAGINA =
-        6;
-
-
-    // =========================================================
-    // STORAGE HELPERS
-    // =========================================================
-
-    function leerAulas() {
-
-        try {
-
-            const datos =
-                JSON.parse(
-                    localStorage.getItem(
-                        AULAS_KEY
-                    ) || '[]'
-                );
-
-
-            return Array.isArray(
-                datos
-            )
-                ? datos
-                : [];
-
-        } catch (error) {
-
-            console.error(
-                'Error leyendo aulas:',
-                error
-            );
-
-
-            return [];
-        }
-    }
-
-
-    function guardarAulas(
-        aulas
-    ) {
-
-        localStorage.setItem(
-            AULAS_KEY,
-            JSON.stringify(
-                aulas
-            )
-        );
-    }
-
+    const POR_PAGINA = 6;
 
     // =========================================================
     // UTILS
     // =========================================================
 
-    function normalizarTexto(
-        valor
-    ) {
-
-        return String(
-            valor ??
-            ''
-        )
+    function normalizarTexto(valor) {
+        return String(valor ?? '')
             .trim()
             .toLowerCase()
             .normalize('NFD')
-            .replace(
-                /[\u0300-\u036f]/g,
-                ''
-            );
+            .replace(/[\u0300-\u036f]/g, '');
     }
 
-
-    function esc(
-        valor
-    ) {
-
-        return String(
-            valor ??
-            ''
-        )
-            .replace(
-                /&/g,
-                '&amp;'
-            )
-            .replace(
-                /</g,
-                '&lt;'
-            )
-            .replace(
-                />/g,
-                '&gt;'
-            )
-            .replace(
-                /"/g,
-                '&quot;'
-            )
-            .replace(
-                /'/g,
-                '&#039;'
-            );
+    function esc(valor) {
+        return String(valor ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
+    function valorBooleano(valor) {
+        return (
+            valor === true ||
+            valor === 1 ||
+            valor === '1'
+        );
+    }
+
+    function obtenerAxios() {
+
+        if (window.axios) {
+            return window.axios;
+        }
+
+        console.error(
+            'Axios no está disponible. Verifica resources/js/app.js'
+        );
+
+        return null;
+    }
+
+    // =========================================================
+    // MENSAJES
+    // =========================================================
+
+    function mostrarMensajeError(mensaje) {
+        alert(mensaje);
+    }
+
+    function obtenerMensajeError(error) {
+
+        if (error?.response?.status === 401) {
+            return 'Autenticación requerida. La API está protegida con Sanctum.';
+        }
+
+        if (error?.response?.status === 403) {
+            return 'No tienes permisos para realizar esta acción.';
+        }
+
+        if (error?.response?.status === 422) {
+
+            const data = error.response.data;
+
+            if (data?.errors) {
+
+                const mensajes = Object.values(data.errors)
+                    .flat()
+                    .filter(Boolean);
+
+                if (mensajes.length) {
+                    return mensajes.join('\n');
+                }
+            }
+
+            return (
+                data?.message ||
+                'Los datos enviados no son válidos.'
+            );
+        }
+
+        if (error?.response?.status === 404) {
+            return 'El aula solicitada no existe.';
+        }
+
+        if (error?.response?.status >= 500) {
+            return (
+                error?.response?.data?.message ||
+                'Ocurrió un error interno en el servidor.'
+            );
+        }
+
+        return (
+            error?.response?.data?.message ||
+            error?.message ||
+            'Ocurrió un error inesperado.'
+        );
+    }
 
     // =========================================================
     // ICONOS
     // =========================================================
 
-    function iconoSelect(
-        tipo
-    ) {
+    function iconoSelect(tipo) {
 
         const iconos = {
 
@@ -319,23 +239,12 @@ document.addEventListener('DOMContentLoaded', () => {
             `
         };
 
-
-        return (
-            iconos[tipo] ||
-            iconos.tipo
-        );
+        return iconos[tipo] || iconos.tipo;
     }
 
+    function iconoTipoAula(tipo) {
 
-    function iconoTipoAula(
-        tipo
-    ) {
-
-        if (
-            tipo ===
-            'taller'
-        ) {
-
+        if (tipo === 'taller') {
             return `
                 <svg
                     width="20"
@@ -350,12 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-
-        if (
-            tipo ===
-            'auditorio'
-        ) {
-
+        if (tipo === 'auditorio') {
             return `
                 <svg
                     width="20"
@@ -373,12 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-
-        if (
-            tipo ===
-            'virtual'
-        ) {
-
+        if (tipo === 'virtual') {
             return `
                 <svg
                     width="20"
@@ -394,7 +293,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </svg>
             `;
         }
-
 
         return `
             <svg
@@ -414,49 +312,37 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
     }
 
-
     // =========================================================
     // CUSTOM SELECT
     // =========================================================
 
-    function wrapperSelect(
-        select
-    ) {
+    function wrapperSelect(select) {
 
         if (!select) {
             return null;
         }
-
 
         return document.querySelector(
             `[data-aula-select="${select.id}"]`
         );
     }
 
-
-    function construirCustomSelect(
-        wrapper
-    ) {
+    function construirCustomSelect(wrapper) {
 
         if (
             !wrapper ||
-            wrapper.dataset.ready ===
-            'true'
+            wrapper.dataset.ready === 'true'
         ) {
             return;
         }
 
-
-        const select =
-            document.getElementById(
-                wrapper.dataset.aulaSelect
-            );
-
+        const select = document.getElementById(
+            wrapper.dataset.aulaSelect
+        );
 
         if (!select) {
             return;
         }
-
 
         const label =
             wrapper.dataset.label ||
@@ -471,9 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'tipo';
 
         const usarBusqueda =
-            wrapper.dataset.search !==
-            'false';
-
+            wrapper.dataset.search !== 'false';
 
         wrapper.innerHTML = `
 
@@ -484,23 +368,17 @@ document.addEventListener('DOMContentLoaded', () => {
             >
 
                 <span class="aula-select-icon">
-                    ${iconoSelect(
-                        tipoIcono
-                    )}
+                    ${iconoSelect(tipoIcono)}
                 </span>
 
                 <span class="aula-select-content">
 
                     <span class="aula-select-label">
-                        ${esc(
-                            label
-                        )}
+                        ${esc(label)}
                     </span>
 
                     <span class="aula-select-text">
-                        ${esc(
-                            placeholder
-                        )}
+                        ${esc(placeholder)}
                     </span>
 
                 </span>
@@ -517,12 +395,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             </button>
 
-
             <div class="aula-select-menu">
 
                 ${
                     usarBusqueda
-
                         ? `
                             <div class="aula-select-search-wrap">
 
@@ -546,7 +422,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             </div>
                         `
-
                         : ''
                 }
 
@@ -555,213 +430,119 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
+        wrapper.dataset.ready = 'true';
 
-        wrapper.dataset.ready =
-            'true';
+        const trigger = wrapper.querySelector(
+            '.aula-select-trigger'
+        );
 
+        const search = wrapper.querySelector(
+            '.aula-select-search'
+        );
 
-        const trigger =
-            wrapper.querySelector(
-                '.aula-select-trigger'
+        trigger.addEventListener('click', () => {
+
+            if (trigger.disabled) {
+                return;
+            }
+
+            cerrarTodosSelects(wrapper);
+
+            wrapper.classList.toggle('open');
+
+            trigger.setAttribute(
+                'aria-expanded',
+                wrapper.classList.contains('open')
+                    ? 'true'
+                    : 'false'
             );
 
-        const search =
-            wrapper.querySelector(
-                '.aula-select-search'
+            if (wrapper.classList.contains('open')) {
+
+                if (search) {
+                    search.value = '';
+                }
+
+                renderOpcionesSelect(wrapper);
+
+                if (search) {
+                    setTimeout(() => search.focus(), 40);
+                }
+            }
+        });
+
+        search?.addEventListener('input', () => {
+            renderOpcionesSelect(
+                wrapper,
+                search.value
             );
+        });
 
+        search?.addEventListener('keydown', event => {
 
-        trigger.addEventListener(
-            'click',
-            () => {
+            if (event.key === 'Escape') {
 
-                if (
-                    trigger.disabled
-                ) {
-                    return;
-                }
-
-
-                cerrarTodosSelects(
-                    wrapper
-                );
-
-
-                wrapper.classList.toggle(
-                    'open'
-                );
-
-
-                trigger.setAttribute(
-                    'aria-expanded',
-
-                    wrapper.classList.contains(
-                        'open'
-                    )
-                        ? 'true'
-                        : 'false'
-                );
-
-
-                if (
-                    wrapper.classList.contains(
-                        'open'
-                    )
-                ) {
-
-                    if (search) {
-
-                        search.value =
-                            '';
-                    }
-
-
-                    renderOpcionesSelect(
-                        wrapper
-                    );
-
-
-                    if (search) {
-
-                        setTimeout(
-                            () =>
-                                search.focus(),
-                            40
-                        );
-                    }
-                }
+                cerrarSelect(wrapper);
+                trigger.focus();
             }
-        );
+        });
 
-
-        search?.addEventListener(
-            'input',
-            () => {
-
-                renderOpcionesSelect(
-                    wrapper,
-                    search.value
-                );
-            }
-        );
-
-
-        search?.addEventListener(
-            'keydown',
-            event => {
-
-                if (
-                    event.key ===
-                    'Escape'
-                ) {
-
-                    cerrarSelect(
-                        wrapper
-                    );
-
-
-                    trigger.focus();
-                }
-            }
-        );
-
-
-        actualizarCustomSelect(
-            select
-        );
+        actualizarCustomSelect(select);
     }
 
+    function cerrarSelect(wrapper) {
 
-    function cerrarSelect(
-        wrapper
-    ) {
-
-        wrapper?.classList.remove(
-            'open'
-        );
-
+        wrapper?.classList.remove('open');
 
         wrapper
-            ?.querySelector(
-                '.aula-select-trigger'
-            )
+            ?.querySelector('.aula-select-trigger')
             ?.setAttribute(
                 'aria-expanded',
                 'false'
             );
     }
 
-
-    function cerrarTodosSelects(
-        excepto = null
-    ) {
+    function cerrarTodosSelects(excepto = null) {
 
         document
-            .querySelectorAll(
-                '[data-aula-select]'
-            )
-            .forEach(
-                wrapper => {
+            .querySelectorAll('[data-aula-select]')
+            .forEach(wrapper => {
 
-                    if (
-                        wrapper !==
-                        excepto
-                    ) {
-
-                        cerrarSelect(
-                            wrapper
-                        );
-                    }
+                if (wrapper !== excepto) {
+                    cerrarSelect(wrapper);
                 }
-            );
+            });
     }
-
 
     function renderOpcionesSelect(
         wrapper,
         busqueda = ''
     ) {
 
-        const select =
-            document.getElementById(
-                wrapper.dataset.aulaSelect
-            );
-
+        const select = document.getElementById(
+            wrapper.dataset.aulaSelect
+        );
 
         const optionsContainer =
             wrapper.querySelector(
                 '.aula-select-options'
             );
 
-
-        if (
-            !select ||
-            !optionsContainer
-        ) {
+        if (!select || !optionsContainer) {
             return;
         }
 
-
         const query =
-            normalizarTexto(
-                busqueda
-            );
-
+            normalizarTexto(busqueda);
 
         const opciones =
-            Array.from(
-                select.options
-            )
-                .filter(
-                    option =>
-                        !option.disabled &&
-                        normalizarTexto(
-                            option.textContent
-                        ).includes(
-                            query
-                        )
+            Array.from(select.options)
+                .filter(option =>
+                    !option.disabled &&
+                    normalizarTexto(
+                        option.textContent
+                    ).includes(query)
                 );
-
 
         if (!opciones.length) {
 
@@ -771,131 +552,94 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             `;
 
-
             return;
         }
 
-
         optionsContainer.innerHTML =
             opciones
-                .map(
-                    option => {
+                .map(option => {
 
-                        const selected =
-                            String(
-                                option.value
-                            ) ===
-                            String(
-                                select.value
-                            );
+                    const selected =
+                        String(option.value) ===
+                        String(select.value);
 
+                    return `
+                        <button
+                            type="button"
+                            class="
+                                aula-select-option
+                                ${selected ? 'selected' : ''}
+                            "
+                            data-value="${esc(option.value)}"
+                        >
 
-                        return `
+                            <span class="aula-option-icon">
+                                ${iconoSelect(
+                                    wrapper.dataset.icon
+                                )}
+                            </span>
 
-                            <button
-                                type="button"
-                                class="
-                                    aula-select-option
-                                    ${
-                                        selected
-                                            ? 'selected'
-                                            : ''
-                                    }
-                                "
-                                data-value="${esc(
-                                    option.value
-                                )}"
+                            <span class="aula-option-text">
+                                ${esc(option.textContent)}
+                            </span>
+
+                            <svg
+                                class="aula-option-check"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.2"
                             >
+                                <path d="m5 12 4 4L19 6"/>
+                            </svg>
 
-                                <span class="aula-option-icon">
-                                    ${iconoSelect(
-                                        wrapper.dataset.icon
-                                    )}
-                                </span>
-
-                                <span class="aula-option-text">
-                                    ${esc(
-                                        option.textContent
-                                    )}
-                                </span>
-
-                                <svg
-                                    class="aula-option-check"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.2"
-                                >
-                                    <path d="m5 12 4 4L19 6"/>
-                                </svg>
-
-                            </button>
-                        `;
-                    }
-                )
+                        </button>
+                    `;
+                })
                 .join('');
-
 
         optionsContainer
             .querySelectorAll(
                 '.aula-select-option'
             )
-            .forEach(
-                button => {
+            .forEach(button => {
 
-                    button.addEventListener(
-                        'click',
-                        () => {
+                button.addEventListener(
+                    'click',
+                    () => {
 
-                            select.value =
-                                button.dataset.value;
+                        select.value =
+                            button.dataset.value;
 
+                        select.dispatchEvent(
+                            new Event(
+                                'change',
+                                {
+                                    bubbles: true
+                                }
+                            )
+                        );
 
-                            select.dispatchEvent(
-                                new Event(
-                                    'change',
-                                    {
-                                        bubbles:
-                                            true
-                                    }
-                                )
-                            );
+                        actualizarCustomSelect(select);
 
-
-                            actualizarCustomSelect(
-                                select
-                            );
-
-
-                            cerrarSelect(
-                                wrapper
-                            );
-                        }
-                    );
-                }
-            );
+                        cerrarSelect(wrapper);
+                    }
+                );
+            });
     }
 
-
-    function actualizarCustomSelect(
-        select
-    ) {
+    function actualizarCustomSelect(select) {
 
         if (!select) {
             return;
         }
 
-
         const wrapper =
-            wrapperSelect(
-                select
-            );
-
+            wrapperSelect(select);
 
         if (!wrapper) {
             return;
         }
-
 
         const trigger =
             wrapper.querySelector(
@@ -907,36 +651,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 '.aula-select-text'
             );
 
-
-        if (
-            !trigger ||
-            !text
-        ) {
+        if (!trigger || !text) {
             return;
         }
 
-
         trigger.disabled =
             select.disabled;
-
 
         const option =
             select.options[
                 select.selectedIndex
             ];
 
-
         text.textContent =
             option?.textContent ||
             wrapper.dataset.placeholder ||
             'Seleccionar';
 
-
-        renderOpcionesSelect(
-            wrapper
-        );
+        renderOpcionesSelect(wrapper);
     }
-
 
     function actualizarTodosCustomSelect() {
 
@@ -954,7 +687,6 @@ document.addEventListener('DOMContentLoaded', () => {
             );
     }
 
-
     document
         .querySelectorAll(
             '[data-aula-select]'
@@ -962,7 +694,6 @@ document.addEventListener('DOMContentLoaded', () => {
         .forEach(
             construirCustomSelect
         );
-
 
     document.addEventListener(
         'click',
@@ -973,12 +704,128 @@ document.addEventListener('DOMContentLoaded', () => {
                     '[data-aula-select]'
                 )
             ) {
-
                 cerrarTodosSelects();
             }
         }
     );
 
+    // =========================================================
+    // API - LISTAR
+    // =========================================================
+
+    async function cargarAulas() {
+
+        const axios = obtenerAxios();
+
+        if (!axios) {
+            return;
+        }
+
+        tabla.innerHTML = `
+            <tr>
+                <td
+                    colspan="7"
+                    class="px-6 py-14 text-center text-sm text-slate-400"
+                >
+                    Cargando aulas...
+                </td>
+            </tr>
+        `;
+
+        try {
+
+            const response =
+                await axios.get(API_URL);
+
+            const data =
+                response?.data?.data;
+
+            aulas =
+                Array.isArray(data)
+                    ? data
+                    : [];
+
+            paginaActual = 1;
+
+            renderizarAulas();
+
+        } catch (error) {
+
+            aulas = [];
+
+            actualizarEstadisticas([]);
+
+            tabla.innerHTML = `
+                <tr>
+                    <td
+                        colspan="7"
+                        class="px-6 py-16 text-center"
+                    >
+
+                        <div class="flex flex-col items-center">
+
+                            <div
+                                class="
+                                    flex
+                                    h-16
+                                    w-16
+                                    items-center
+                                    justify-center
+                                    rounded-2xl
+                                    bg-red-50
+                                    text-red-500
+                                "
+                            >
+                                <svg
+                                    class="h-8 w-8"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                >
+                                    <circle cx="12" cy="12" r="9"/>
+                                    <path d="M12 8v5"/>
+                                    <path d="M12 16h.01"/>
+                                </svg>
+                            </div>
+
+                            <h3
+                                class="mt-4 font-bold"
+                                style="color:#0F2749;"
+                            >
+                                ${
+                                    error?.response?.status === 401
+                                        ? 'Autenticación requerida'
+                                        : 'No se pudieron cargar las aulas'
+                                }
+                            </h3>
+
+                            <p class="mt-1 max-w-md text-sm text-slate-400">
+                                ${esc(
+                                    obtenerMensajeError(error)
+                                )}
+                            </p>
+
+                        </div>
+
+                    </td>
+                </tr>
+            `;
+
+            resultadosAulas.textContent = '0';
+            resultadosFooter.textContent = '0';
+            totalResultadosFooter.textContent = '0';
+
+            if (paginacion) {
+                paginacion.innerHTML = '';
+            }
+
+            console.error(
+                'Error cargando aulas:',
+                error
+            );
+        }
+    }
 
     // =========================================================
     // MODAL AULA
@@ -986,124 +833,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function prepararNuevo() {
 
-        aulaEditandoId =
-            null;
-
+        aulaEditandoId = null;
 
         formulario.reset();
 
-
-        nivelInput.value =
-            'todos';
-
-        estadoInput.value =
-            '1';
-
+        nivelInput.value = 'todos';
+        estadoInput.value = '1';
 
         modalTitle.textContent =
             'Agregar aula';
 
-
         submitText.textContent =
             'Guardar aula';
 
-
         actualizarTodosCustomSelect();
     }
-
 
     function abrirAulaModal(
         editar = false
     ) {
 
         if (!editar) {
-
             prepararNuevo();
         }
 
-
-        modal.classList.remove(
-            'hidden'
-        );
-
+        modal.classList.remove('hidden');
 
         modal.setAttribute(
             'aria-hidden',
             'false'
         );
 
-
         document.body.classList.add(
             'overflow-hidden'
         );
 
-
         setTimeout(
-            () =>
-                codigoInput.focus(),
+            () => codigoInput.focus(),
             100
         );
     }
 
-
     function cerrarAulaModal() {
 
-        modal.classList.add(
-            'hidden'
-        );
-
+        modal.classList.add('hidden');
 
         modal.setAttribute(
             'aria-hidden',
             'true'
         );
 
-
         document.body.classList.remove(
             'overflow-hidden'
         );
 
-
         formulario.reset();
 
-
-        aulaEditandoId =
-            null;
-
+        aulaEditandoId = null;
 
         cerrarTodosSelects();
-
 
         actualizarTodosCustomSelect();
     }
 
-
     abrirModal?.addEventListener(
         'click',
-        () =>
-            abrirAulaModal(
-                false
-            )
+        () => abrirAulaModal(false)
     );
-
 
     cerrarModalBtn?.addEventListener(
         'click',
         cerrarAulaModal
     );
 
-
     cancelarModal?.addEventListener(
         'click',
         cerrarAulaModal
     );
 
-
     overlay?.addEventListener(
         'click',
         cerrarAulaModal
     );
-
 
     // =========================================================
     // GUARDAR / EDITAR
@@ -1111,51 +922,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     formulario.addEventListener(
         'submit',
-        event => {
+        async event => {
 
             event.preventDefault();
-
 
             const codigo =
                 codigoInput.value
                     .trim()
                     .toUpperCase();
 
-
             const nombre =
-                nombreInput.value
-                    .trim();
-
+                nombreInput.value.trim();
 
             const capacidad =
                 Number(
                     capacidadInput.value
                 );
 
-
             const tipo =
                 tipoInput.value;
-
 
             const nivel =
                 nivelInput.value ||
                 'todos';
 
-
             const equipamiento =
-                equipamientoInput.value
-                    .trim();
-
+                equipamientoInput.value.trim();
 
             const activo =
-                estadoInput.value ===
-                '1';
-
+                estadoInput.value === '1';
 
             const observaciones =
-                observacionesInput.value
-                    .trim();
-
+                observacionesInput.value.trim();
 
             if (
                 !codigo ||
@@ -1164,342 +962,216 @@ document.addEventListener('DOMContentLoaded', () => {
                 !tipo
             ) {
 
-                alert(
+                mostrarMensajeError(
                     'Completa todos los campos obligatorios.'
                 );
 
                 return;
             }
 
-
             if (
-                capacidad <=
-                0
+                capacidad < 1 ||
+                capacidad > 200
             ) {
 
-                alert(
-                    'La capacidad debe ser mayor a 0.'
+                mostrarMensajeError(
+                    'La capacidad debe estar entre 1 y 200.'
                 );
+
+                capacidadInput.focus();
 
                 return;
             }
-
-
-            let aulas =
-                leerAulas();
-
-
-            const duplicado =
-                aulas.find(
-                    aula =>
-
-                        normalizarTexto(
-                            aula.codigo
-                        ) ===
-                        normalizarTexto(
-                            codigo
-                        ) &&
-
-                        String(
-                            aula.id
-                        ) !==
-                        String(
-                            aulaEditandoId
-                        )
-                );
-
-
-            if (duplicado) {
-
-                alert(
-                    'Ya existe un aula con ese código.'
-                );
-
-                codigoInput.focus();
-
-                return;
-            }
-
 
             const aulaData = {
-
                 codigo,
                 nombre,
                 capacidad,
                 tipo,
                 nivel,
-                equipamiento,
+                equipamiento:
+                    equipamiento || null,
                 activo,
-                observaciones
+                observaciones:
+                    observaciones || null
             };
 
+            const axios = obtenerAxios();
 
-            if (
-                aulaEditandoId !==
-                null
-            ) {
-
-                const index =
-                    aulas.findIndex(
-                        aula =>
-                            String(
-                                aula.id
-                            ) ===
-                            String(
-                                aulaEditandoId
-                            )
-                    );
-
-
-                if (
-                    index !==
-                    -1
-                ) {
-
-                    aulas[index] = {
-
-                        ...aulas[index],
-
-                        ...aulaData
-                    };
-                }
-
-
-                guardarAulas(
-                    aulas
-                );
-
-
-                cerrarAulaModal();
-
-
-                paginaActual =
-                    1;
-
-
-                renderizarAulas();
-
-
+            if (!axios) {
                 return;
             }
 
+            submitButton.disabled = true;
+            submitButton.classList.add('opacity-70');
 
-            aulaData.id =
-                Date.now();
+            const textoAnterior =
+                submitText.textContent;
 
+            submitText.textContent =
+                aulaEditandoId
+                    ? 'Guardando cambios...'
+                    : 'Guardando...';
 
-            aulas.push(
-                aulaData
-            );
+            try {
 
+                if (aulaEditandoId) {
 
-            guardarAulas(
-                aulas
-            );
+                    await axios.put(
+                        `${API_URL}/${aulaEditandoId}`,
+                        aulaData
+                    );
 
+                } else {
 
-            cerrarAulaModal();
+                    await axios.post(
+                        API_URL,
+                        aulaData
+                    );
+                }
 
+                cerrarAulaModal();
 
-            /*
-             * Mostramos la última página para que
-             * el aula recién creada sea visible.
-             */
-            const filtradas =
-                obtenerAulasFiltradas(
-                    aulas
+                await cargarAulas();
+
+            } catch (error) {
+
+                mostrarMensajeError(
+                    obtenerMensajeError(error)
                 );
 
-
-            paginaActual =
-                Math.max(
-                    1,
-
-                    Math.ceil(
-                        filtradas.length /
-                        POR_PAGINA
-                    )
+                console.error(
+                    'Error guardando aula:',
+                    error
                 );
 
+            } finally {
 
-            renderizarAulas();
+                submitButton.disabled = false;
+
+                submitButton.classList.remove(
+                    'opacity-70'
+                );
+
+                submitText.textContent =
+                    textoAnterior;
+            }
         }
     );
 
-
     // =========================================================
-    // FILTRAR
+    // FILTRADO
     // =========================================================
 
-    function obtenerAulasFiltradas(
-        aulas
-    ) {
+    function obtenerAulasFiltradas() {
 
         const texto =
             normalizarTexto(
                 buscador?.value
             );
 
-
         const estado =
-            filtroEstado?.value ??
-            '';
-
+            filtroEstado?.value ?? '';
 
         const tipo =
-            filtroTipo?.value ??
-            '';
-
+            filtroTipo?.value ?? '';
 
         const nivel =
-            filtroNivel?.value ??
-            '';
+            filtroNivel?.value ?? '';
 
+        return aulas.filter(aula => {
 
-        return aulas.filter(
-            aula => {
-
-                const textoAula =
-                    normalizarTexto(
-                        `${
-                            aula.nombre ??
-                            ''
-                        } ${
-                            aula.codigo ??
-                            ''
-                        }`
-                    );
-
-
-                const coincideTexto =
-                    !texto ||
-                    textoAula.includes(
-                        texto
-                    );
-
-
-                const coincideEstado =
-                    estado ===
-                    '' ||
-
-                    (
-                        estado ===
-                        '1' &&
-                        aula.activo ===
-                        true
-                    ) ||
-
-                    (
-                        estado ===
-                        '0' &&
-                        aula.activo ===
-                        false
-                    );
-
-
-                const coincideTipo =
-                    tipo ===
-                    '' ||
-                    String(
-                        aula.tipo
-                    ) ===
-                    String(
-                        tipo
-                    );
-
-
-                const coincideNivel =
-                    nivel ===
-                    '' ||
-                    String(
-                        aula.nivel ??
-                        'todos'
-                    ) ===
-                    String(
-                        nivel
-                    );
-
-
-                return (
-                    coincideTexto &&
-                    coincideEstado &&
-                    coincideTipo &&
-                    coincideNivel
+            const textoAula =
+                normalizarTexto(
+                    `${aula.nombre ?? ''} ${aula.codigo ?? ''}`
                 );
-            }
-        );
-    }
 
+            const coincideTexto =
+                !texto ||
+                textoAula.includes(texto);
+
+            const activa =
+                valorBooleano(aula.activo);
+
+            const coincideEstado =
+                estado === '' ||
+                (
+                    estado === '1' &&
+                    activa
+                ) ||
+                (
+                    estado === '0' &&
+                    !activa
+                );
+
+            const coincideTipo =
+                tipo === '' ||
+                String(aula.tipo) ===
+                String(tipo);
+
+            const coincideNivel =
+                nivel === '' ||
+                String(
+                    aula.nivel ?? 'todos'
+                ) ===
+                String(nivel);
+
+            return (
+                coincideTexto &&
+                coincideEstado &&
+                coincideTipo &&
+                coincideNivel
+            );
+        });
+    }
 
     // =========================================================
     // ESTADÍSTICAS
     // =========================================================
 
     function actualizarEstadisticas(
-        aulas
+        listado
     ) {
 
         const activas =
-            aulas.filter(
+            listado.filter(
                 aula =>
-                    aula.activo ===
-                    true
+                    valorBooleano(
+                        aula.activo
+                    )
             ).length;
-
 
         const inactivas =
-            aulas.filter(
-                aula =>
-                    aula.activo !==
-                    true
-            ).length;
-
+            listado.length - activas;
 
         if (totalAulas) {
-
             totalAulas.textContent =
-                aulas.length;
+                listado.length;
         }
 
-
         if (aulasActivas) {
-
             aulasActivas.textContent =
                 activas;
         }
 
-
         if (aulasInactivas) {
-
             aulasInactivas.textContent =
                 inactivas;
         }
     }
 
-
     // =========================================================
     // LABELS
     // =========================================================
 
-    function labelTipo(
-        tipo
-    ) {
+    function labelTipo(tipo) {
 
         const labels = {
-
-            aula_normal:
-                'Aula normal',
-
-            taller:
-                'Taller',
-
-            auditorio:
-                'Auditorio',
-
-            virtual:
-                'Virtual'
+            aula_normal: 'Aula normal',
+            taller: 'Taller',
+            auditorio: 'Auditorio',
+            virtual: 'Virtual'
         };
-
 
         return (
             labels[tipo] ||
@@ -1508,26 +1180,14 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-
-    function labelNivel(
-        nivel
-    ) {
+    function labelNivel(nivel) {
 
         const labels = {
-
-            primaria:
-                'Primaria',
-
-            secundaria:
-                'Secundaria',
-
-            academia:
-                'Academia',
-
-            todos:
-                'Todos'
+            primaria: 'Primaria',
+            secundaria: 'Secundaria',
+            academia: 'Academia',
+            todos: 'Todos'
         };
-
 
         return (
             labels[nivel] ||
@@ -1535,24 +1195,22 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-
     // =========================================================
     // FILA
     // =========================================================
 
-    function crearFila(
-        aula
-    ) {
+    function crearFila(aula) {
 
         const fila =
-            document.createElement(
-                'tr'
-            );
-
+            document.createElement('tr');
 
         fila.className =
             'aula-row transition hover:bg-slate-50/80';
 
+        const activa =
+            valorBooleano(
+                aula.activo
+            );
 
         fila.innerHTML = `
 
@@ -1576,31 +1234,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             color:#1B3A6B;
                         "
                     >
-
                         ${iconoTipoAula(
                             aula.tipo
                         )}
-
                     </div>
-
 
                     <div>
 
                         <p class="text-sm font-bold text-slate-800">
-
-                            ${esc(
-                                aula.nombre
-                            )}
-
+                            ${esc(aula.nombre)}
                         </p>
 
-
                         <p class="mt-0.5 text-xs text-slate-400">
-
-                            ${esc(
-                                aula.codigo
-                            )}
-
+                            ${esc(aula.codigo)}
                         </p>
 
                     </div>
@@ -1609,36 +1255,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             </td>
 
-
             <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
-
-                ${esc(
-                    aula.codigo
-                )}
-
+                ${esc(aula.codigo)}
             </td>
 
-
             <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
-
-                ${esc(
-                    aula.capacidad
-                )}
+                ${esc(aula.capacidad)}
                 alumnos
-
             </td>
 
-
             <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
-
                 ${esc(
                     labelTipo(
                         aula.tipo
                     )
                 )}
-
             </td>
-
 
             <td class="whitespace-nowrap px-5 py-4">
 
@@ -1654,23 +1286,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         text-[#1B3A6B]
                     "
                 >
-
                     ${esc(
                         labelNivel(
                             aula.nivel
                         )
                     )}
-
                 </span>
 
             </td>
 
-
             <td class="whitespace-nowrap px-5 py-4">
 
                 ${
-                    aula.activo
-
+                    activa
                         ? `
                             <span
                                 class="
@@ -1686,14 +1314,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                     text-emerald-700
                                 "
                             >
-
                                 <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-
                                 Activo
-
                             </span>
                         `
-
                         : `
                             <span
                                 class="
@@ -1709,17 +1333,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     text-slate-600
                                 "
                             >
-
                                 <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-
                                 Inactivo
-
                             </span>
                         `
                 }
 
             </td>
-
 
             <td class="whitespace-nowrap px-5 py-4 text-right">
 
@@ -1728,13 +1348,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button
                         type="button"
                         class="aula-action-btn aula-action-edit editar-aula"
-                        data-id="${esc(
-                            aula.id
-                        )}"
+                        data-id="${esc(aula.id)}"
                         title="Editar aula"
                         aria-label="Editar aula"
                     >
-
                         <svg
                             width="16"
                             height="16"
@@ -1748,23 +1365,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             <path d="M12 20h9"/>
                             <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>
                         </svg>
-
                     </button>
-
 
                     <button
                         type="button"
                         class="aula-action-btn aula-action-delete eliminar-aula"
-                        data-id="${esc(
-                            aula.id
-                        )}"
-                        data-nombre="${esc(
-                            aula.nombre
-                        )}"
+                        data-id="${esc(aula.id)}"
+                        data-nombre="${esc(aula.nombre)}"
                         title="Eliminar aula"
                         aria-label="Eliminar aula"
                     >
-
                         <svg
                             width="16"
                             height="16"
@@ -1781,7 +1391,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <path d="M10 11v5"/>
                             <path d="M14 11v5"/>
                         </svg>
-
                     </button>
 
                 </div>
@@ -1789,10 +1398,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </td>
         `;
 
-
         return fila;
     }
-
 
     // =========================================================
     // PAGINACIÓN
@@ -1806,39 +1413,31 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-
         const totalPaginas =
             Math.max(
                 1,
-
                 Math.ceil(
                     totalFiltradas /
                     POR_PAGINA
                 )
             );
 
-
         if (
             paginaActual >
             totalPaginas
         ) {
-
             paginaActual =
                 totalPaginas;
         }
-
 
         if (
             totalFiltradas <=
             POR_PAGINA
         ) {
 
-            paginacion.innerHTML =
-                '';
-
+            paginacion.innerHTML = '';
             return;
         }
-
 
         let html = `
 
@@ -1856,7 +1455,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
         `;
 
-
         for (
             let pagina = 1;
             pagina <= totalPaginas;
@@ -1872,7 +1470,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${
                             pagina ===
                             paginaActual
-
                                 ? 'active'
                                 : ''
                         }
@@ -1884,7 +1481,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
-
         html += `
 
             <button
@@ -1894,7 +1490,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${
                     paginaActual ===
                     totalPaginas
-
                         ? 'disabled'
                         : ''
                 }
@@ -1903,11 +1498,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </button>
         `;
 
-
-        paginacion.innerHTML =
-            html;
+        paginacion.innerHTML = html;
     }
-
 
     paginacion?.addEventListener(
         'click',
@@ -1918,7 +1510,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     '[data-pagina]'
                 );
 
-
             if (
                 !boton ||
                 boton.disabled
@@ -1926,33 +1517,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-
             paginaActual =
                 Number(
                     boton.dataset.pagina
                 );
 
-
             renderizarAulas();
 
-
-            document
-                .querySelector(
-                    '#aulas-body'
-                )
-                ?.closest(
-                    '.aulas-card'
-                )
+            tabla
+                ?.closest('.aulas-card')
                 ?.scrollIntoView({
-                    behavior:
-                        'smooth',
-
-                    block:
-                        'start'
+                    behavior: 'smooth',
+                    block: 'start'
                 });
         }
     );
-
 
     // =========================================================
     // RENDER
@@ -1960,41 +1539,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderizarAulas() {
 
-        const aulas =
-            leerAulas();
-
-
-        actualizarEstadisticas(
-            aulas
-        );
-
+        actualizarEstadisticas(aulas);
 
         const filtradas =
-            obtenerAulasFiltradas(
-                aulas
-            );
-
+            obtenerAulasFiltradas();
 
         const totalPaginas =
             Math.max(
                 1,
-
                 Math.ceil(
                     filtradas.length /
                     POR_PAGINA
                 )
             );
 
-
         if (
             paginaActual >
             totalPaginas
         ) {
-
             paginaActual =
                 totalPaginas;
         }
-
 
         const inicio =
             (
@@ -2003,11 +1568,9 @@ document.addEventListener('DOMContentLoaded', () => {
             ) *
             POR_PAGINA;
 
-
         const fin =
             inicio +
             POR_PAGINA;
-
 
         const pagina =
             filtradas.slice(
@@ -2015,10 +1578,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fin
             );
 
-
-        tabla.innerHTML =
-            '';
-
+        tabla.innerHTML = '';
 
         if (!filtradas.length) {
 
@@ -2028,11 +1588,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <td
                         colspan="7"
-                        class="
-                            px-6
-                            py-16
-                            text-center
-                        "
+                        class="px-6 py-16 text-center"
                     >
 
                         <div class="flex flex-col items-center">
@@ -2049,7 +1605,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     text-slate-400
                                 "
                             >
-
                                 <svg
                                     class="h-8 w-8"
                                     viewBox="0 0 24 24"
@@ -2060,9 +1615,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <circle cx="11" cy="11" r="7"/>
                                     <path d="m20 20-3.5-3.5"/>
                                 </svg>
-
                             </div>
-
 
                             <h3
                                 class="mt-4 font-bold"
@@ -2070,7 +1623,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             >
                                 No se encontraron aulas
                             </h3>
-
 
                             <p class="mt-1 text-sm text-slate-400">
                                 Cambia la búsqueda o los filtros seleccionados.
@@ -2085,48 +1637,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } else {
 
-            pagina.forEach(
-                aula => {
-
-                    tabla.appendChild(
-                        crearFila(
-                            aula
-                        )
-                    );
-                }
-            );
+            pagina.forEach(aula => {
+                tabla.appendChild(
+                    crearFila(aula)
+                );
+            });
         }
 
-
         if (resultadosAulas) {
-
             resultadosAulas.textContent =
                 filtradas.length;
         }
 
-
         if (resultadosFooter) {
-
             resultadosFooter.textContent =
                 pagina.length;
         }
 
-
         if (totalResultadosFooter) {
-
             totalResultadosFooter.textContent =
                 filtradas.length;
         }
-
 
         renderizarPaginacion(
             filtradas.length
         );
     }
 
-
     // =========================================================
-    // EDITAR
+    // EDITAR / ELIMINAR
     // =========================================================
 
     tabla.addEventListener(
@@ -2138,117 +1677,83 @@ document.addEventListener('DOMContentLoaded', () => {
                     '.editar-aula'
                 );
 
-
             if (botonEditar) {
 
                 const id =
                     botonEditar.dataset.id;
 
-
                 const aula =
-                    leerAulas()
-                        .find(
-                            item =>
-                                String(
-                                    item.id
-                                ) ===
-                                String(id)
-                        );
-
+                    aulas.find(
+                        item =>
+                            String(item.id) ===
+                            String(id)
+                    );
 
                 if (!aula) {
                     return;
                 }
 
-
                 aulaEditandoId =
                     aula.id;
 
-
                 codigoInput.value =
-                    aula.codigo ??
-                    '';
-
+                    aula.codigo ?? '';
 
                 nombreInput.value =
-                    aula.nombre ??
-                    '';
-
+                    aula.nombre ?? '';
 
                 capacidadInput.value =
-                    aula.capacidad ??
-                    '';
-
+                    aula.capacidad ?? '';
 
                 tipoInput.value =
-                    aula.tipo ??
-                    '';
-
+                    aula.tipo ?? '';
 
                 nivelInput.value =
-                    aula.nivel ??
-                    'todos';
-
+                    aula.nivel ?? 'todos';
 
                 equipamientoInput.value =
-                    aula.equipamiento ??
-                    '';
-
+                    aula.equipamiento ?? '';
 
                 estadoInput.value =
-                    aula.activo
+                    valorBooleano(
+                        aula.activo
+                    )
                         ? '1'
                         : '0';
 
-
                 observacionesInput.value =
-                    aula.observaciones ??
-                    '';
-
+                    aula.observaciones ?? '';
 
                 modalTitle.textContent =
                     'Editar aula';
 
-
                 submitText.textContent =
                     'Guardar cambios';
 
-
                 actualizarTodosCustomSelect();
 
-
-                abrirAulaModal(
-                    true
-                );
-
+                abrirAulaModal(true);
 
                 return;
             }
-
 
             const botonEliminar =
                 event.target.closest(
                     '.eliminar-aula'
                 );
 
-
             if (botonEliminar) {
 
                 abrirEliminarModal(
-
-                    botonEliminar.dataset
-                        .nombre,
-
-                    botonEliminar.dataset
-                        .id
+                    botonEliminar.dataset.nombre,
+                    botonEliminar.dataset.id
                 );
             }
         }
     );
 
-
     // =========================================================
-    // ELIMINAR
+    // MODAL ELIMINAR
     // =========================================================
 
     function abrirEliminarModal(
@@ -2256,75 +1761,61 @@ document.addEventListener('DOMContentLoaded', () => {
         id
     ) {
 
-        aulaAEliminarId =
-            id;
-
+        aulaAEliminarId = id;
 
         eliminarNombre.textContent =
             `"${nombre}"`;
 
-
         eliminarModal.classList.remove(
             'hidden'
         );
-
 
         eliminarModal.setAttribute(
             'aria-hidden',
             'false'
         );
 
-
         document.body.classList.add(
             'overflow-hidden'
         );
     }
 
-
     function cerrarEliminarModal() {
 
-        aulaAEliminarId =
-            null;
-
+        aulaAEliminarId = null;
 
         eliminarModal.classList.add(
             'hidden'
         );
-
 
         eliminarModal.setAttribute(
             'aria-hidden',
             'true'
         );
 
-
         document.body.classList.remove(
             'overflow-hidden'
         );
     }
-
 
     overlayEliminar?.addEventListener(
         'click',
         cerrarEliminarModal
     );
 
-
     closeEliminar?.addEventListener(
         'click',
         cerrarEliminarModal
     );
-
 
     cancelEliminar?.addEventListener(
         'click',
         cerrarEliminarModal
     );
 
-
     confirmEliminar?.addEventListener(
         'click',
-        () => {
+        async () => {
 
             if (
                 aulaAEliminarId ===
@@ -2333,32 +1824,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            const axios =
+                obtenerAxios();
 
-            const aulas =
-                leerAulas()
-                    .filter(
-                        aula =>
-                            String(
-                                aula.id
-                            ) !==
-                            String(
-                                aulaAEliminarId
-                            )
-                    );
+            if (!axios) {
+                return;
+            }
 
+            const id =
+                aulaAEliminarId;
 
-            guardarAulas(
-                aulas
+            confirmEliminar.disabled = true;
+            confirmEliminar.classList.add(
+                'opacity-70'
             );
 
+            try {
 
-            cerrarEliminarModal();
+                await axios.delete(
+                    `${API_URL}/${id}`
+                );
 
+                cerrarEliminarModal();
 
-            renderizarAulas();
+                await cargarAulas();
+
+            } catch (error) {
+
+                mostrarMensajeError(
+                    obtenerMensajeError(error)
+                );
+
+                console.error(
+                    'Error eliminando aula:',
+                    error
+                );
+
+            } finally {
+
+                confirmEliminar.disabled = false;
+
+                confirmEliminar.classList.remove(
+                    'opacity-70'
+                );
+            }
         }
     );
-
 
     // =========================================================
     // FILTROS
@@ -2366,19 +1877,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function cambioFiltro() {
 
-        paginaActual =
-            1;
-
+        paginaActual = 1;
 
         renderizarAulas();
     }
 
+    let timerBusqueda = null;
 
     buscador?.addEventListener(
         'input',
-        cambioFiltro
-    );
+        () => {
 
+            clearTimeout(
+                timerBusqueda
+            );
+
+            timerBusqueda =
+                setTimeout(
+                    cambioFiltro,
+                    250
+                );
+        }
+    );
 
     [
         filtroEstado,
@@ -2386,27 +1906,23 @@ document.addEventListener('DOMContentLoaded', () => {
         filtroNivel
     ]
         .filter(Boolean)
-        .forEach(
-            select => {
+        .forEach(select => {
 
-                select.addEventListener(
-                    'change',
-                    () => {
+            select.addEventListener(
+                'change',
+                () => {
 
-                        actualizarCustomSelect(
-                            select
-                        );
+                    actualizarCustomSelect(
+                        select
+                    );
 
-
-                        cambioFiltro();
-                    }
-                );
-            }
-        );
-
+                    cambioFiltro();
+                }
+            );
+        });
 
     // =========================================================
-    // CAMBIOS EN MODAL SELECTS
+    // SELECTS DEL MODAL
     // =========================================================
 
     [
@@ -2415,21 +1931,18 @@ document.addEventListener('DOMContentLoaded', () => {
         estadoInput
     ]
         .filter(Boolean)
-        .forEach(
-            select => {
+        .forEach(select => {
 
-                select.addEventListener(
-                    'change',
-                    () => {
+            select.addEventListener(
+                'change',
+                () => {
 
-                        actualizarCustomSelect(
-                            select
-                        );
-                    }
-                );
-            }
-        );
-
+                    actualizarCustomSelect(
+                        select
+                    );
+                }
+            );
+        });
 
     // =========================================================
     // ESC
@@ -2446,19 +1959,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-
             cerrarTodosSelects();
-
 
             if (
                 !modal.classList.contains(
                     'hidden'
                 )
             ) {
-
                 cerrarAulaModal();
             }
-
 
             if (
                 eliminarModal &&
@@ -2466,46 +1975,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     'hidden'
                 )
             ) {
-
                 cerrarEliminarModal();
             }
         }
     );
-
-
-    // =========================================================
-    // STORAGE
-    // =========================================================
-
-    window.addEventListener(
-        'storage',
-        event => {
-
-            if (
-                event.key ===
-                AULAS_KEY
-            ) {
-
-                paginaActual =
-                    1;
-
-
-                renderizarAulas();
-            }
-        }
-    );
-
-
-    window.addEventListener(
-        'focus',
-        () => {
-
-            renderizarAulas();
-
-            actualizarTodosCustomSelect();
-        }
-    );
-
 
     // =========================================================
     // INICIO
@@ -2513,6 +1986,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     actualizarTodosCustomSelect();
 
-    renderizarAulas();
-
+    cargarAulas();
 });

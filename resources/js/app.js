@@ -18,6 +18,8 @@ import './secciones/aulas';
 import './secciones/disponibilidad';
 import './secciones/asignaciones';
 import './secciones/horarios';
+import './secciones/historial';
+import './secciones/grados';
 
 
 // =========================================================

@@ -126,3 +126,11 @@ Route::get('/registro', function () {
 Route::get('/consulta-horarios', function () {
     return view('horarios.consulta');
 })->name('horarios.consulta');
+
+Route::get('/historial', function () {
+    return view('historial.index');
+})->name('historial.index');
+
+Route::get('/grados', function () {
+    return view('grados.index');
+})->name('grados.index');

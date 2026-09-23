@@ -1,8 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
+import axios from 'axios';
 
-    // =========================================================
-    // GUARD
-    // =========================================================
+document.addEventListener('DOMContentLoaded', () => {
 
     const tabla =
         document.getElementById('profesores-body');
@@ -24,15 +22,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // STORAGE
+    // API
     // =========================================================
 
-    const PROFESORES_KEY =
-        'nextlevel_profesores';
+    const API_PROFESORES =
+        '/api/profesores';
+
+    const API_ESTADISTICAS =
+        '/api/profesores/estadisticas';
+
+
+    axios.defaults.headers.common['Accept'] =
+        'application/json';
+
+    axios.defaults.headers.common['X-Requested-With'] =
+        'XMLHttpRequest';
+
+    axios.defaults.withCredentials =
+        true;
 
 
     // =========================================================
-    // ELEMENTOS CREAR
+    // CREAR
     // =========================================================
 
     const openProfesorModal =
@@ -184,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const editObservaciones =
         document.getElementById('editar-observaciones');
 
-
     const editInstitucionColegio =
         document.getElementById('editar-institucion-colegio');
 
@@ -219,6 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ESTADO
     // =========================================================
 
+    let profesoresPagina =
+        [];
+
     let profesorEditandoId =
         null;
 
@@ -228,83 +241,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let paginaActual =
         1;
 
+    let ultimaPagina =
+        1;
+
+    let totalRegistros =
+        0;
 
     const POR_PAGINA =
         6;
 
-
-    // =========================================================
-    // STORAGE
-    // =========================================================
-
-    function leerProfesores() {
-
-        try {
-
-            const datos =
-                JSON.parse(
-                    localStorage.getItem(
-                        PROFESORES_KEY
-                    ) || '[]'
-                );
-
-
-            return Array.isArray(
-                datos
-            )
-                ? datos
-                : [];
-
-        } catch (error) {
-
-            console.error(
-                'Error leyendo profesores:',
-                error
-            );
-
-
-            return [];
-        }
-    }
-
-
-    function guardarProfesores(
-        profesores
-    ) {
-
-        localStorage.setItem(
-            PROFESORES_KEY,
-            JSON.stringify(
-                profesores
-            )
-        );
-    }
+    let timeoutBusqueda =
+        null;
 
 
     // =========================================================
     // HELPERS
     // =========================================================
 
-    function normalizarTexto(
-        valor
-    ) {
-
-        return String(
-            valor ?? ''
-        )
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(
-                /[\u0300-\u036f]/g,
-                ''
-            );
-    }
-
-
-    function esc(
-        valor
-    ) {
+    function esc(valor) {
 
         return String(
             valor ?? ''
@@ -317,74 +271,243 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function valorNullable(
+        valor
+    ) {
+
+        const texto =
+            String(
+                valor ?? ''
+            ).trim();
+
+
+        return texto === ''
+            ? null
+            : texto;
+    }
+
+
+    function fechaParaInput(
+        valor
+    ) {
+
+        if (!valor) {
+            return '';
+        }
+
+
+        const texto =
+            String(
+                valor
+            );
+
+
+        const coincidencia =
+            texto.match(
+                /^(\d{4}-\d{2}-\d{2})/
+            );
+
+
+        return coincidencia
+            ? coincidencia[1]
+            : '';
+    }
+
+
+    function nombreEspecialidad(
+        valor
+    ) {
+
+        return String(
+            valor ?? ''
+        ).trim() || '—';
+    }
+
+
+    function obtenerMensajeError(
+        error
+    ) {
+
+        const data =
+            error?.response?.data ??
+            {};
+
+
+        if (data.errors) {
+
+            const mensajes =
+                Object.values(
+                    data.errors
+                )
+                    .flat()
+                    .filter(Boolean);
+
+
+            if (
+                mensajes.length
+            ) {
+
+                return mensajes.join(
+                    '\n'
+                );
+            }
+        }
+
+
+        return (
+            data.message ||
+            'Ocurrió un error.'
+        );
+    }
+
+
     // =========================================================
-    // ICONOS SELECT
+    // TOAST
+    // =========================================================
+
+    function mostrarToast(
+        mensaje,
+        tipo = 'info'
+    ) {
+
+        let toast =
+            document.getElementById(
+                'profesor-toast'
+            );
+
+
+        if (!toast) {
+
+            toast =
+                document.createElement(
+                    'div'
+                );
+
+
+            toast.id =
+                'profesor-toast';
+
+
+            toast.className = `
+                fixed
+                bottom-5
+                right-5
+                z-[500]
+                hidden
+                max-w-sm
+                rounded-xl
+                px-4
+                py-3
+                text-sm
+                font-semibold
+                text-white
+                shadow-xl
+            `;
+
+
+            document.body.appendChild(
+                toast
+            );
+        }
+
+
+        toast.textContent =
+            mensaje;
+
+
+        toast.classList.remove(
+            'hidden',
+            'bg-slate-900',
+            'bg-emerald-600',
+            'bg-red-600',
+            'bg-amber-600'
+        );
+
+
+        if (
+            tipo ===
+            'success'
+        ) {
+
+            toast.classList.add(
+                'bg-emerald-600'
+            );
+
+        } else if (
+            tipo ===
+            'error'
+        ) {
+
+            toast.classList.add(
+                'bg-red-600'
+            );
+
+        } else if (
+            tipo ===
+            'warning'
+        ) {
+
+            toast.classList.add(
+                'bg-amber-600'
+            );
+
+        } else {
+
+            toast.classList.add(
+                'bg-slate-900'
+            );
+        }
+
+
+        clearTimeout(
+            mostrarToast.timeout
+        );
+
+
+        mostrarToast.timeout =
+            setTimeout(
+                () => {
+
+                    toast.classList.add(
+                        'hidden'
+                    );
+
+                },
+                3500
+            );
+    }
+
+
+    // =========================================================
+    // CUSTOM SELECTS
     // =========================================================
 
     function iconoSelect(
         tipo
     ) {
 
-        const iconos = {
+        if (
+            tipo ===
+            'usuario'
+        ) {
 
-            estado: `
-                <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.9"
-                >
-                    <circle cx="12" cy="12" r="9"/>
-                    <path d="m8 12 2.5 2.5L16 9"/>
-                </svg>
-            `,
-
-
-            usuario: `
-                <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.9"
-                >
+            return `
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
                     <circle cx="12" cy="7" r="4"/>
                     <path d="M20 21a8 8 0 0 0-16 0"/>
                 </svg>
-            `,
+            `;
+        }
 
 
-            especialidad: `
-                <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.9"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <path d="m2 10 10-5 10 5-10 5Z"/>
-                    <path d="M6 12v5c3 2 9 2 12 0v-5"/>
-                </svg>
-            `
-        };
-
-
-        return (
-            iconos[tipo] ||
-            iconos.estado
-        );
+        return `
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="m8 12 2.5 2.5L16 9"/>
+            </svg>
+        `;
     }
 
-
-    // =========================================================
-    // CUSTOM SELECT
-    // =========================================================
 
     function wrapperSelect(
         select
@@ -407,8 +530,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (
             !wrapper ||
-            wrapper.dataset.ready === 'true'
+            wrapper.dataset.ready ===
+            'true'
         ) {
+
             return;
         }
 
@@ -424,47 +549,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        const label =
-            wrapper.dataset.label ||
-            'Seleccionar';
-
-
-        const placeholder =
-            wrapper.dataset.placeholder ||
-            'Seleccionar';
-
-
-        const icono =
-            wrapper.dataset.icon ||
-            'estado';
-
-
         wrapper.innerHTML = `
 
             <button
                 type="button"
                 class="profesor-select-trigger"
-                aria-expanded="false"
             >
 
                 <span class="profesor-select-icon">
-                    ${iconoSelect(icono)}
+                    ${iconoSelect(
+                        wrapper.dataset.icon
+                    )}
                 </span>
-
 
                 <span class="profesor-select-content">
 
                     <span class="profesor-select-label">
-                        ${esc(label)}
+                        ${esc(
+                            wrapper.dataset.label ||
+                            'Seleccionar'
+                        )}
                     </span>
 
-
-                    <span class="profesor-select-text">
-                        ${esc(placeholder)}
-                    </span>
+                    <span class="profesor-select-text"></span>
 
                 </span>
-
 
                 <svg
                     class="profesor-select-arrow"
@@ -478,11 +587,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             </button>
 
-
             <div class="profesor-select-menu">
-
                 <div class="profesor-select-options"></div>
-
             </div>
         `;
 
@@ -491,73 +597,34 @@ document.addEventListener('DOMContentLoaded', () => {
             'true';
 
 
-        const trigger =
-            wrapper.querySelector(
+        wrapper
+            .querySelector(
                 '.profesor-select-trigger'
-            );
+            )
+            .addEventListener(
+                'click',
+                () => {
+
+                    cerrarTodosSelects(
+                        wrapper
+                    );
 
 
-        trigger.addEventListener(
-            'click',
-            () => {
-
-                cerrarTodosSelects(
-                    wrapper
-                );
-
-
-                wrapper.classList.toggle(
-                    'open'
-                );
-
-
-                trigger.setAttribute(
-                    'aria-expanded',
-                    wrapper.classList.contains(
+                    wrapper.classList.toggle(
                         'open'
-                    )
-                        ? 'true'
-                        : 'false'
-                );
+                    );
 
-
-                if (
-                    wrapper.classList.contains(
-                        'open'
-                    )
-                ) {
 
                     renderOpcionesSelect(
                         wrapper
                     );
                 }
-            }
-        );
+            );
 
 
         actualizarCustomSelect(
             select
         );
-    }
-
-
-    function cerrarSelect(
-        wrapper
-    ) {
-
-        wrapper?.classList.remove(
-            'open'
-        );
-
-
-        wrapper
-            ?.querySelector(
-                '.profesor-select-trigger'
-            )
-            ?.setAttribute(
-                'aria-expanded',
-                'false'
-            );
     }
 
 
@@ -573,11 +640,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 wrapper => {
 
                     if (
-                        wrapper !== excepto
+                        wrapper !==
+                        excepto
                     ) {
 
-                        cerrarSelect(
-                            wrapper
+                        wrapper.classList.remove(
+                            'open'
                         );
                     }
                 }
@@ -595,7 +663,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
-        const container =
+        const contenedor =
             wrapper.querySelector(
                 '.profesor-select-options'
             );
@@ -603,85 +671,68 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (
             !select ||
-            !container
+            !contenedor
         ) {
             return;
         }
 
 
-        const opciones =
+        contenedor.innerHTML =
             Array.from(
                 select.options
-            );
-
-
-        container.innerHTML =
-            opciones
+            )
                 .map(
-                    option => {
+                    option => `
 
-                        const selected =
-                            String(
+                        <button
+                            type="button"
+                            class="
+                                profesor-select-option
+                                ${
+                                    String(
+                                        option.value
+                                    ) ===
+                                    String(
+                                        select.value
+                                    )
+                                        ? 'selected'
+                                        : ''
+                                }
+                            "
+                            data-value="${esc(
                                 option.value
-                            ) ===
-                            String(
-                                select.value
-                            );
+                            )}"
+                        >
 
+                            <span class="profesor-option-icon">
+                                ${iconoSelect(
+                                    wrapper.dataset.icon
+                                )}
+                            </span>
 
-                        return `
+                            <span class="profesor-option-text">
+                                ${esc(
+                                    option.textContent
+                                )}
+                            </span>
 
-                            <button
-                                type="button"
-                                class="
-                                    profesor-select-option
-                                    ${
-                                        selected
-                                            ? 'selected'
-                                            : ''
-                                    }
-                                "
-                                data-value="${esc(
-                                    option.value
-                                )}"
+                            <svg
+                                class="profesor-option-check"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.2"
                             >
+                                <path d="m5 12 4 4L19 6"/>
+                            </svg>
 
-                                <span class="profesor-option-icon">
-
-                                    ${iconoSelect(
-                                        wrapper.dataset.icon
-                                    )}
-
-                                </span>
-
-
-                                <span class="profesor-option-text">
-
-                                    ${esc(
-                                        option.textContent
-                                    )}
-
-                                </span>
-
-
-                                <svg
-                                    class="profesor-option-check"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.2"
-                                >
-                                    <path d="m5 12 4 4L19 6"/>
-                                </svg>
-
-                            </button>
-                        `;
-                    }
+                        </button>
+                    `
                 )
                 .join('');
 
 
-        container
+        contenedor
             .querySelectorAll(
                 '.profesor-select-option'
             )
@@ -700,7 +751,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 new Event(
                                     'change',
                                     {
-                                        bubbles: true
+                                        bubbles:
+                                            true
                                     }
                                 )
                             );
@@ -711,8 +763,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             );
 
 
-                            cerrarSelect(
-                                wrapper
+                            wrapper.classList.remove(
+                                'open'
                             );
                         }
                     );
@@ -725,11 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
         select
     ) {
 
-        if (!select) {
-            return;
-        }
-
-
         const wrapper =
             wrapperSelect(
                 select
@@ -741,16 +788,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        const texto =
-            wrapper.querySelector(
-                '.profesor-select-text'
-            );
-
-
         const option =
             select.options[
                 select.selectedIndex
             ];
+
+
+        const texto =
+            wrapper.querySelector(
+                '.profesor-select-text'
+            );
 
 
         if (texto) {
@@ -760,29 +807,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 wrapper.dataset.placeholder ||
                 'Seleccionar';
         }
-
-
-        renderOpcionesSelect(
-            wrapper
-        );
-    }
-
-
-    function actualizarTodosCustomSelect() {
-
-        [
-            filtroEstado,
-            sexoInput,
-            especialidadInput,
-            estadoInput,
-            editSexo,
-            editEspecialidad,
-            editEstado
-        ]
-            .filter(Boolean)
-            .forEach(
-                actualizarCustomSelect
-            );
     }
 
 
@@ -811,80 +835,100 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
 
+    [
+        filtroEstado,
+        sexoInput,
+        estadoInput,
+        editSexo,
+        editEstado
+    ]
+        .filter(Boolean)
+        .forEach(
+            select => {
+
+                select.addEventListener(
+                    'change',
+                    () => {
+
+                        actualizarCustomSelect(
+                            select
+                        );
+                    }
+                );
+            }
+        );
+
+
     // =========================================================
-    // ESPECIALIDAD
+    // INSTITUCIÓN
     // =========================================================
 
-    function nombreEspecialidad(
-        valor
+    function institucionDesdeChecks(
+        colegio,
+        academia
     ) {
 
-        const nombres = {
-
-            matematica:
-                'Matemática',
-
-            comunicacion:
-                'Comunicación',
-
-            ingles:
-                'Inglés',
-
-            fisica:
-                'Física',
-
-            quimica:
-                'Química',
-
-            historia:
-                'Historia',
-
-            arte:
-                'Arte',
-
-            musica:
-                'Música',
-
-            educacion_fisica:
-                'Educación Física'
-        };
+        if (
+            colegio &&
+            academia
+        ) {
+            return 'ambos';
+        }
 
 
-        return (
-            nombres[valor] ||
-            valor ||
-            '—'
-        );
+        if (colegio) {
+            return 'colegio';
+        }
+
+
+        if (academia) {
+            return 'academia';
+        }
+
+
+        return null;
     }
 
-
-    // =========================================================
-    // INSTITUCIONES
-    // =========================================================
 
     function institucionesProfesor(
         profesor
     ) {
 
         if (
-            Array.isArray(
-                profesor.instituciones
-            ) &&
-            profesor.instituciones.length
+            profesor.institucion ===
+            'ambos'
         ) {
 
-            return profesor.instituciones;
+            return [
+                'colegio',
+                'academia'
+            ];
         }
 
 
-        /*
-         * Compatibilidad con profesores antiguos
-         * creados antes de guardar institución.
-         */
-        return [
-            'colegio',
+        if (
+            profesor.institucion ===
+            'colegio'
+        ) {
+
+            return [
+                'colegio'
+            ];
+        }
+
+
+        if (
+            profesor.institucion ===
             'academia'
-        ];
+        ) {
+
+            return [
+                'academia'
+            ];
+        }
+
+
+        return [];
     }
 
 
@@ -892,13 +936,9 @@ document.addEventListener('DOMContentLoaded', () => {
         profesor
     ) {
 
-        const instituciones =
-            institucionesProfesor(
-                profesor
-            );
-
-
-        return instituciones
+        return institucionesProfesor(
+            profesor
+        )
             .map(
                 institucion => {
 
@@ -908,17 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ) {
 
                         return `
-                            <span
-                                class="
-                                    inline-flex
-                                    rounded-full
-                                    bg-red-50
-                                    px-2.5 py-1
-                                    text-[11px]
-                                    font-semibold
-                                    text-red-700
-                                "
-                            >
+                            <span class="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-700">
                                 Academia
                             </span>
                         `;
@@ -926,17 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                     return `
-                        <span
-                            class="
-                                inline-flex
-                                rounded-full
-                                bg-blue-50
-                                px-2.5 py-1
-                                text-[11px]
-                                font-semibold
-                                text-[#1B3A6B]
-                            "
-                        >
+                        <span class="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-[#1B3A6B]">
                             Colegio
                         </span>
                     `;
@@ -947,29 +967,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // MODAL NUEVO
+    // CREAR MODAL
     // =========================================================
 
-    function prepararNuevoProfesor() {
+    function abrirProfesorModal() {
 
         profesorForm.reset();
-
 
         cargaHorariaInput.value =
             '30';
 
-
         estadoInput.value =
             'activo';
 
+        actualizarCustomSelect(
+            sexoInput
+        );
 
-        actualizarTodosCustomSelect();
-    }
-
-
-    function abrirProfesorModal() {
-
-        prepararNuevoProfesor();
+        actualizarCustomSelect(
+            estadoInput
+        );
 
 
         profesorModal.classList.remove(
@@ -977,20 +994,8 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        profesorModal.setAttribute(
-            'aria-hidden',
-            'false'
-        );
-
-
         document.body.classList.add(
             'overflow-hidden'
-        );
-
-
-        setTimeout(
-            () => codigoInput.focus(),
-            100
         );
     }
 
@@ -1002,21 +1007,9 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        profesorModal.setAttribute(
-            'aria-hidden',
-            'true'
-        );
-
-
         document.body.classList.remove(
             'overflow-hidden'
         );
-
-
-        cerrarTodosSelects();
-
-
-        prepararNuevoProfesor();
     }
 
 
@@ -1025,18 +1018,15 @@ document.addEventListener('DOMContentLoaded', () => {
         abrirProfesorModal
     );
 
-
     closeProfesorModal?.addEventListener(
         'click',
         cerrarProfesorModal
     );
 
-
     cancelProfesorModal?.addEventListener(
         'click',
         cerrarProfesorModal
     );
-
 
     profesorModalOverlay?.addEventListener(
         'click',
@@ -1045,372 +1035,207 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // GUARDAR PROFESOR
+    // VALIDAR
+    // =========================================================
+
+    function validarProfesor(
+        datos
+    ) {
+
+        if (
+            !datos.codigo ||
+            !datos.nombre ||
+            !datos.apellido_paterno ||
+            !datos.email ||
+            !datos.dni ||
+            !datos.sexo ||
+            !datos.estado
+        ) {
+
+            mostrarToast(
+                'Completa los campos obligatorios.',
+                'error'
+            );
+
+            return false;
+        }
+
+
+        if (
+            !/^\d{8}$/.test(
+                datos.dni
+            )
+        ) {
+
+            mostrarToast(
+                'El DNI debe tener 8 dígitos.',
+                'error'
+            );
+
+            return false;
+        }
+
+
+        if (
+            !datos.institucion
+        ) {
+
+            mostrarToast(
+                'Selecciona una institución.',
+                'error'
+            );
+
+            return false;
+        }
+
+
+        return true;
+    }
+
+
+    // =========================================================
+    // CREAR
     // =========================================================
 
     profesorForm.addEventListener(
         'submit',
-        event => {
+        async event => {
 
             event.preventDefault();
 
 
-            const codigo =
-                codigoInput.value
-                    .trim()
-                    .toUpperCase();
+            const colegio =
+                profesorForm.querySelector(
+                    '[value="colegio"]'
+                )?.checked;
 
 
-            const nombre =
-                nombreInput.value
-                    .trim();
+            const academia =
+                profesorForm.querySelector(
+                    '[value="academia"]'
+                )?.checked;
 
 
-            const apellidoPaterno =
-                apellidoPaternoInput.value
-                    .trim();
+            const datos = {
 
+                codigo:
+                    codigoInput.value
+                        .trim()
+                        .toUpperCase(),
 
-            const apellidoMaterno =
-                apellidoMaternoInput.value
-                    .trim();
+                nombre:
+                    nombreInput.value
+                        .trim(),
 
+                apellido_paterno:
+                    apellidoPaternoInput.value
+                        .trim(),
 
-            const dni =
-                dniInput.value
-                    .trim();
+                apellido_materno:
+                    valorNullable(
+                        apellidoMaternoInput.value
+                    ),
 
+                email:
+                    emailInput.value
+                        .trim(),
 
-            const email =
-                emailInput.value
-                    .trim();
+                telefono:
+                    valorNullable(
+                        telefonoInput.value
+                    ),
 
+                dni:
+                    dniInput.value
+                        .trim(),
 
-            const telefono =
-                telefonoInput.value
-                    .trim();
+                sexo:
+                    sexoInput.value,
 
+                fecha_nacimiento:
+                    fechaNacimientoInput.value ||
+                    null,
 
-            const sexo =
-                sexoInput.value;
+                especialidad:
+                    valorNullable(
+                        especialidadInput.value
+                    ),
 
+                carga_horaria_maxima:
+                    Number(
+                        cargaHorariaInput.value ||
+                        30
+                    ),
 
-            const fechaNacimiento =
-                fechaNacimientoInput.value;
+                estado:
+                    estadoInput.value,
 
+                institucion:
+                    institucionDesdeChecks(
+                        colegio,
+                        academia
+                    ),
 
-            const especialidad =
-                especialidadInput.value;
-
-
-            const carga =
-                Number(
-                    cargaHorariaInput.value ||
-                    30
-                );
-
-
-            const estado =
-                estadoInput.value;
-
-
-            const observaciones =
-                observacionesInput.value
-                    .trim();
-
-
-            const instituciones =
-                Array.from(
-                    profesorForm.querySelectorAll(
-                        'input[name="instituciones[]"]:checked'
+                observaciones:
+                    valorNullable(
+                        observacionesInput.value
                     )
+            };
+
+
+            if (
+                !validarProfesor(
+                    datos
                 )
-                    .map(
-                        input =>
-                            input.value
+            ) {
+                return;
+            }
+
+
+            try {
+
+                const respuesta =
+                    await axios.post(
+                        API_PROFESORES,
+                        datos
                     );
 
 
-            if (
-                !codigo ||
-                !nombre ||
-                !apellidoPaterno ||
-                !dni ||
-                !email
-            ) {
+                cerrarProfesorModal();
 
-                alert(
-                    'Completa todos los campos obligatorios.'
+
+                mostrarToast(
+                    respuesta.data?.message ||
+                    'Profesor creado correctamente.',
+                    'success'
                 );
 
-                return;
+
+                paginaActual =
+                    1;
+
+
+                await Promise.all([
+                    cargarProfesores(),
+                    cargarEstadisticas()
+                ]);
+
+
+            } catch (error) {
+
+                mostrarToast(
+                    obtenerMensajeError(
+                        error
+                    ),
+                    'error'
+                );
             }
-
-
-            if (
-                dni.length !== 8 ||
-                !/^\d{8}$/.test(
-                    dni
-                )
-            ) {
-
-                alert(
-                    'El DNI debe contener 8 números.'
-                );
-
-                dniInput.focus();
-
-                return;
-            }
-
-
-            if (
-                !instituciones.length
-            ) {
-
-                alert(
-                    'Selecciona al menos una institución.'
-                );
-
-                return;
-            }
-
-
-            const profesores =
-                leerProfesores();
-
-
-            const duplicadoCodigo =
-                profesores.find(
-                    profesor =>
-                        normalizarTexto(
-                            profesor.codigo
-                        ) ===
-                        normalizarTexto(
-                            codigo
-                        )
-                );
-
-
-            if (duplicadoCodigo) {
-
-                alert(
-                    'Ya existe un profesor con ese código.'
-                );
-
-                return;
-            }
-
-
-            const duplicadoDni =
-                profesores.find(
-                    profesor =>
-                        String(
-                            profesor.dni
-                        ) ===
-                        dni
-                );
-
-
-            if (duplicadoDni) {
-
-                alert(
-                    'Ya existe un profesor con ese DNI.'
-                );
-
-                return;
-            }
-
-
-            const duplicadoEmail =
-                profesores.find(
-                    profesor =>
-                        normalizarTexto(
-                            profesor.email
-                        ) ===
-                        normalizarTexto(
-                            email
-                        )
-                );
-
-
-            if (duplicadoEmail) {
-
-                alert(
-                    'Ya existe un profesor con ese correo electrónico.'
-                );
-
-                return;
-            }
-
-
-            profesores.push({
-
-                id:
-                    Date.now(),
-
-                codigo,
-
-                nombre,
-
-                apellido_paterno:
-                    apellidoPaterno,
-
-                apellido_materno:
-                    apellidoMaterno,
-
-                dni,
-
-                email,
-
-                telefono,
-
-                sexo,
-
-                fecha_nacimiento:
-                    fechaNacimiento,
-
-                especialidad,
-
-                carga_horaria_maxima:
-                    carga,
-
-                estado,
-
-                observaciones,
-
-                instituciones
-            });
-
-
-            guardarProfesores(
-                profesores
-            );
-
-
-            cerrarProfesorModal();
-
-
-            const filtrados =
-                obtenerProfesoresFiltrados(
-                    profesores
-                );
-
-
-            paginaActual =
-                Math.max(
-                    1,
-                    Math.ceil(
-                        filtrados.length /
-                        POR_PAGINA
-                    )
-                );
-
-
-            renderizarProfesores();
         }
     );
 
 
     // =========================================================
-    // FILTRADO
-    // =========================================================
-
-    function obtenerProfesoresFiltrados(
-        profesores
-    ) {
-
-        const texto =
-            normalizarTexto(
-                buscador?.value
-            );
-
-
-        const estado =
-            filtroEstado?.value ||
-            '';
-
-
-        return profesores.filter(
-            profesor => {
-
-                const contenido =
-                    normalizarTexto(
-                        `
-                            ${profesor.nombre || ''}
-                            ${profesor.apellido_paterno || ''}
-                            ${profesor.apellido_materno || ''}
-                            ${profesor.dni || ''}
-                            ${profesor.email || ''}
-                            ${profesor.telefono || ''}
-                            ${profesor.especialidad || ''}
-                        `
-                    );
-
-
-                const coincideTexto =
-                    !texto ||
-                    contenido.includes(
-                        texto
-                    );
-
-
-                const coincideEstado =
-                    !estado ||
-                    profesor.estado ===
-                    estado;
-
-
-                return (
-                    coincideTexto &&
-                    coincideEstado
-                );
-            }
-        );
-    }
-
-
-    // =========================================================
-    // ESTADÍSTICAS
-    // =========================================================
-
-    function actualizarEstadisticas(
-        profesores
-    ) {
-
-        const activos =
-            profesores.filter(
-                profesor =>
-                    profesor.estado ===
-                    'activo'
-            ).length;
-
-
-        const inactivos =
-            profesores.filter(
-                profesor =>
-                    profesor.estado ===
-                    'inactivo' ||
-                    profesor.estado ===
-                    'licencia'
-            ).length;
-
-
-        totalProfesores.textContent =
-            profesores.length;
-
-
-        profesoresActivos.textContent =
-            activos;
-
-
-        profesoresInactivos.textContent =
-            inactivos;
-    }
-
-
-    // =========================================================
-    // ESTADO HTML
+    // ESTADO
     // =========================================================
 
     function htmlEstado(
@@ -1423,27 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ) {
 
             return `
-                <span
-                    class="
-                        inline-flex
-                        items-center
-                        gap-1.5
-                        rounded-full
-                        bg-emerald-50
-                        px-2.5 py-1
-                        text-xs
-                        font-semibold
-                        text-emerald-700
-                    "
-                >
-                    <span
-                        class="
-                            h-1.5 w-1.5
-                            rounded-full
-                            bg-emerald-500
-                        "
-                    ></span>
-
+                <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                     Activo
                 </span>
             `;
@@ -1456,27 +1261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ) {
 
             return `
-                <span
-                    class="
-                        inline-flex
-                        items-center
-                        gap-1.5
-                        rounded-full
-                        bg-amber-50
-                        px-2.5 py-1
-                        text-xs
-                        font-semibold
-                        text-amber-700
-                    "
-                >
-                    <span
-                        class="
-                            h-1.5 w-1.5
-                            rounded-full
-                            bg-amber-500
-                        "
-                    ></span>
-
+                <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                     Licencia
                 </span>
             `;
@@ -1484,27 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         return `
-            <span
-                class="
-                    inline-flex
-                    items-center
-                    gap-1.5
-                    rounded-full
-                    bg-slate-100
-                    px-2.5 py-1
-                    text-xs
-                    font-semibold
-                    text-slate-600
-                "
-            >
-                <span
-                    class="
-                        h-1.5 w-1.5
-                        rounded-full
-                        bg-slate-400
-                    "
-                ></span>
-
+            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
                 Inactivo
             </span>
         `;
@@ -1542,222 +1307,98 @@ document.addEventListener('DOMContentLoaded', () => {
                 .trim();
 
 
-        const iniciales =
-            (
-                String(
-                    profesor.nombre ||
-                    ''
-                ).charAt(0) +
-
-                String(
-                    profesor.apellido_paterno ||
-                    ''
-                ).charAt(0)
-            )
-                .toUpperCase() ||
-            'PR';
-
-
         fila.innerHTML = `
 
             <td class="px-5 py-4">
-
-                <div class="flex items-center gap-3">
-
-                    <div
-                        class="
-                            flex
-                            h-11 w-11
-                            shrink-0
-                            items-center
-                            justify-center
-                            rounded-full
-                            bg-blue-50
-                            text-sm
-                            font-extrabold
-                            text-[#1B3A6B]
-                        "
-                    >
+                <div>
+                    <p class="font-bold text-slate-800">
                         ${esc(
-                            iniciales
+                            nombreCompleto
                         )}
-                    </div>
+                    </p>
 
-
-                    <div class="min-w-0">
-
-                        <p
-                            class="
-                                truncate
-                                text-sm
-                                font-bold
-                                text-slate-800
-                            "
-                        >
-                            ${esc(
-                                nombreCompleto
-                            )}
-                        </p>
-
-
-                        <p
-                            class="
-                                mt-0.5
-                                truncate
-                                text-xs
-                                text-slate-400
-                            "
-                        >
-                            ${esc(
-                                profesor.email ||
-                                'Sin correo'
-                            )}
-                        </p>
-
-                    </div>
-
+                    <p class="text-xs text-slate-400">
+                        ${esc(
+                            profesor.email
+                        )}
+                    </p>
                 </div>
-
             </td>
 
-
-            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
-
+            <td class="px-5 py-4 text-sm">
                 ${esc(
-                    profesor.dni ||
-                    '—'
+                    profesor.dni
                 )}
-
             </td>
 
-
-            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
-
+            <td class="px-5 py-4 text-sm">
                 ${esc(
                     nombreEspecialidad(
                         profesor.especialidad
                     )
                 )}
-
             </td>
 
-
-            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
-
+            <td class="px-5 py-4 text-sm">
                 ${esc(
                     profesor.telefono ||
                     '—'
                 )}
-
             </td>
 
-
             <td class="px-5 py-4">
-
-                <div class="flex flex-wrap gap-1.5">
-
+                <div class="flex gap-1.5">
                     ${htmlInstituciones(
                         profesor
                     )}
-
                 </div>
-
             </td>
 
-
-            <td class="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-600">
+            <td class="px-5 py-4 text-sm">
 
                 ${esc(
-                    profesor.carga_horaria_maxima ||
+                    profesor.carga_horaria_actual ??
+                    0
+                )}
+                /
+                ${esc(
+                    profesor.carga_horaria_maxima ??
                     30
                 )}
-
                 h
 
             </td>
 
-
-            <td class="whitespace-nowrap px-5 py-4">
-
+            <td class="px-5 py-4">
                 ${htmlEstado(
                     profesor.estado
                 )}
-
             </td>
 
+            <td class="px-5 py-4 text-right">
 
-            <td class="whitespace-nowrap px-5 py-4 text-right">
+                <button
+                    type="button"
+                    class="profesor-action-btn profesor-action-edit editar-profesor"
+                    data-id="${esc(
+                        profesor.id
+                    )}"
+                >
+                    ✎
+                </button>
 
-                <div class="inline-flex items-center gap-2">
-
-                    <button
-                        type="button"
-                        class="
-                            profesor-action-btn
-                            profesor-action-edit
-                            editar-profesor
-                        "
-                        data-id="${esc(
-                            profesor.id
-                        )}"
-                        title="Editar profesor"
-                        aria-label="Editar profesor"
-                    >
-
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M12 20h9"/>
-                            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/>
-                        </svg>
-
-                    </button>
-
-
-                    <button
-                        type="button"
-                        class="
-                            profesor-action-btn
-                            profesor-action-delete
-                            eliminar-profesor
-                        "
-                        data-id="${esc(
-                            profesor.id
-                        )}"
-                        data-nombre="${esc(
-                            nombreCompleto
-                        )}"
-                        title="Eliminar profesor"
-                        aria-label="Eliminar profesor"
-                    >
-
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <path d="M3 6h18"/>
-                            <path d="M8 6V4h8v2"/>
-                            <path d="M19 6l-1 14H6L5 6"/>
-                            <path d="M10 11v5"/>
-                            <path d="M14 11v5"/>
-                        </svg>
-
-                    </button>
-
-                </div>
+                <button
+                    type="button"
+                    class="profesor-action-btn profesor-action-delete eliminar-profesor"
+                    data-id="${esc(
+                        profesor.id
+                    )}"
+                    data-nombre="${esc(
+                        nombreCompleto
+                    )}"
+                >
+                    ×
+                </button>
 
             </td>
         `;
@@ -1768,45 +1409,228 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
+    // CARGAR
+    // =========================================================
+
+    async function cargarProfesores() {
+
+        tabla.innerHTML = `
+            <tr>
+                <td colspan="8" class="px-6 py-16 text-center text-slate-400">
+                    Cargando profesores...
+                </td>
+            </tr>
+        `;
+
+
+        try {
+
+            const params = {
+
+                page:
+                    paginaActual,
+
+                per_page:
+                    POR_PAGINA
+            };
+
+
+            if (
+                buscador.value.trim()
+            ) {
+
+                params.search =
+                    buscador.value.trim();
+            }
+
+
+            if (
+                filtroEstado.value
+            ) {
+
+                params.estado =
+                    filtroEstado.value;
+            }
+
+
+            const respuesta =
+                await axios.get(
+                    API_PROFESORES,
+                    {
+                        params
+                    }
+                );
+
+
+            const paginador =
+                respuesta.data?.data ??
+                {};
+
+
+            profesoresPagina =
+                paginador.data ??
+                [];
+
+
+            paginaActual =
+                paginador.current_page ??
+                1;
+
+
+            ultimaPagina =
+                paginador.last_page ??
+                1;
+
+
+            totalRegistros =
+                paginador.total ??
+                0;
+
+
+            renderizarProfesores();
+
+
+        } catch (error) {
+
+            if (
+                error?.response?.status ===
+                401
+            ) {
+
+                tabla.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-16 text-center">
+
+                            <h3 class="font-bold text-[#0F2749]">
+                                Autenticación requerida
+                            </h3>
+
+                            <p class="mt-2 text-sm text-slate-400">
+                                La API está protegida con Sanctum.
+                            </p>
+
+                        </td>
+                    </tr>
+                `;
+
+            } else {
+
+                tabla.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="px-6 py-16 text-center text-red-600">
+                            Error cargando profesores.
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+    }
+
+
+    async function cargarEstadisticas() {
+
+        try {
+
+            const respuesta =
+                await axios.get(
+                    API_ESTADISTICAS
+                );
+
+
+            const data =
+                respuesta.data?.data ??
+                {};
+
+
+            totalProfesores.textContent =
+                data.total ??
+                0;
+
+
+            profesoresActivos.textContent =
+                data.activos ??
+                0;
+
+
+            profesoresInactivos.textContent =
+                Number(
+                    data.inactivos ??
+                    0
+                ) +
+                Number(
+                    data.licencia ??
+                    0
+                );
+
+
+        } catch {
+
+            totalProfesores.textContent =
+                '0';
+
+            profesoresActivos.textContent =
+                '0';
+
+            profesoresInactivos.textContent =
+                '0';
+        }
+    }
+
+
+    function renderizarProfesores() {
+
+        tabla.innerHTML =
+            '';
+
+
+        if (
+            !profesoresPagina.length
+        ) {
+
+            tabla.innerHTML = `
+                <tr>
+                    <td colspan="8" class="px-6 py-16 text-center text-slate-400">
+                        No se encontraron profesores.
+                    </td>
+                </tr>
+            `;
+
+        } else {
+
+            profesoresPagina.forEach(
+                profesor => {
+
+                    tabla.appendChild(
+                        crearFila(
+                            profesor
+                        )
+                    );
+                }
+            );
+        }
+
+
+        resultadosProfesores.textContent =
+            profesoresPagina.length;
+
+
+        totalResultadosProfesores.textContent =
+            totalRegistros;
+
+
+        renderizarPaginacion();
+    }
+
+
+    // =========================================================
     // PAGINACIÓN
     // =========================================================
 
-    function renderizarPaginacion(
-        totalFiltrados
-    ) {
-
-        if (!paginacion) {
-            return;
-        }
-
-
-        const totalPaginas =
-            Math.max(
-                1,
-                Math.ceil(
-                    totalFiltrados /
-                    POR_PAGINA
-                )
-            );
-
+    function renderizarPaginacion() {
 
         if (
-            paginaActual >
-            totalPaginas
-        ) {
-
-            paginaActual =
-                totalPaginas;
-        }
-
-
-        /*
-         * Con 6 o menos profesores no mostramos
-         * paginación innecesaria.
-         */
-        if (
-            totalFiltrados <=
-            POR_PAGINA
+            ultimaPagina <=
+            1
         ) {
 
             paginacion.innerHTML =
@@ -1816,29 +1640,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        let html = `
-
-            <button
-                type="button"
-                class="profesor-pagination-btn"
-                data-pagina="${
-                    paginaActual -
-                    1
-                }"
-                ${
-                    paginaActual === 1
-                        ? 'disabled'
-                        : ''
-                }
-            >
-                Anterior
-            </button>
-        `;
+        let html =
+            '';
 
 
         for (
             let pagina = 1;
-            pagina <= totalPaginas;
+            pagina <= ultimaPagina;
             pagina++
         ) {
 
@@ -1863,253 +1671,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        html += `
-
-            <button
-                type="button"
-                class="profesor-pagination-btn"
-                data-pagina="${
-                    paginaActual +
-                    1
-                }"
-                ${
-                    paginaActual ===
-                    totalPaginas
-                        ? 'disabled'
-                        : ''
-                }
-            >
-                Siguiente
-            </button>
-        `;
-
-
         paginacion.innerHTML =
             html;
     }
 
 
-    paginacion?.addEventListener(
+    paginacion.addEventListener(
         'click',
         event => {
 
-            const button =
+            const boton =
                 event.target.closest(
                     '[data-pagina]'
                 );
 
 
-            if (
-                !button ||
-                button.disabled
-            ) {
+            if (!boton) {
                 return;
             }
 
 
             paginaActual =
                 Number(
-                    button.dataset.pagina
+                    boton.dataset.pagina
                 );
 
 
-            renderizarProfesores();
-
-
-            tabla
-                .closest(
-                    '.profesor-card'
-                )
-                ?.scrollIntoView({
-                    behavior:
-                        'smooth',
-
-                    block:
-                        'start'
-                });
+            cargarProfesores();
         }
     );
-
-
-    // =========================================================
-    // RENDERIZAR
-    // =========================================================
-
-    function renderizarProfesores() {
-
-        const profesores =
-            leerProfesores();
-
-
-        actualizarEstadisticas(
-            profesores
-        );
-
-
-        const filtrados =
-            obtenerProfesoresFiltrados(
-                profesores
-            );
-
-
-        const totalPaginas =
-            Math.max(
-                1,
-                Math.ceil(
-                    filtrados.length /
-                    POR_PAGINA
-                )
-            );
-
-
-        if (
-            paginaActual >
-            totalPaginas
-        ) {
-
-            paginaActual =
-                totalPaginas;
-        }
-
-
-        const inicio =
-            (
-                paginaActual -
-                1
-            ) *
-            POR_PAGINA;
-
-
-        const pagina =
-            filtrados.slice(
-                inicio,
-                inicio + POR_PAGINA
-            );
-
-
-        tabla.innerHTML =
-            '';
-
-
-        if (!filtrados.length) {
-
-            tabla.innerHTML = `
-
-                <tr>
-
-                    <td
-                        colspan="8"
-                        class="
-                            px-6
-                            py-16
-                            text-center
-                        "
-                    >
-
-                        <div class="flex flex-col items-center">
-
-                            <div
-                                class="
-                                    flex
-                                    h-16 w-16
-                                    items-center justify-center
-                                    rounded-2xl
-                                    bg-slate-100
-                                    text-slate-400
-                                "
-                            >
-
-                                <svg
-                                    class="h-8 w-8"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1.6"
-                                >
-                                    <circle cx="10" cy="8" r="4"/>
-                                    <path d="M3 21a7 7 0 0 1 14 0"/>
-                                    <path d="m17 17 4 4"/>
-                                    <circle cx="18" cy="18" r="3"/>
-                                </svg>
-
-                            </div>
-
-
-                            <h3
-                                class="mt-4 font-bold"
-                                style="color:#0F2749;"
-                            >
-                                No se encontraron profesores
-                            </h3>
-
-
-                            <p
-                                class="
-                                    mt-1
-                                    text-sm
-                                    text-slate-400
-                                "
-                            >
-                                Cambia la búsqueda o el filtro seleccionado.
-                            </p>
-
-                        </div>
-
-                    </td>
-
-                </tr>
-            `;
-
-        } else {
-
-            pagina.forEach(
-                profesor => {
-
-                    tabla.appendChild(
-                        crearFila(
-                            profesor
-                        )
-                    );
-                }
-            );
-        }
-
-
-        resultadosProfesores.textContent =
-            pagina.length;
-
-
-        totalResultadosProfesores.textContent =
-            filtrados.length;
-
-
-        renderizarPaginacion(
-            filtrados.length
-        );
-    }
 
 
     // =========================================================
     // FILTROS
     // =========================================================
 
-    function cambioFiltro() {
-
-        paginaActual =
-            1;
-
-
-        renderizarProfesores();
-    }
-
-
-    buscador?.addEventListener(
+    buscador.addEventListener(
         'input',
-        cambioFiltro
+        () => {
+
+            clearTimeout(
+                timeoutBusqueda
+            );
+
+
+            timeoutBusqueda =
+                setTimeout(
+                    () => {
+
+                        paginaActual =
+                            1;
+
+                        cargarProfesores();
+
+                    },
+                    350
+                );
+        }
     );
 
 
-    filtroEstado?.addEventListener(
+    filtroEstado.addEventListener(
         'change',
         () => {
 
@@ -2118,43 +1740,84 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
-            cambioFiltro();
+            paginaActual =
+                1;
+
+
+            cargarProfesores();
         }
     );
 
 
     // =========================================================
-    // CUSTOM SELECTS FORMULARIOS
-    // =========================================================
-
-    [
-        sexoInput,
-        especialidadInput,
-        estadoInput,
-        editSexo,
-        editEspecialidad,
-        editEstado
-    ]
-        .filter(Boolean)
-        .forEach(
-            select => {
-
-                select.addEventListener(
-                    'change',
-                    () => {
-
-                        actualizarCustomSelect(
-                            select
-                        );
-                    }
-                );
-            }
-        );
-
-
-    // =========================================================
     // EDITAR
     // =========================================================
+
+    tabla.addEventListener(
+        'click',
+        async event => {
+
+            const botonEditar =
+                event.target.closest(
+                    '.editar-profesor'
+                );
+
+
+            if (botonEditar) {
+
+                try {
+
+                    const respuesta =
+                        await axios.get(
+                            `${API_PROFESORES}/${botonEditar.dataset.id}`
+                        );
+
+
+                    abrirEditarModal(
+                        respuesta.data.data
+                    );
+
+
+                } catch (error) {
+
+                    mostrarToast(
+                        obtenerMensajeError(
+                            error
+                        ),
+                        'error'
+                    );
+                }
+
+
+                return;
+            }
+
+
+            const botonEliminar =
+                event.target.closest(
+                    '.eliminar-profesor'
+                );
+
+
+            if (
+                botonEliminar
+            ) {
+
+                profesorAEliminarId =
+                    botonEliminar.dataset.id;
+
+
+                eliminarNombre.textContent =
+                    `"${botonEliminar.dataset.nombre}"`;
+
+
+                eliminarModal.classList.remove(
+                    'hidden'
+                );
+            }
+        }
+    );
+
 
     function abrirEditarModal(
         profesor
@@ -2167,69 +1830,57 @@ document.addEventListener('DOMContentLoaded', () => {
         editId.value =
             profesor.id;
 
-
         editCodigo.value =
-            profesor.codigo ||
+            profesor.codigo ??
             '';
-
 
         editNombre.value =
-            profesor.nombre ||
+            profesor.nombre ??
             '';
-
 
         editApellidoPaterno.value =
-            profesor.apellido_paterno ||
+            profesor.apellido_paterno ??
             '';
-
 
         editApellidoMaterno.value =
-            profesor.apellido_materno ||
+            profesor.apellido_materno ??
             '';
-
 
         editDni.value =
-            profesor.dni ||
+            profesor.dni ??
             '';
-
 
         editEmail.value =
-            profesor.email ||
+            profesor.email ??
             '';
-
 
         editTelefono.value =
-            profesor.telefono ||
+            profesor.telefono ??
             '';
-
 
         editSexo.value =
-            profesor.sexo ||
+            profesor.sexo ??
             '';
-
 
         editFechaNacimiento.value =
-            profesor.fecha_nacimiento ||
-            '';
-
+            fechaParaInput(
+                profesor.fecha_nacimiento
+            );
 
         editEspecialidad.value =
-            profesor.especialidad ||
+            profesor.especialidad ??
             '';
 
-
         editCargaHoraria.value =
-            profesor.carga_horaria_maxima ||
+            profesor.carga_horaria_maxima ??
             30;
 
-
         editEstado.value =
-            profesor.estado ||
+            profesor.estado ??
             'activo';
 
-
         editObservaciones.value =
-            profesor.observaciones ||
+            profesor.observaciones ??
             '';
 
 
@@ -2251,338 +1902,158 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
-        actualizarTodosCustomSelect();
+        actualizarCustomSelect(
+            editSexo
+        );
+
+        actualizarCustomSelect(
+            editEstado
+        );
 
 
         editarModal.classList.remove(
             'hidden'
         );
-
-
-        editarModal.setAttribute(
-            'aria-hidden',
-            'false'
-        );
-
-
-        document.body.classList.add(
-            'overflow-hidden'
-        );
     }
 
 
-    function cerrarEditarModal() {
-
-        editarModal.classList.add(
-            'hidden'
-        );
-
-
-        editarModal.setAttribute(
-            'aria-hidden',
-            'true'
-        );
-
-
-        document.body.classList.remove(
-            'overflow-hidden'
-        );
-
-
-        profesorEditandoId =
-            null;
-
-
-        editarForm.reset();
-
-
-        cerrarTodosSelects();
-    }
-
-
-    closeEditar?.addEventListener(
-        'click',
-        cerrarEditarModal
-    );
-
-
-    cancelEditar?.addEventListener(
-        'click',
-        cerrarEditarModal
-    );
-
-
-    editarOverlay?.addEventListener(
-        'click',
-        cerrarEditarModal
-    );
-
-
-    // =========================================================
-    // CLICK TABLA
-    // =========================================================
-
-    tabla.addEventListener(
-        'click',
-        event => {
-
-            const editar =
-                event.target.closest(
-                    '.editar-profesor'
-                );
-
-
-            if (editar) {
-
-                const profesor =
-                    leerProfesores()
-                        .find(
-                            item =>
-                                String(
-                                    item.id
-                                ) ===
-                                String(
-                                    editar.dataset.id
-                                )
-                        );
-
-
-                if (profesor) {
-
-                    abrirEditarModal(
-                        profesor
-                    );
-                }
-
-
-                return;
-            }
-
-
-            const eliminar =
-                event.target.closest(
-                    '.eliminar-profesor'
-                );
-
-
-            if (eliminar) {
-
-                abrirEliminarModal(
-
-                    eliminar.dataset
-                        .nombre,
-
-                    eliminar.dataset
-                        .id
-                );
-            }
-        }
-    );
-
-
-    // =========================================================
-    // GUARDAR EDICIÓN
-    // =========================================================
-
-    editarForm?.addEventListener(
+    editarForm.addEventListener(
         'submit',
-        event => {
+        async event => {
 
             event.preventDefault();
 
 
-            if (
-                profesorEditandoId ===
-                null
-            ) {
-                return;
-            }
+            const datos = {
 
-
-            const instituciones =
-                [];
-
-
-            if (
-                editInstitucionColegio.checked
-            ) {
-
-                instituciones.push(
-                    'colegio'
-                );
-            }
-
-
-            if (
-                editInstitucionAcademia.checked
-            ) {
-
-                instituciones.push(
-                    'academia'
-                );
-            }
-
-
-            if (
-                !instituciones.length
-            ) {
-
-                alert(
-                    'Selecciona al menos una institución.'
-                );
-
-                return;
-            }
-
-
-            const profesores =
-                leerProfesores();
-
-
-            const index =
-                profesores.findIndex(
-                    profesor =>
-                        String(
-                            profesor.id
-                        ) ===
-                        String(
-                            profesorEditandoId
-                        )
-                );
-
-
-            if (
-                index ===
-                -1
-            ) {
-                return;
-            }
-
-
-            const dni =
-                editDni.value
-                    .trim();
-
-
-            const email =
-                editEmail.value
-                    .trim();
-
-
-            const duplicadoDni =
-                profesores.find(
-                    profesor =>
-                        String(
-                            profesor.id
-                        ) !==
-                        String(
-                            profesorEditandoId
-                        ) &&
-                        String(
-                            profesor.dni
-                        ) ===
-                        dni
-                );
-
-
-            if (duplicadoDni) {
-
-                alert(
-                    'Ya existe otro profesor con ese DNI.'
-                );
-
-                return;
-            }
-
-
-            const duplicadoEmail =
-                profesores.find(
-                    profesor =>
-                        String(
-                            profesor.id
-                        ) !==
-                        String(
-                            profesorEditandoId
-                        ) &&
-                        normalizarTexto(
-                            profesor.email
-                        ) ===
-                        normalizarTexto(
-                            email
-                        )
-                );
-
-
-            if (duplicadoEmail) {
-
-                alert(
-                    'Ya existe otro profesor con ese correo.'
-                );
-
-                return;
-            }
-
-
-            profesores[index] = {
-
-                ...profesores[index],
+                codigo:
+                    editCodigo.value,
 
                 nombre:
-                    editNombre.value
-                        .trim(),
+                    editNombre.value.trim(),
 
                 apellido_paterno:
-                    editApellidoPaterno.value
-                        .trim(),
+                    editApellidoPaterno.value.trim(),
 
                 apellido_materno:
-                    editApellidoMaterno.value
-                        .trim(),
+                    valorNullable(
+                        editApellidoMaterno.value
+                    ),
 
-                dni,
-
-                email,
+                email:
+                    editEmail.value.trim(),
 
                 telefono:
-                    editTelefono.value
-                        .trim(),
+                    valorNullable(
+                        editTelefono.value
+                    ),
+
+                dni:
+                    editDni.value.trim(),
 
                 sexo:
                     editSexo.value,
 
                 fecha_nacimiento:
-                    editFechaNacimiento.value,
+                    editFechaNacimiento.value ||
+                    null,
 
                 especialidad:
-                    editEspecialidad.value,
+                    valorNullable(
+                        editEspecialidad.value
+                    ),
 
                 carga_horaria_maxima:
                     Number(
-                        editCargaHoraria.value ||
-                        30
+                        editCargaHoraria.value
                     ),
 
                 estado:
                     editEstado.value,
 
-                observaciones:
-                    editObservaciones.value
-                        .trim(),
+                institucion:
+                    institucionDesdeChecks(
+                        editInstitucionColegio.checked,
+                        editInstitucionAcademia.checked
+                    ),
 
-                instituciones
+                observaciones:
+                    valorNullable(
+                        editObservaciones.value
+                    )
             };
 
 
-            guardarProfesores(
-                profesores
-            );
+            if (
+                !validarProfesor(
+                    datos
+                )
+            ) {
+                return;
+            }
 
 
-            cerrarEditarModal();
+            try {
+
+                const respuesta =
+                    await axios.put(
+                        `${API_PROFESORES}/${profesorEditandoId}`,
+                        datos
+                    );
 
 
-            renderizarProfesores();
+                editarModal.classList.add(
+                    'hidden'
+                );
+
+
+                mostrarToast(
+                    respuesta.data?.message ||
+                    'Profesor actualizado.',
+                    'success'
+                );
+
+
+                await Promise.all([
+                    cargarProfesores(),
+                    cargarEstadisticas()
+                ]);
+
+
+            } catch (error) {
+
+                mostrarToast(
+                    obtenerMensajeError(
+                        error
+                    ),
+                    'error'
+                );
+            }
         }
+    );
+
+
+    closeEditar?.addEventListener(
+        'click',
+        () => editarModal.classList.add(
+            'hidden'
+        )
+    );
+
+
+    cancelEditar?.addEventListener(
+        'click',
+        () => editarModal.classList.add(
+            'hidden'
+        )
+    );
+
+
+    editarOverlay?.addEventListener(
+        'click',
+        () => editarModal.classList.add(
+            'hidden'
+        )
     );
 
 
@@ -2590,199 +2061,80 @@ document.addEventListener('DOMContentLoaded', () => {
     // ELIMINAR
     // =========================================================
 
-    function abrirEliminarModal(
-        nombre,
-        id
-    ) {
+    async function eliminarProfesor() {
 
-        profesorAEliminarId =
-            id;
-
-
-        eliminarNombre.textContent =
-            `"${nombre}"`;
+        if (
+            !profesorAEliminarId
+        ) {
+            return;
+        }
 
 
-        eliminarModal.classList.remove(
-            'hidden'
-        );
+        try {
+
+            const respuesta =
+                await axios.delete(
+                    `${API_PROFESORES}/${profesorAEliminarId}`
+                );
 
 
-        eliminarModal.setAttribute(
-            'aria-hidden',
-            'false'
-        );
+            eliminarModal.classList.add(
+                'hidden'
+            );
 
 
-        document.body.classList.add(
-            'overflow-hidden'
-        );
+            mostrarToast(
+                respuesta.data?.message ||
+                'Profesor eliminado.',
+                'success'
+            );
+
+
+            await Promise.all([
+                cargarProfesores(),
+                cargarEstadisticas()
+            ]);
+
+
+        } catch (error) {
+
+            mostrarToast(
+                obtenerMensajeError(
+                    error
+                ),
+                'error'
+            );
+        }
     }
 
 
-    function cerrarEliminarModal() {
-
-        profesorAEliminarId =
-            null;
-
-
-        eliminarModal.classList.add(
-            'hidden'
-        );
-
-
-        eliminarModal.setAttribute(
-            'aria-hidden',
-            'true'
-        );
-
-
-        document.body.classList.remove(
-            'overflow-hidden'
-        );
-    }
-
-
-    eliminarOverlay?.addEventListener(
+    confirmEliminar?.addEventListener(
         'click',
-        cerrarEliminarModal
-    );
-
-
-    closeEliminar?.addEventListener(
-        'click',
-        cerrarEliminarModal
+        eliminarProfesor
     );
 
 
     cancelEliminar?.addEventListener(
         'click',
-        cerrarEliminarModal
+        () => eliminarModal.classList.add(
+            'hidden'
+        )
     );
 
 
-    confirmEliminar?.addEventListener(
+    eliminarOverlay?.addEventListener(
         'click',
-        () => {
-
-            if (
-                profesorAEliminarId ===
-                null
-            ) {
-                return;
-            }
-
-
-            const profesores =
-                leerProfesores()
-                    .filter(
-                        profesor =>
-                            String(
-                                profesor.id
-                            ) !==
-                            String(
-                                profesorAEliminarId
-                            )
-                    );
-
-
-            guardarProfesores(
-                profesores
-            );
-
-
-            cerrarEliminarModal();
-
-
-            renderizarProfesores();
-        }
+        () => eliminarModal.classList.add(
+            'hidden'
+        )
     );
 
 
-    // =========================================================
-    // ESC
-    // =========================================================
-
-    document.addEventListener(
-        'keydown',
-        event => {
-
-            if (
-                event.key !==
-                'Escape'
-            ) {
-                return;
-            }
-
-
-            cerrarTodosSelects();
-
-
-            if (
-                !profesorModal.classList.contains(
-                    'hidden'
-                )
-            ) {
-
-                cerrarProfesorModal();
-            }
-
-
-            if (
-                editarModal &&
-                !editarModal.classList.contains(
-                    'hidden'
-                )
-            ) {
-
-                cerrarEditarModal();
-            }
-
-
-            if (
-                eliminarModal &&
-                !eliminarModal.classList.contains(
-                    'hidden'
-                )
-            ) {
-
-                cerrarEliminarModal();
-            }
-        }
-    );
-
-
-    // =========================================================
-    // STORAGE
-    // =========================================================
-
-    window.addEventListener(
-        'storage',
-        event => {
-
-            if (
-                event.key ===
-                PROFESORES_KEY
-            ) {
-
-                paginaActual =
-                    1;
-
-
-                renderizarProfesores();
-            }
-        }
-    );
-
-
-    window.addEventListener(
-        'focus',
-        () => {
-
-            renderizarProfesores();
-
-            actualizarTodosCustomSelect();
-        }
+    closeEliminar?.addEventListener(
+        'click',
+        () => eliminarModal.classList.add(
+            'hidden'
+        )
     );
 
 
@@ -2790,8 +2142,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // INICIO
     // =========================================================
 
-    prepararNuevoProfesor();
-
-    renderizarProfesores();
+    Promise.all([
+        cargarProfesores(),
+        cargarEstadisticas()
+    ]);
 
 });

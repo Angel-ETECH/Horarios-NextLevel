@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================
@@ -24,11 +26,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // STORAGE
+    // API
     // =========================================================
 
-    const CURSOS_KEY =
-        'nextlevel_cursos';
+    const API_CURSOS =
+        '/api/cursos';
+
+    const API_ESTADISTICAS =
+        '/api/cursos/estadisticas';
+
+
+    axios.defaults.headers.common['Accept'] =
+        'application/json';
+
+    axios.defaults.headers.common['X-Requested-With'] =
+        'XMLHttpRequest';
+
+    axios.defaults.withCredentials =
+        true;
 
 
     // =========================================================
@@ -79,11 +94,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const estadoInput =
         document.getElementById('curso-estado');
 
-    const observacionesInput =
-        document.getElementById('curso-observaciones');
-
     const modalTitle =
         document.getElementById('curso-modal-title');
+
+    const submitButton =
+        document.getElementById('curso-submit-button');
 
     const submitText =
         document.getElementById('curso-submit-text');
@@ -98,6 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const buscador =
         document.getElementById('buscar-curso');
+
+    const filtroNivel =
+        document.getElementById('filtro-curso-nivel');
+
+    const filtroTipo =
+        document.getElementById('filtro-curso-tipo');
 
     const filtroEstado =
         document.getElementById('filtro-curso-estado');
@@ -127,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // MODAL ELIMINAR
+    // ELIMINAR
     // =========================================================
 
     const eliminarModal =
@@ -153,6 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ESTADO
     // =========================================================
 
+    let cursosPagina =
+        [];
+
     let cursoEditandoId =
         null;
 
@@ -162,107 +186,228 @@ document.addEventListener('DOMContentLoaded', () => {
     let paginaActual =
         1;
 
+    let ultimaPagina =
+        1;
+
+    let totalRegistros =
+        0;
+
     const POR_PAGINA =
         6;
 
+    let timeoutBusqueda =
+        null;
+
+    let cargandoCursos =
+        false;
+
 
     // =========================================================
-    // STORAGE HELPERS
+    // HELPERS
     // =========================================================
 
-    function leerCursos() {
+    function esc(valor) {
 
-        try {
-
-            const datos =
-                JSON.parse(
-                    localStorage.getItem(
-                        CURSOS_KEY
-                    ) || '[]'
-                );
-
-
-            return Array.isArray(
-                datos
-            )
-                ? datos
-                : [];
-
-        } catch (error) {
-
-            console.error(
-                'Error leyendo cursos:',
-                error
-            );
-
-
-            return [];
-        }
+        return String(
+            valor ?? ''
+        )
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
 
-    function guardarCursos(
-        cursos
+    function valorNullable(
+        valor
     ) {
 
-        localStorage.setItem(
-            CURSOS_KEY,
-            JSON.stringify(
-                cursos
-            )
+        const texto =
+            String(
+                valor ?? ''
+            ).trim();
+
+
+        return texto === ''
+            ? null
+            : texto;
+    }
+
+
+    function obtenerMensajeError(
+        error
+    ) {
+
+        if (!error?.response) {
+            return 'No se pudo conectar con el servidor.';
+        }
+
+
+        const data =
+            error.response.data ??
+            {};
+
+
+        if (data.errors) {
+
+            const mensajes =
+                Object.values(
+                    data.errors
+                )
+                    .flat()
+                    .filter(Boolean);
+
+
+            if (mensajes.length) {
+                return mensajes.join('\n');
+            }
+        }
+
+
+        return data.message ||
+            'Ocurrió un error inesperado.';
+    }
+
+
+    function esActivo(
+        valor
+    ) {
+
+        return (
+            valor === true ||
+            valor === 1 ||
+            valor === '1'
         );
     }
 
 
     // =========================================================
-    // UTILIDADES
+    // TOAST
     // =========================================================
 
-    function normalizarTexto(
-        valor
-    ) {
+    function obtenerToast() {
 
-        return String(
-            valor ??
-            ''
-        )
-            .trim()
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(
-                /[\u0300-\u036f]/g,
-                ''
+        let toast =
+            document.getElementById(
+                'curso-toast'
             );
+
+
+        if (toast) {
+            return toast;
+        }
+
+
+        toast =
+            document.createElement(
+                'div'
+            );
+
+
+        toast.id =
+            'curso-toast';
+
+
+        toast.className = `
+            fixed
+            bottom-5
+            right-5
+            z-[500]
+            hidden
+            max-w-sm
+            whitespace-pre-line
+            rounded-xl
+            px-4
+            py-3
+            text-sm
+            font-semibold
+            text-white
+            shadow-xl
+        `;
+
+
+        document.body.appendChild(
+            toast
+        );
+
+
+        return toast;
     }
 
 
-    function esc(
-        valor
+    function mostrarToast(
+        mensaje,
+        tipo = 'info'
     ) {
 
-        return String(
-            valor ??
-            ''
-        )
-            .replace(
-                /&/g,
-                '&amp;'
-            )
-            .replace(
-                /</g,
-                '&lt;'
-            )
-            .replace(
-                />/g,
-                '&gt;'
-            )
-            .replace(
-                /"/g,
-                '&quot;'
-            )
-            .replace(
-                /'/g,
-                '&#039;'
+        const toast =
+            obtenerToast();
+
+
+        toast.textContent =
+            mensaje;
+
+
+        toast.classList.remove(
+            'hidden',
+            'bg-slate-900',
+            'bg-emerald-600',
+            'bg-red-600',
+            'bg-amber-600'
+        );
+
+
+        if (
+            tipo ===
+            'success'
+        ) {
+
+            toast.classList.add(
+                'bg-emerald-600'
+            );
+
+        } else if (
+            tipo ===
+            'error'
+        ) {
+
+            toast.classList.add(
+                'bg-red-600'
+            );
+
+        } else if (
+            tipo ===
+            'warning'
+        ) {
+
+            toast.classList.add(
+                'bg-amber-600'
+            );
+
+        } else {
+
+            toast.classList.add(
+                'bg-slate-900'
+            );
+        }
+
+
+        clearTimeout(
+            mostrarToast.timeout
+        );
+
+
+        mostrarToast.timeout =
+            setTimeout(
+                () => {
+
+                    toast.classList.add(
+                        'hidden'
+                    );
+
+                },
+                4000
             );
     }
 
@@ -291,7 +436,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </svg>
             `,
 
-
             nivel: `
                 <svg
                     width="17"
@@ -308,7 +452,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </svg>
             `,
 
-
             tipo: `
                 <svg
                     width="17"
@@ -318,16 +461,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     stroke="currentColor"
                     stroke-width="1.9"
                 >
-                    <rect
-                        x="3"
-                        y="4"
-                        width="18"
-                        height="16"
-                        rx="2"
-                    />
-
+                    <rect x="3" y="4" width="18" height="16" rx="2"/>
                     <path d="M7 8h10"/>
                     <path d="M7 12h6"/>
+                </svg>
+            `,
+
+            tiempo: `
+                <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                >
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 7v5l3 2"/>
                 </svg>
             `
         };
@@ -368,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
             wrapper.dataset.ready ===
             'true'
         ) {
+
             return;
         }
 
@@ -393,16 +544,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'Seleccionar';
 
 
-        const tipoIcono =
-            wrapper.dataset.icon ||
-            'tipo';
-
-
-        const usaBusqueda =
-            wrapper.dataset.search !==
-            'false';
-
-
         wrapper.innerHTML = `
 
             <button
@@ -414,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="curso-select-icon">
 
                     ${iconoSelect(
-                        tipoIcono
+                        wrapper.dataset.icon
                     )}
 
                 </span>
@@ -423,20 +564,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="curso-select-content">
 
                     <span class="curso-select-label">
-
-                        ${esc(
-                            label
-                        )}
-
+                        ${esc(label)}
                     </span>
 
-
                     <span class="curso-select-text">
-
-                        ${esc(
-                            placeholder
-                        )}
-
+                        ${esc(placeholder)}
                     </span>
 
                 </span>
@@ -456,43 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             <div class="curso-select-menu">
-
-                ${
-                    usaBusqueda
-
-                        ? `
-                            <div class="curso-select-search-wrap">
-
-                                <svg
-                                    class="curso-select-search-icon"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2"
-                                >
-                                    <circle cx="11" cy="11" r="7"/>
-                                    <path d="m20 20-3.5-3.5"/>
-                                </svg>
-
-
-                                <input
-                                    type="text"
-                                    class="curso-select-search"
-                                    placeholder="Buscar..."
-                                    autocomplete="off"
-                                >
-
-                            </div>
-                        `
-
-                        : ''
-                }
-
-
-                <div
-                    class="curso-select-options"
-                ></div>
-
+                <div class="curso-select-options"></div>
             </div>
         `;
 
@@ -507,22 +603,9 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
-        const search =
-            wrapper.querySelector(
-                '.curso-select-search'
-            );
-
-
         trigger.addEventListener(
             'click',
             () => {
-
-                if (
-                    trigger.disabled
-                ) {
-                    return;
-                }
-
 
                 cerrarTodosSelects(
                     wrapper
@@ -551,58 +634,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     )
                 ) {
 
-                    if (search) {
-
-                        search.value =
-                            '';
-                    }
-
-
                     renderOpcionesSelect(
                         wrapper
                     );
-
-
-                    if (search) {
-
-                        setTimeout(
-                            () =>
-                                search.focus(),
-                            40
-                        );
-                    }
-                }
-            }
-        );
-
-
-        search?.addEventListener(
-            'input',
-            () => {
-
-                renderOpcionesSelect(
-                    wrapper,
-                    search.value
-                );
-            }
-        );
-
-
-        search?.addEventListener(
-            'keydown',
-            event => {
-
-                if (
-                    event.key ===
-                    'Escape'
-                ) {
-
-                    cerrarSelect(
-                        wrapper
-                    );
-
-
-                    trigger.focus();
                 }
             }
         );
@@ -660,8 +694,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function renderOpcionesSelect(
-        wrapper,
-        busqueda = ''
+        wrapper
     ) {
 
         const select =
@@ -684,42 +717,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        const query =
-            normalizarTexto(
-                busqueda
-            );
-
-
-        const opciones =
+        contenedor.innerHTML =
             Array.from(
                 select.options
             )
-                .filter(
-                    option =>
-                        !option.disabled &&
-                        normalizarTexto(
-                            option.textContent
-                        ).includes(
-                            query
-                        )
-                );
-
-
-        if (!opciones.length) {
-
-            contenedor.innerHTML = `
-                <div class="curso-select-empty">
-                    No hay opciones disponibles
-                </div>
-            `;
-
-
-            return;
-        }
-
-
-        contenedor.innerHTML =
-            opciones
                 .map(
                     option => {
 
@@ -845,10 +846,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        const trigger =
-            wrapper.querySelector(
-                '.curso-select-trigger'
-            );
+        const option =
+            select.options[
+                select.selectedIndex
+            ];
 
 
         const texto =
@@ -857,28 +858,13 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
-        if (
-            !trigger ||
-            !texto
-        ) {
-            return;
+        if (texto) {
+
+            texto.textContent =
+                option?.textContent ||
+                wrapper.dataset.placeholder ||
+                'Seleccionar';
         }
-
-
-        trigger.disabled =
-            select.disabled;
-
-
-        const option =
-            select.options[
-                select.selectedIndex
-            ];
-
-
-        texto.textContent =
-            option?.textContent ||
-            wrapper.dataset.placeholder ||
-            'Seleccionar';
 
 
         renderOpcionesSelect(
@@ -890,9 +876,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function actualizarTodosCustomSelect() {
 
         [
+            filtroNivel,
+            filtroTipo,
             filtroEstado,
             nivelInput,
             tipoInput,
+            duracionInput,
             estadoInput
         ]
             .filter(Boolean)
@@ -927,6 +916,32 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
 
+    [
+        filtroNivel,
+        filtroTipo,
+        filtroEstado,
+        nivelInput,
+        tipoInput,
+        duracionInput,
+        estadoInput
+    ]
+        .filter(Boolean)
+        .forEach(
+            select => {
+
+                select.addEventListener(
+                    'change',
+                    () => {
+
+                        actualizarCustomSelect(
+                            select
+                        );
+                    }
+                );
+            }
+        );
+
+
     // =========================================================
     // COLOR
     // =========================================================
@@ -942,7 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         colorPreview.textContent =
-            colorInput.value;
+            colorInput.value.toUpperCase();
 
 
         colorPreview.style.color =
@@ -954,6 +969,63 @@ document.addEventListener('DOMContentLoaded', () => {
         'input',
         actualizarColorPreview
     );
+
+
+    // =========================================================
+    // LABELS
+    // =========================================================
+
+    function labelNivel(
+        nivel
+    ) {
+
+        const labels = {
+
+            primaria:
+                'Primaria',
+
+            secundaria:
+                'Secundaria',
+
+            academia:
+                'Academia',
+
+            todos:
+                'Todos'
+        };
+
+
+        return (
+            labels[nivel] ||
+            nivel ||
+            '—'
+        );
+    }
+
+
+    function labelTipo(
+        tipo
+    ) {
+
+        const labels = {
+
+            obligatorio:
+                'Obligatorio',
+
+            electivo:
+                'Electivo',
+
+            taller:
+                'Taller'
+        };
+
+
+        return (
+            labels[tipo] ||
+            tipo ||
+            '—'
+        );
+    }
 
 
     // =========================================================
@@ -969,12 +1041,26 @@ document.addEventListener('DOMContentLoaded', () => {
         formulario.reset();
 
 
+        codigoInput.readOnly =
+            false;
+
+
+        codigoInput.classList.remove(
+            'bg-slate-100',
+            'cursor-not-allowed'
+        );
+
+
         nivelInput.value =
             'todos';
 
 
         tipoInput.value =
             'obligatorio';
+
+
+        horasInput.value =
+            '4';
 
 
         duracionInput.value =
@@ -1009,7 +1095,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
 
         if (!editar) {
-
             prepararNuevoCurso();
         }
 
@@ -1031,8 +1116,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         setTimeout(
-            () =>
-                codigoInput.focus(),
+            () => {
+
+                if (!editar) {
+                    codigoInput.focus();
+                } else {
+                    nombreInput.focus();
+                }
+            },
             100
         );
     }
@@ -1056,13 +1147,6 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        formulario.reset();
-
-
-        cursoEditandoId =
-            null;
-
-
         cerrarTodosSelects();
 
 
@@ -1072,10 +1156,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     abrirModal?.addEventListener(
         'click',
-        () =>
+        () => {
+
             abrirCursoModal(
                 false
-            )
+            );
+        }
     );
 
 
@@ -1098,454 +1184,259 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
+    // VALIDACIÓN
+    // =========================================================
+
+    function validarCurso(
+        datos
+    ) {
+
+        if (
+            !datos.codigo ||
+            !datos.nombre ||
+            !datos.nivel ||
+            !datos.tipo
+        ) {
+
+            mostrarToast(
+                'Completa los campos obligatorios.',
+                'error'
+            );
+
+            return false;
+        }
+
+
+        if (
+            datos.horas_semanales < 1 ||
+            datos.horas_semanales > 30
+        ) {
+
+            mostrarToast(
+                'Las horas semanales deben estar entre 1 y 30.',
+                'error'
+            );
+
+            return false;
+        }
+
+
+        const duraciones =
+            [
+                30,
+                45,
+                60,
+                90,
+                120
+            ];
+
+
+        if (
+            !duraciones.includes(
+                datos.duracion_minutos
+            )
+        ) {
+
+            mostrarToast(
+                'La duración debe ser 30, 45, 60, 90 o 120 minutos.',
+                'error'
+            );
+
+            return false;
+        }
+
+
+        if (
+            !/^#[A-Fa-f0-9]{6}$/.test(
+                datos.color
+            )
+        ) {
+
+            mostrarToast(
+                'El color seleccionado no es válido.',
+                'error'
+            );
+
+            return false;
+        }
+
+
+        return true;
+    }
+
+
+    function obtenerDatosFormulario() {
+
+        return {
+
+            codigo:
+                codigoInput.value
+                    .trim()
+                    .toUpperCase(),
+
+            nombre:
+                nombreInput.value
+                    .trim(),
+
+            descripcion:
+                valorNullable(
+                    descripcionInput.value
+                ),
+
+            horas_semanales:
+                Number(
+                    horasInput.value
+                ),
+
+            duracion_minutos:
+                Number(
+                    duracionInput.value
+                ),
+
+            nivel:
+                nivelInput.value,
+
+            tipo:
+                tipoInput.value,
+
+            color:
+                colorInput.value,
+
+            activo:
+                estadoInput.value ===
+                '1'
+        };
+    }
+
+
+    // =========================================================
     // GUARDAR
     // =========================================================
 
     formulario.addEventListener(
         'submit',
-        event => {
+        async event => {
 
             event.preventDefault();
 
 
-            const codigo =
-                codigoInput.value
-                    .trim()
-                    .toUpperCase();
-
-
-            const nombre =
-                nombreInput.value
-                    .trim();
-
-
-            const descripcion =
-                descripcionInput.value
-                    .trim();
-
-
-            const nivel =
-                nivelInput.value;
-
-
-            const tipo =
-                tipoInput.value;
-
-
-            const horas =
-                Number(
-                    horasInput.value
-                );
-
-
-            const duracion =
-                Number(
-                    duracionInput.value ||
-                    60
-                );
-
-
-            const color =
-                colorInput.value ||
-                '#1B3A6B';
-
-
-            const activo =
-                estadoInput.value ===
-                '1';
-
-
-            const observaciones =
-                observacionesInput.value
-                    .trim();
+            const datos =
+                obtenerDatosFormulario();
 
 
             if (
-                !codigo ||
-                !nombre ||
-                !nivel ||
-                !tipo ||
-                !horas
+                !validarCurso(
+                    datos
+                )
             ) {
-
-                alert(
-                    'Completa todos los campos obligatorios.'
-                );
-
                 return;
             }
 
 
-            if (
-                horas < 1 ||
-                horas > 20
-            ) {
-
-                alert(
-                    'Las horas semanales deben estar entre 1 y 20.'
-                );
-
-                return;
-            }
+            const textoOriginal =
+                submitText.textContent;
 
 
-            if (
-                duracion < 30 ||
-                duracion > 180
-            ) {
+            try {
 
-                alert(
-                    'La duración por clase debe estar entre 30 y 180 minutos.'
-                );
-
-                return;
-            }
+                submitButton.disabled =
+                    true;
 
 
-            let cursos =
-                leerCursos();
+                submitText.textContent =
+                    cursoEditandoId
+                        ? 'Guardando...'
+                        : 'Registrando...';
 
 
-            const duplicado =
-                cursos.find(
-                    curso =>
-
-                        normalizarTexto(
-                            curso.codigo
-                        ) ===
-                        normalizarTexto(
-                            codigo
-                        ) &&
-
-                        String(
-                            curso.id
-                        ) !==
-                        String(
-                            cursoEditandoId
-                        )
-                );
-
-
-            if (duplicado) {
-
-                alert(
-                    'Ya existe un curso con ese código.'
-                );
-
-
-                codigoInput.focus();
-
-
-                return;
-            }
-
-
-            const cursoData = {
-
-                codigo,
-
-                nombre,
-
-                descripcion,
-
-                nivel,
-
-                tipo,
-
-                horas_semanales:
-                    horas,
-
-                duracion_minutos:
-                    duracion,
-
-                color,
-
-                activo,
-
-                observaciones
-            };
-
-
-            // =================================================
-            // EDITAR
-            // =================================================
-
-            if (
-                cursoEditandoId !==
-                null
-            ) {
-
-                const index =
-                    cursos.findIndex(
-                        curso =>
-                            String(
-                                curso.id
-                            ) ===
-                            String(
-                                cursoEditandoId
-                            )
-                    );
+                let respuesta;
 
 
                 if (
-                    index !==
-                    -1
+                    cursoEditandoId !==
+                    null
                 ) {
 
-                    cursos[index] = {
+                    respuesta =
+                        await axios.put(
+                            `${API_CURSOS}/${cursoEditandoId}`,
+                            datos
+                        );
 
-                        ...cursos[index],
+                } else {
 
-                        ...cursoData
-                    };
+                    respuesta =
+                        await axios.post(
+                            API_CURSOS,
+                            datos
+                        );
                 }
 
 
-                guardarCursos(
-                    cursos
-                );
-
-
                 cerrarCursoModal();
+
+
+                mostrarToast(
+                    respuesta.data?.message ||
+                    (
+                        cursoEditandoId
+                            ? 'Curso actualizado correctamente.'
+                            : 'Curso creado correctamente.'
+                    ),
+                    'success'
+                );
 
 
                 paginaActual =
                     1;
 
 
-                renderizarCursos();
+                await Promise.all([
+                    cargarCursos(),
+                    cargarEstadisticas()
+                ]);
 
 
-                return;
+            } catch (error) {
+
+                if (
+                    error?.response?.status ===
+                    401
+                ) {
+
+                    mostrarToast(
+                        'La API requiere una sesión autenticada.',
+                        'warning'
+                    );
+
+                } else {
+
+                    mostrarToast(
+                        obtenerMensajeError(
+                            error
+                        ),
+                        'error'
+                    );
+                }
+
+
+                console.error(
+                    'Error guardando curso:',
+                    error
+                );
+
+
+            } finally {
+
+                submitButton.disabled =
+                    false;
+
+
+                submitText.textContent =
+                    textoOriginal;
             }
-
-
-            // =================================================
-            // NUEVO
-            // =================================================
-
-            cursoData.id =
-                Date.now();
-
-
-            cursos.push(
-                cursoData
-            );
-
-
-            guardarCursos(
-                cursos
-            );
-
-
-            cerrarCursoModal();
-
-
-            const filtrados =
-                obtenerCursosFiltrados(
-                    cursos
-                );
-
-
-            paginaActual =
-                Math.max(
-                    1,
-
-                    Math.ceil(
-                        filtrados.length /
-                        POR_PAGINA
-                    )
-                );
-
-
-            renderizarCursos();
         }
     );
-
-
-    // =========================================================
-    // FILTRAR
-    // =========================================================
-
-    function obtenerCursosFiltrados(
-        cursos
-    ) {
-
-        const texto =
-            normalizarTexto(
-                buscador?.value
-            );
-
-
-        const estado =
-            filtroEstado?.value ??
-            '';
-
-
-        return cursos.filter(
-            curso => {
-
-                const textoCurso =
-                    normalizarTexto(
-                        `
-                            ${
-                                curso.nombre ??
-                                ''
-                            }
-
-                            ${
-                                curso.codigo ??
-                                ''
-                            }
-
-                            ${
-                                curso.descripcion ??
-                                ''
-                            }
-                        `
-                    );
-
-
-                const coincideTexto =
-                    !texto ||
-                    textoCurso.includes(
-                        texto
-                    );
-
-
-                const coincideEstado =
-                    estado ===
-                    '' ||
-
-                    (
-                        estado ===
-                        '1' &&
-                        curso.activo ===
-                        true
-                    ) ||
-
-                    (
-                        estado ===
-                        '0' &&
-                        curso.activo ===
-                        false
-                    );
-
-
-                return (
-                    coincideTexto &&
-                    coincideEstado
-                );
-            }
-        );
-    }
-
-
-    // =========================================================
-    // ESTADÍSTICAS
-    // =========================================================
-
-    function actualizarEstadisticas(
-        cursos
-    ) {
-
-        const activos =
-            cursos.filter(
-                curso =>
-                    curso.activo ===
-                    true
-            ).length;
-
-
-        const inactivos =
-            cursos.filter(
-                curso =>
-                    curso.activo !==
-                    true
-            ).length;
-
-
-        if (totalCursos) {
-
-            totalCursos.textContent =
-                cursos.length;
-        }
-
-
-        if (cursosActivos) {
-
-            cursosActivos.textContent =
-                activos;
-        }
-
-
-        if (cursosInactivos) {
-
-            cursosInactivos.textContent =
-                inactivos;
-        }
-    }
-
-
-    // =========================================================
-    // LABEL NIVEL
-    // =========================================================
-
-    function labelNivel(
-        nivel
-    ) {
-
-        const labels = {
-
-            primaria:
-                'Primaria',
-
-            secundaria:
-                'Secundaria',
-
-            academia:
-                'Academia',
-
-            todos:
-                'Todos'
-        };
-
-
-        return (
-            labels[nivel] ||
-            nivel ||
-            'Sin nivel'
-        );
-    }
-
-
-    // =========================================================
-    // LABEL TIPO
-    // =========================================================
-
-    function labelTipo(
-        tipo
-    ) {
-
-        const labels = {
-
-            obligatorio:
-                'Obligatorio',
-
-            electivo:
-                'Electivo',
-
-            taller:
-                'Taller'
-        };
-
-
-        return (
-            labels[tipo] ||
-            tipo ||
-            'Sin tipo'
-        );
-    }
 
 
     // =========================================================
@@ -1569,54 +1460,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     fill="none"
                     stroke="currentColor"
                     stroke-width="1.8"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
                 >
                     <path d="m2 10 10-5 10 5-10 5Z"/>
                     <path d="M6 12v5c3 2 9 2 12 0v-5"/>
-                </svg>
-            `;
-        }
-
-
-        if (
-            nivel ===
-            'primaria'
-        ) {
-
-            return `
-                <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                >
-                    <path d="M5 4h13a2 2 0 0 1 2 2v14H7a3 3 0 0 1-3-3V5a1 1 0 0 1 1-1Z"/>
-                    <path d="M7 4v16"/>
-                    <path d="M10 8h6"/>
-                </svg>
-            `;
-        }
-
-
-        if (
-            nivel ===
-            'secundaria'
-        ) {
-
-            return `
-                <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                >
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>
                 </svg>
             `;
         }
@@ -1659,8 +1505,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         const color =
-            curso.color ||
-            '#1B3A6B';
+            /^#[A-Fa-f0-9]{6}$/.test(
+                curso.color ?? ''
+            )
+                ? curso.color
+                : '#1B3A6B';
 
 
         fila.innerHTML = `
@@ -1680,50 +1529,32 @@ document.addEventListener('DOMContentLoaded', () => {
                             rounded-xl
                         "
                         style="
-                            background:
-                                ${esc(
-                                    color
-                                )}14;
-
-                            color:
-                                ${esc(
-                                    color
-                                )};
+                            background:${esc(color)}14;
+                            color:${esc(color)};
                         "
                     >
-
                         ${iconoCurso(
                             curso.nivel
                         )}
-
                     </div>
 
 
                     <div>
 
-                        <p
-                            class="
-                                text-sm
-                                font-bold
-                                text-slate-800
-                            "
-                        >
+                        <p class="text-sm font-bold text-slate-800">
                             ${esc(
                                 curso.nombre
                             )}
                         </p>
 
-
-                        <p
-                            class="
-                                mt-0.5
-                                text-xs
-                                text-slate-400
-                            "
-                        >
-                            ${esc(
-                                curso.codigo
-                            )}
+                        <p class="mt-0.5 max-w-[260px] truncate text-xs text-slate-400">
+                            ${
+                                curso.descripcion
+                                    ? esc(
+                                        curso.descripcion
+                                    )
+                                    : 'Sin descripción'
+                            }
                         </p>
 
                     </div>
@@ -1733,18 +1564,12 @@ document.addEventListener('DOMContentLoaded', () => {
             </td>
 
 
-            <td
-                class="
-                    whitespace-nowrap
-                    px-5
-                    py-4
-                    text-sm
-                    text-slate-600
-                "
-            >
+            <td class="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-600">
+
                 ${esc(
                     curso.codigo
                 )}
+
             </td>
 
 
@@ -1772,44 +1597,43 @@ document.addEventListener('DOMContentLoaded', () => {
             </td>
 
 
-            <td
-                class="
-                    whitespace-nowrap
-                    px-5
-                    py-4
-                    text-sm
-                    text-slate-600
-                "
-            >
+            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+
                 ${esc(
                     labelTipo(
                         curso.tipo
                     )
                 )}
+
             </td>
 
 
-            <td
-                class="
-                    whitespace-nowrap
-                    px-5
-                    py-4
-                    text-sm
-                    font-medium
-                    text-slate-600
-                "
-            >
+            <td class="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-600">
+
                 ${esc(
                     curso.horas_semanales
                 )}
                 h
+
+            </td>
+
+
+            <td class="whitespace-nowrap px-5 py-4 text-sm text-slate-600">
+
+                ${esc(
+                    curso.duracion_minutos
+                )}
+                min
+
             </td>
 
 
             <td class="whitespace-nowrap px-5 py-4">
 
                 ${
-                    curso.activo
+                    esActivo(
+                        curso.activo
+                    )
 
                         ? `
                             <span
@@ -1826,15 +1650,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     text-emerald-700
                                 "
                             >
-                                <span
-                                    class="
-                                        h-1.5
-                                        w-1.5
-                                        rounded-full
-                                        bg-emerald-500
-                                    "
-                                ></span>
-
+                                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                                 Activo
                             </span>
                         `
@@ -1854,15 +1670,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     text-slate-600
                                 "
                             >
-                                <span
-                                    class="
-                                        h-1.5
-                                        w-1.5
-                                        rounded-full
-                                        bg-slate-400
-                                    "
-                                ></span>
-
+                                <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
                                 Inactivo
                             </span>
                         `
@@ -1871,22 +1679,9 @@ document.addEventListener('DOMContentLoaded', () => {
             </td>
 
 
-            <td
-                class="
-                    whitespace-nowrap
-                    px-5
-                    py-4
-                    text-right
-                "
-            >
+            <td class="whitespace-nowrap px-5 py-4 text-right">
 
-                <div
-                    class="
-                        inline-flex
-                        items-center
-                        gap-2
-                    "
-                >
+                <div class="inline-flex items-center gap-2">
 
                     <button
                         type="button"
@@ -1966,47 +1761,575 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
+    // ESTADOS DE TABLA
+    // =========================================================
+
+    function mostrarCargando() {
+
+        tabla.innerHTML = `
+
+            <tr>
+                <td colspan="8" class="px-6 py-16 text-center">
+
+                    <div class="flex flex-col items-center">
+
+                        <div
+                            class="
+                                h-8
+                                w-8
+                                animate-spin
+                                rounded-full
+                                border-2
+                                border-slate-200
+                                border-t-[#1B3A6B]
+                            "
+                        ></div>
+
+                        <p class="mt-4 text-sm font-semibold text-slate-500">
+                            Cargando cursos...
+                        </p>
+
+                    </div>
+
+                </td>
+            </tr>
+        `;
+    }
+
+
+    function mostrarSinResultados() {
+
+        tabla.innerHTML = `
+
+            <tr>
+
+                <td colspan="8" class="px-6 py-16 text-center">
+
+                    <div class="flex flex-col items-center">
+
+                        <div
+                            class="
+                                flex
+                                h-16
+                                w-16
+                                items-center
+                                justify-center
+                                rounded-2xl
+                                bg-slate-100
+                                text-slate-400
+                            "
+                        >
+
+                            <svg
+                                class="h-8 w-8"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                            >
+                                <path d="M5 4h13a2 2 0 0 1 2 2v14H7a3 3 0 0 1-3-3V5a1 1 0 0 1 1-1Z"/>
+                                <path d="M7 4v16"/>
+                            </svg>
+
+                        </div>
+
+                        <h3
+                            class="mt-4 font-bold"
+                            style="color:#0F2749;"
+                        >
+                            No se encontraron cursos
+                        </h3>
+
+                        <p class="mt-1 text-sm text-slate-400">
+                            Cambia la búsqueda o los filtros seleccionados.
+                        </p>
+
+                    </div>
+
+                </td>
+
+            </tr>
+        `;
+    }
+
+
+    function mostrarAutenticacionRequerida() {
+
+        cursosPagina =
+            [];
+
+        totalRegistros =
+            0;
+
+        paginaActual =
+            1;
+
+        ultimaPagina =
+            1;
+
+
+        tabla.innerHTML = `
+
+            <tr>
+
+                <td colspan="8" class="px-6 py-16 text-center">
+
+                    <div class="mx-auto max-w-md">
+
+                        <div
+                            class="
+                                mx-auto
+                                flex
+                                h-14
+                                w-14
+                                items-center
+                                justify-center
+                                rounded-2xl
+                                bg-amber-50
+                                text-amber-700
+                            "
+                        >
+                            <svg
+                                class="h-7 w-7"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                            </svg>
+                        </div>
+
+                        <h3
+                            class="mt-4 font-extrabold"
+                            style="color:#0F2749;"
+                        >
+                            Autenticación requerida
+                        </h3>
+
+                        <p class="mt-2 text-sm leading-6 text-slate-500">
+                            La API de cursos está protegida con Sanctum.
+                            Cuando el backend tenga una sesión autenticada,
+                            aquí aparecerán los cursos reales.
+                        </p>
+
+                    </div>
+
+                </td>
+
+            </tr>
+        `;
+
+
+        resultadosCursos.textContent =
+            '0';
+
+        totalResultadosCursos.textContent =
+            '0';
+
+        paginacion.innerHTML =
+            '';
+    }
+
+
+    function mostrarErrorListado() {
+
+        tabla.innerHTML = `
+
+            <tr>
+                <td colspan="8" class="px-6 py-16 text-center">
+
+                    <h3 class="font-bold text-red-600">
+                        No se pudieron cargar los cursos
+                    </h3>
+
+                    <p class="mt-2 text-sm text-slate-400">
+                        Revisa que Laravel esté ejecutándose y que la API responda correctamente.
+                    </p>
+
+                </td>
+            </tr>
+        `;
+
+
+        resultadosCursos.textContent =
+            '0';
+
+        totalResultadosCursos.textContent =
+            '0';
+
+        paginacion.innerHTML =
+            '';
+    }
+
+
+    // =========================================================
+    // CARGAR CURSOS
+    // =========================================================
+
+    async function cargarCursos() {
+
+        if (cargandoCursos) {
+            return;
+        }
+
+
+        cargandoCursos =
+            true;
+
+
+        mostrarCargando();
+
+
+        try {
+
+            const params = {
+
+                page:
+                    paginaActual,
+
+                per_page:
+                    POR_PAGINA
+            };
+
+
+            const search =
+                buscador?.value
+                    ?.trim();
+
+
+            if (search) {
+                params.search =
+                    search;
+            }
+
+
+            if (
+                filtroNivel?.value
+            ) {
+
+                params.nivel =
+                    filtroNivel.value;
+            }
+
+
+            if (
+                filtroTipo?.value
+            ) {
+
+                params.tipo =
+                    filtroTipo.value;
+            }
+
+
+            if (
+                filtroEstado?.value !==
+                ''
+            ) {
+
+                params.activo =
+                    filtroEstado.value;
+            }
+
+
+            const respuesta =
+                await axios.get(
+                    API_CURSOS,
+                    {
+                        params
+                    }
+                );
+
+
+            const paginador =
+                respuesta.data?.data ??
+                {};
+
+
+            cursosPagina =
+                Array.isArray(
+                    paginador.data
+                )
+                    ? paginador.data
+                    : [];
+
+
+            paginaActual =
+                Number(
+                    paginador.current_page ??
+                    1
+                );
+
+
+            ultimaPagina =
+                Math.max(
+                    1,
+                    Number(
+                        paginador.last_page ??
+                        1
+                    )
+                );
+
+
+            totalRegistros =
+                Number(
+                    paginador.total ??
+                    0
+                );
+
+
+            renderizarCursos();
+
+
+        } catch (error) {
+
+            if (
+                error?.response?.status ===
+                401
+            ) {
+
+                mostrarAutenticacionRequerida();
+
+            } else {
+
+                mostrarErrorListado();
+            }
+
+
+            console.error(
+                'Error cargando cursos:',
+                error
+            );
+
+
+        } finally {
+
+            cargandoCursos =
+                false;
+        }
+    }
+
+
+    // =========================================================
+    // ESTADÍSTICAS
+    // =========================================================
+
+    async function cargarEstadisticas() {
+
+        try {
+
+            const respuesta =
+                await axios.get(
+                    API_ESTADISTICAS
+                );
+
+
+            const data =
+                respuesta.data?.data ??
+                {};
+
+
+            totalCursos.textContent =
+                Number(
+                    data.total ??
+                    0
+                );
+
+
+            cursosActivos.textContent =
+                Number(
+                    data.activos ??
+                    0
+                );
+
+
+            cursosInactivos.textContent =
+                Math.max(
+                    0,
+                    Number(
+                        data.total ??
+                        0
+                    ) -
+                    Number(
+                        data.activos ??
+                        0
+                    )
+                );
+
+
+        } catch (error) {
+
+            totalCursos.textContent =
+                '0';
+
+            cursosActivos.textContent =
+                '0';
+
+            cursosInactivos.textContent =
+                '0';
+
+
+            if (
+                error?.response?.status !==
+                401
+            ) {
+
+                console.error(
+                    'Error cargando estadísticas:',
+                    error
+                );
+            }
+        }
+    }
+
+
+    // =========================================================
+    // RENDER
+    // =========================================================
+
+    function renderizarCursos() {
+
+        tabla.innerHTML =
+            '';
+
+
+        if (
+            !cursosPagina.length
+        ) {
+
+            mostrarSinResultados();
+
+        } else {
+
+            cursosPagina.forEach(
+                curso => {
+
+                    tabla.appendChild(
+                        crearFila(
+                            curso
+                        )
+                    );
+                }
+            );
+        }
+
+
+        resultadosCursos.textContent =
+            cursosPagina.length;
+
+
+        totalResultadosCursos.textContent =
+            totalRegistros;
+
+
+        renderizarPaginacion();
+    }
+
+
+    // =========================================================
     // PAGINACIÓN
     // =========================================================
 
-    function renderizarPaginacion(
-        totalFiltrados
+    function obtenerPaginasVisibles(
+        actual,
+        total
     ) {
+
+        if (
+            total <=
+            7
+        ) {
+
+            return Array.from(
+                {
+                    length:
+                        total
+                },
+                (
+                    _,
+                    index
+                ) =>
+                    index + 1
+            );
+        }
+
+
+        const paginas =
+            [1];
+
+
+        if (
+            actual >
+            4
+        ) {
+
+            paginas.push(
+                '...'
+            );
+        }
+
+
+        const inicio =
+            Math.max(
+                2,
+                actual - 1
+            );
+
+
+        const fin =
+            Math.min(
+                total - 1,
+                actual + 1
+            );
+
+
+        for (
+            let i = inicio;
+            i <= fin;
+            i++
+        ) {
+
+            paginas.push(
+                i
+            );
+        }
+
+
+        if (
+            actual <
+            total - 3
+        ) {
+
+            paginas.push(
+                '...'
+            );
+        }
+
+
+        paginas.push(
+            total
+        );
+
+
+        return paginas;
+    }
+
+
+    function renderizarPaginacion() {
 
         if (!paginacion) {
             return;
         }
 
 
-        const totalPaginas =
-            Math.max(
-                1,
-
-                Math.ceil(
-                    totalFiltrados /
-                    POR_PAGINA
-                )
-            );
-
-
         if (
-            paginaActual >
-            totalPaginas
-        ) {
-
-            paginaActual =
-                totalPaginas;
-        }
-
-
-        if (
-            totalFiltrados <=
-            POR_PAGINA
+            ultimaPagina <=
+            1
         ) {
 
             paginacion.innerHTML =
                 '';
-
 
             return;
         }
@@ -2018,13 +2341,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 type="button"
                 class="curso-pagination-btn"
                 data-pagina="${
-                    paginaActual -
-                    1
+                    paginaActual - 1
                 }"
                 ${
-                    paginaActual ===
-                    1
-
+                    paginaActual <= 1
                         ? 'disabled'
                         : ''
                 }
@@ -2034,33 +2354,51 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
 
-        for (
-            let pagina = 1;
-            pagina <= totalPaginas;
-            pagina++
-        ) {
+        const paginas =
+            obtenerPaginasVisibles(
+                paginaActual,
+                ultimaPagina
+            );
 
-            html += `
 
-                <button
-                    type="button"
-                    class="
-                        curso-pagination-btn
+        paginas.forEach(
+            pagina => {
 
-                        ${
-                            pagina ===
-                            paginaActual
+                if (
+                    pagina ===
+                    '...'
+                ) {
 
-                                ? 'active'
-                                : ''
-                        }
-                    "
-                    data-pagina="${pagina}"
-                >
-                    ${pagina}
-                </button>
-            `;
-        }
+                    html += `
+                        <span class="inline-flex h-[38px] items-center px-1 text-sm text-slate-400">
+                            ...
+                        </span>
+                    `;
+
+                    return;
+                }
+
+
+                html += `
+
+                    <button
+                        type="button"
+                        class="
+                            curso-pagination-btn
+                            ${
+                                pagina ===
+                                paginaActual
+                                    ? 'active'
+                                    : ''
+                            }
+                        "
+                        data-pagina="${pagina}"
+                    >
+                        ${pagina}
+                    </button>
+                `;
+            }
+        );
 
 
         html += `
@@ -2069,13 +2407,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 type="button"
                 class="curso-pagination-btn"
                 data-pagina="${
-                    paginaActual +
-                    1
+                    paginaActual + 1
                 }"
                 ${
-                    paginaActual ===
-                    totalPaginas
-
+                    paginaActual >=
+                    ultimaPagina
                         ? 'disabled'
                         : ''
                 }
@@ -2092,7 +2428,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     paginacion?.addEventListener(
         'click',
-        event => {
+        async event => {
 
             const boton =
                 event.target.closest(
@@ -2108,13 +2444,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
-            paginaActual =
+            const nuevaPagina =
                 Number(
                     boton.dataset.pagina
                 );
 
 
-            renderizarCursos();
+            if (
+                nuevaPagina < 1 ||
+                nuevaPagina > ultimaPagina ||
+                nuevaPagina === paginaActual
+            ) {
+                return;
+            }
+
+
+            paginaActual =
+                nuevaPagina;
+
+
+            await cargarCursos();
 
 
             tabla
@@ -2133,187 +2482,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // RENDER
+    // FILTROS
     // =========================================================
 
-    function renderizarCursos() {
+    buscador?.addEventListener(
+        'input',
+        () => {
 
-        const cursos =
-            leerCursos();
+            clearTimeout(
+                timeoutBusqueda
+            );
 
 
-        actualizarEstadisticas(
-            cursos
+            timeoutBusqueda =
+                setTimeout(
+                    () => {
+
+                        paginaActual =
+                            1;
+
+                        cargarCursos();
+
+                    },
+                    350
+                );
+        }
+    );
+
+
+    function cambioFiltro(
+        select
+    ) {
+
+        actualizarCustomSelect(
+            select
         );
 
 
-        const filtrados =
-            obtenerCursosFiltrados(
-                cursos
-            );
+        paginaActual =
+            1;
 
 
-        const totalPaginas =
-            Math.max(
-                1,
-
-                Math.ceil(
-                    filtrados.length /
-                    POR_PAGINA
-                )
-            );
-
-
-        if (
-            paginaActual >
-            totalPaginas
-        ) {
-
-            paginaActual =
-                totalPaginas;
-        }
-
-
-        const inicio =
-            (
-                paginaActual -
-                1
-            ) *
-            POR_PAGINA;
-
-
-        const fin =
-            inicio +
-            POR_PAGINA;
-
-
-        const pagina =
-            filtrados.slice(
-                inicio,
-                fin
-            );
-
-
-        tabla.innerHTML =
-            '';
-
-
-        // =====================================================
-        // VACÍO
-        // =====================================================
-
-        if (!filtrados.length) {
-
-            tabla.innerHTML = `
-
-                <tr>
-
-                    <td
-                        colspan="7"
-                        class="
-                            px-6
-                            py-16
-                            text-center
-                        "
-                    >
-
-                        <div class="flex flex-col items-center">
-
-                            <div
-                                class="
-                                    flex
-                                    h-16
-                                    w-16
-                                    items-center
-                                    justify-center
-                                    rounded-2xl
-                                    bg-slate-100
-                                    text-slate-400
-                                "
-                            >
-
-                                <svg
-                                    class="h-8 w-8"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1.6"
-                                >
-                                    <path d="M5 4h13a2 2 0 0 1 2 2v14H7a3 3 0 0 1-3-3V5a1 1 0 0 1 1-1Z"/>
-                                    <path d="M7 4v16"/>
-                                </svg>
-
-                            </div>
-
-
-                            <h3
-                                class="
-                                    mt-4
-                                    font-bold
-                                "
-                                style="
-                                    color:
-                                        #0F2749;
-                                "
-                            >
-                                No se encontraron cursos
-                            </h3>
-
-
-                            <p
-                                class="
-                                    mt-1
-                                    text-sm
-                                    text-slate-400
-                                "
-                            >
-                                Cambia la búsqueda o el filtro seleccionado.
-                            </p>
-
-                        </div>
-
-                    </td>
-
-                </tr>
-            `;
-
-        } else {
-
-            pagina.forEach(
-                curso => {
-
-                    tabla.appendChild(
-                        crearFila(
-                            curso
-                        )
-                    );
-                }
-            );
-        }
-
-
-        // =====================================================
-        // CONTADORES
-        // =====================================================
-
-        if (resultadosCursos) {
-
-            resultadosCursos.textContent =
-                pagina.length;
-        }
-
-
-        if (totalResultadosCursos) {
-
-            totalResultadosCursos.textContent =
-                filtrados.length;
-        }
-
-
-        renderizarPaginacion(
-            filtrados.length
-        );
+        cargarCursos();
     }
+
+
+    filtroNivel?.addEventListener(
+        'change',
+        () => cambioFiltro(
+            filtroNivel
+        )
+    );
+
+
+    filtroTipo?.addEventListener(
+        'change',
+        () => cambioFiltro(
+            filtroTipo
+        )
+    );
+
+
+    filtroEstado?.addEventListener(
+        'change',
+        () => cambioFiltro(
+            filtroEstado
+        )
+    );
 
 
     // =========================================================
@@ -2322,11 +2557,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tabla.addEventListener(
         'click',
-        event => {
-
-            // =================================================
-            // EDITAR
-            // =================================================
+        async event => {
 
             const editar =
                 event.target.closest(
@@ -2336,105 +2567,126 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (editar) {
 
-                const curso =
-                    leerCursos()
-                        .find(
-                            item =>
-                                String(
-                                    item.id
-                                ) ===
-                                String(
-                                    editar.dataset.id
-                                )
+                try {
+
+                    const respuesta =
+                        await axios.get(
+                            `${API_CURSOS}/${editar.dataset.id}`
                         );
 
 
-                if (!curso) {
-                    return;
+                    const curso =
+                        respuesta.data?.data;
+
+
+                    if (!curso) {
+                        return;
+                    }
+
+
+                    cursoEditandoId =
+                        curso.id;
+
+
+                    codigoInput.value =
+                        curso.codigo ??
+                        '';
+
+
+                    codigoInput.readOnly =
+                        true;
+
+
+                    codigoInput.classList.add(
+                        'bg-slate-100',
+                        'cursor-not-allowed'
+                    );
+
+
+                    nombreInput.value =
+                        curso.nombre ??
+                        '';
+
+
+                    descripcionInput.value =
+                        curso.descripcion ??
+                        '';
+
+
+                    nivelInput.value =
+                        curso.nivel ??
+                        'todos';
+
+
+                    tipoInput.value =
+                        curso.tipo ??
+                        'obligatorio';
+
+
+                    horasInput.value =
+                        curso.horas_semanales ??
+                        4;
+
+
+                    duracionInput.value =
+                        String(
+                            curso.duracion_minutos ??
+                            60
+                        );
+
+
+                    colorInput.value =
+                        curso.color ??
+                        '#1B3A6B';
+
+
+                    estadoInput.value =
+                        esActivo(
+                            curso.activo
+                        )
+                            ? '1'
+                            : '0';
+
+
+                    modalTitle.textContent =
+                        'Editar curso';
+
+
+                    submitText.textContent =
+                        'Guardar cambios';
+
+
+                    actualizarColorPreview();
+
+
+                    actualizarTodosCustomSelect();
+
+
+                    abrirCursoModal(
+                        true
+                    );
+
+
+                } catch (error) {
+
+                    mostrarToast(
+                        obtenerMensajeError(
+                            error
+                        ),
+                        'error'
+                    );
+
+
+                    console.error(
+                        'Error obteniendo curso:',
+                        error
+                    );
                 }
-
-
-                cursoEditandoId =
-                    curso.id;
-
-
-                codigoInput.value =
-                    curso.codigo ??
-                    '';
-
-
-                nombreInput.value =
-                    curso.nombre ??
-                    '';
-
-
-                descripcionInput.value =
-                    curso.descripcion ??
-                    '';
-
-
-                nivelInput.value =
-                    curso.nivel ??
-                    'todos';
-
-
-                tipoInput.value =
-                    curso.tipo ??
-                    'obligatorio';
-
-
-                horasInput.value =
-                    curso.horas_semanales ??
-                    '';
-
-
-                duracionInput.value =
-                    curso.duracion_minutos ??
-                    60;
-
-
-                colorInput.value =
-                    curso.color ??
-                    '#1B3A6B';
-
-
-                estadoInput.value =
-                    curso.activo
-                        ? '1'
-                        : '0';
-
-
-                observacionesInput.value =
-                    curso.observaciones ??
-                    '';
-
-
-                modalTitle.textContent =
-                    'Editar curso';
-
-
-                submitText.textContent =
-                    'Guardar cambios';
-
-
-                actualizarColorPreview();
-
-
-                actualizarTodosCustomSelect();
-
-
-                abrirCursoModal(
-                    true
-                );
 
 
                 return;
             }
 
-
-            // =================================================
-            // ELIMINAR
-            // =================================================
 
             const eliminar =
                 event.target.closest(
@@ -2445,12 +2697,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (eliminar) {
 
                 abrirEliminarModal(
-
-                    eliminar.dataset
-                        .nombre,
-
-                    eliminar.dataset
-                        .id
+                    eliminar.dataset.nombre,
+                    eliminar.dataset.id
                 );
             }
         }
@@ -2534,7 +2782,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     confirmEliminar?.addEventListener(
         'click',
-        () => {
+        async () => {
 
             if (
                 cursoAEliminarId ===
@@ -2544,90 +2792,97 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
-            const cursos =
-                leerCursos()
-                    .filter(
-                        curso =>
-                            String(
-                                curso.id
-                            ) !==
-                            String(
-                                cursoAEliminarId
-                            )
+            const id =
+                cursoAEliminarId;
+
+
+            const textoOriginal =
+                confirmEliminar.innerHTML;
+
+
+            try {
+
+                confirmEliminar.disabled =
+                    true;
+
+
+                confirmEliminar.innerHTML =
+                    'Eliminando...';
+
+
+                const respuesta =
+                    await axios.delete(
+                        `${API_CURSOS}/${id}`
                     );
 
 
-            guardarCursos(
-                cursos
-            );
+                cerrarEliminarModal();
 
 
-            cerrarEliminarModal();
-
-
-            renderizarCursos();
-        }
-    );
-
-
-    // =========================================================
-    // FILTROS
-    // =========================================================
-
-    function cambioFiltro() {
-
-        paginaActual =
-            1;
-
-
-        renderizarCursos();
-    }
-
-
-    buscador?.addEventListener(
-        'input',
-        cambioFiltro
-    );
-
-
-    filtroEstado?.addEventListener(
-        'change',
-        () => {
-
-            actualizarCustomSelect(
-                filtroEstado
-            );
-
-
-            cambioFiltro();
-        }
-    );
-
-
-    // =========================================================
-    // SELECTS DEL MODAL
-    // =========================================================
-
-    [
-        nivelInput,
-        tipoInput,
-        estadoInput
-    ]
-        .filter(Boolean)
-        .forEach(
-            select => {
-
-                select.addEventListener(
-                    'change',
-                    () => {
-
-                        actualizarCustomSelect(
-                            select
-                        );
-                    }
+                mostrarToast(
+                    respuesta.data?.message ||
+                    'Curso eliminado correctamente.',
+                    'success'
                 );
+
+
+                if (
+                    cursosPagina.length ===
+                    1 &&
+                    paginaActual >
+                    1
+                ) {
+
+                    paginaActual--;
+                }
+
+
+                await Promise.all([
+                    cargarCursos(),
+                    cargarEstadisticas()
+                ]);
+
+
+            } catch (error) {
+
+                if (
+                    error?.response?.status ===
+                    401
+                ) {
+
+                    mostrarToast(
+                        'La API requiere una sesión autenticada.',
+                        'warning'
+                    );
+
+                } else {
+
+                    mostrarToast(
+                        obtenerMensajeError(
+                            error
+                        ),
+                        'error'
+                    );
+                }
+
+
+                console.error(
+                    'Error eliminando curso:',
+                    error
+                );
+
+
+            } finally {
+
+                confirmEliminar.disabled =
+                    false;
+
+
+                confirmEliminar.innerHTML =
+                    textoOriginal;
             }
-        );
+        }
+    );
 
 
     // =========================================================
@@ -2673,45 +2928,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // STORAGE
-    // =========================================================
-
-    window.addEventListener(
-        'storage',
-        event => {
-
-            if (
-                event.key ===
-                CURSOS_KEY
-            ) {
-
-                paginaActual =
-                    1;
-
-
-                renderizarCursos();
-            }
-        }
-    );
-
-
-    window.addEventListener(
-        'focus',
-        () => {
-
-            renderizarCursos();
-
-            actualizarTodosCustomSelect();
-        }
-    );
-
-
-    // =========================================================
     // INICIO
     // =========================================================
 
     prepararNuevoCurso();
 
-    renderizarCursos();
+
+    Promise.all([
+        cargarCursos(),
+        cargarEstadisticas()
+    ]);
 
 });
