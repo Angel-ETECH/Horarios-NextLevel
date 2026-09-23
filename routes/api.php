@@ -1,6 +1,7 @@
 <?php
 // routes/api.php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DisponibilidadController;
 use App\Http\Controllers\Api\AsignacionController;
 use App\Http\Controllers\Api\AulaController;
@@ -12,15 +13,35 @@ use App\Http\Controllers\Api\ProfesorController;
 use App\Http\Controllers\Api\CursoController;
 use App\Http\Controllers\Api\GradoController;
 use App\Http\Controllers\Api\ConfiguracionHorarioController;
+use App\Http\Controllers\Api\PublicController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================
 // RUTAS PÚBLICAS (sin autenticación)
 // ============================================
 Route::prefix('auth')->group(function () {
-    // Aquí van las rutas de login/registro que ya tienes
-    // Route::post('/login', [AuthController::class, 'login']);
-    // Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
+});
+
+// ============================================
+// RUTAS PÚBLICAS DE CONSULTA
+// ============================================
+Route::prefix('publico')->group(function () {
+    // Datos para los dropdowns
+    Route::get('/instituciones', [PublicController::class, 'instituciones']);
+    Route::get('/profesores', [PublicController::class, 'listarProfesores']);
+    Route::get('/grados', [PublicController::class, 'listarGrados']);
+    Route::get('/aulas', [PublicController::class, 'listarAulas']);
+    Route::get('/cursos', [PublicController::class, 'listarCursos']);
+
+    // Consulta de horarios
+    Route::prefix('horario')->group(function () {
+        Route::get('/profesor/{id}', [PublicController::class, 'horarioProfesor']);
+        Route::get('/grado/{id}', [PublicController::class, 'horarioGrado']);
+        Route::get('/aula/{id}', [PublicController::class, 'horarioAula']);
+        Route::get('/curso/{id}', [PublicController::class, 'horarioCurso']);
+    });
 });
 
 // ============================================
