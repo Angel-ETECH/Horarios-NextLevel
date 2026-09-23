@@ -234,4 +234,6 @@ return [
         'Excel' => Maatwebsite\Excel\Facades\Excel::class,
         'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
     ],
+
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
 ];
