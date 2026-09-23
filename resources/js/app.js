@@ -23,20 +23,14 @@ import './secciones/grados';
 
 
 // =========================================================
-// CONFIGURACIÓN DE AUTENTICACIÓN SIMULADA
+// CONFIGURACIÓN DE AUTENTICACIÓN REAL
 // =========================================================
-//
-// IMPORTANTE:
-//
-// Actualmente solamente el login utiliza una simulación
-// mediante localStorage.
-//
-// El registro NO almacenará contraseñas en localStorage.
-//
-// Cuando el backend esté terminado, esta autenticación
-// simulada será reemplazada por la autenticación real.
-//
-// =========================================================
+
+const TOKEN_KEY =
+    'nextlevel_token';
+
+const USER_KEY =
+    'nextlevel_usuario';
 
 const AUTH_KEY =
     'nextlevel_auth';
@@ -45,10 +39,8 @@ const AUTH_KEY =
 const RUTA_LOGIN =
     '/login';
 
-
 const RUTA_REGISTRO =
     '/registro';
-
 
 const RUTA_DASHBOARD =
     '/';
@@ -63,6 +55,38 @@ const RUTAS_PUBLICAS = [
     '/consulta-horarios'
 
 ];
+
+
+// =========================================================
+// CONFIGURAR TOKEN EN AXIOS
+// =========================================================
+
+function configurarTokenAxios() {
+
+    const token =
+        localStorage.getItem(
+            TOKEN_KEY
+        );
+
+
+    if (token) {
+
+        window.axios.defaults.headers.common[
+            'Authorization'
+        ] =
+            `Bearer ${token}`;
+
+    } else {
+
+        delete window.axios.defaults.headers.common[
+            'Authorization'
+        ];
+    }
+}
+
+
+// Ejecutar inmediatamente al cargar app.js
+configurarTokenAxios();
 
 
 // =========================================================
@@ -94,17 +118,18 @@ function esRutaPublica(ruta) {
 
 
 // =========================================================
-// COMPROBAR SI EXISTE SESIÓN
+// COMPROBAR SI EXISTE SESIÓN REAL
 // =========================================================
 
 function estaAutenticado() {
 
-    return (
+    const token =
         localStorage.getItem(
-            AUTH_KEY
-        ) ===
-        'true'
-    );
+            TOKEN_KEY
+        );
+
+
+    return Boolean(token);
 }
 
 
@@ -117,6 +142,33 @@ function mostrarPagina() {
     document.body.classList.remove(
         'invisible'
     );
+}
+
+
+// =========================================================
+// LIMPIAR SESIÓN
+// =========================================================
+
+function limpiarSesion() {
+
+    localStorage.removeItem(
+        TOKEN_KEY
+    );
+
+    localStorage.removeItem(
+        USER_KEY
+    );
+
+    localStorage.removeItem(
+        AUTH_KEY
+    );
+
+    localStorage.removeItem(
+        'nextlevel_rol'
+    );
+
+
+    configurarTokenAxios();
 }
 
 
@@ -168,10 +220,6 @@ function protegerNavegacion() {
         RUTA_REGISTRO
     ) {
 
-        /*
-         * Si ya inició sesión, no tiene sentido
-         * permanecer en Registro.
-         */
         if (autenticado) {
 
             window.location.replace(
@@ -225,6 +273,49 @@ function protegerNavegacion() {
 
 
 // =========================================================
+// INTERCEPTOR 401
+// =========================================================
+
+window.axios.interceptors.response.use(
+
+    response =>
+        response,
+
+    error => {
+
+        if (
+            error?.response?.status ===
+            401
+        ) {
+
+            const rutaActual =
+                obtenerRutaActual();
+
+
+            limpiarSesion();
+
+
+            if (
+                !esRutaPublica(
+                    rutaActual
+                )
+            ) {
+
+                window.location.replace(
+                    RUTA_LOGIN
+                );
+            }
+        }
+
+
+        return Promise.reject(
+            error
+        );
+    }
+);
+
+
+// =========================================================
 // VALIDACIÓN INICIAL
 // =========================================================
 
@@ -252,32 +343,39 @@ document.addEventListener(
 
         btnCerrarSesion.addEventListener(
             'click',
-            () => {
+            async () => {
 
-                /*
-                 * Solamente eliminamos información
-                 * relacionada con la sesión.
-                 *
-                 * NO eliminamos profesores, horarios,
-                 * cursos, aulas, etc.
-                 */
-
-                localStorage.removeItem(
-                    'nextlevel_auth'
-                );
-
-                localStorage.removeItem(
-                    'nextlevel_rol'
-                );
-
-                localStorage.removeItem(
-                    'nextlevel_usuario'
-                );
+                const token =
+                    localStorage.getItem(
+                        TOKEN_KEY
+                    );
 
 
-                window.location.replace(
-                    RUTA_LOGIN
-                );
+                try {
+
+                    if (token) {
+
+                        await window.axios.post(
+                            '/api/auth/logout'
+                        );
+                    }
+
+                } catch (error) {
+
+                    console.error(
+                        'Error al cerrar sesión:',
+                        error
+                    );
+
+                } finally {
+
+                    limpiarSesion();
+
+
+                    window.location.replace(
+                        RUTA_LOGIN
+                    );
+                }
             }
         );
     }
@@ -291,6 +389,8 @@ document.addEventListener(
 window.addEventListener(
     'pageshow',
     () => {
+
+        configurarTokenAxios();
 
         protegerNavegacion();
     }
@@ -307,8 +407,10 @@ window.addEventListener(
 
         if (
             event.key ===
-            AUTH_KEY
+            TOKEN_KEY
         ) {
+
+            configurarTokenAxios();
 
             protegerNavegacion();
         }

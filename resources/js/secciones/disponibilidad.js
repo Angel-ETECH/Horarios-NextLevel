@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // PERSONALIZADOS
+    // HORARIOS PERSONALIZADOS
     // =========================================================
 
     const diaPersonalizadoSelect =
@@ -75,29 +75,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // STORAGE
+    // API
     // =========================================================
 
-    const PROFESORES_KEY =
-        'nextlevel_profesores';
+    const API_PROFESORES =
+        '/api/profesores';
 
-    const DISPONIBILIDAD_KEY =
-        'nextlevel_disponibilidades';
+    const API_DISPONIBILIDADES =
+        '/api/disponibilidades';
 
 
     const DURACION_BLOQUE_GRID_MIN =
         60;
 
 
-    const diasCortos = {
+    // =========================================================
+    // DÍAS
+    // =========================================================
 
+    const diasBackend = {
+        1: 'lunes',
+        2: 'martes',
+        3: 'miercoles',
+        4: 'jueves',
+        5: 'viernes',
+        6: 'sabado',
+        7: 'domingo'
+    };
+
+
+    const diasCortos = {
         1: 'Lun',
         2: 'Mar',
         3: 'Mié',
         4: 'Jue',
         5: 'Vie',
-        6: 'Sáb'
+        6: 'Sáb',
+        7: 'Dom'
+    };
 
+
+    const diasNumericos = {
+        lunes: 1,
+        martes: 2,
+        miercoles: 3,
+        miércoles: 3,
+        jueves: 4,
+        viernes: 5,
+        sabado: 6,
+        sábado: 6,
+        domingo: 7
     };
 
 
@@ -111,84 +138,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const personalizados =
         {};
 
+    let cargando =
+        false;
 
-    // =========================================================
-    // STORAGE HELPERS
-    // =========================================================
-
-    function leerStorage(
-        clave
-    ) {
-
-        try {
-
-            const datos =
-                JSON.parse(
-                    localStorage.getItem(
-                        clave
-                    ) || '[]'
-                );
-
-
-            return Array.isArray(
-                datos
-            )
-                ? datos
-                : [];
-
-        } catch (error) {
-
-            console.error(
-                `Error leyendo ${clave}:`,
-                error
-            );
-
-
-            return [];
-        }
-    }
-
-
-    function guardarStorage(
-        clave,
-        datos
-    ) {
-
-        localStorage.setItem(
-            clave,
-            JSON.stringify(
-                datos
-            )
-        );
-    }
-
-
-    function cargarTodasLasDisponibilidades() {
-
-        return leerStorage(
-            DISPONIBILIDAD_KEY
-        );
-    }
-
-
-    function guardarTodasLasDisponibilidades(
-        lista
-    ) {
-
-        guardarStorage(
-            DISPONIBILIDAD_KEY,
-            lista
-        );
-    }
+    let guardando =
+        false;
 
 
     // =========================================================
     // UTILIDADES
     // =========================================================
 
-    function normalizarTexto(
-        valor
-    ) {
+    function normalizarTexto(valor) {
 
         return String(
             valor ?? ''
@@ -203,9 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function esc(
-        valor
-    ) {
+    function esc(valor) {
 
         return String(
             valor ?? ''
@@ -215,6 +174,274 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+
+    function horaCorta(hora) {
+
+        if (!hora) {
+            return '';
+        }
+
+        return String(
+            hora
+        ).substring(
+            0,
+            5
+        );
+    }
+
+
+    function minutosHora(hora) {
+
+        if (!hora) {
+            return 0;
+        }
+
+        const [
+            h,
+            m
+        ] =
+            hora
+                .substring(0, 5)
+                .split(':')
+                .map(Number);
+
+        return (
+            h * 60 +
+            m
+        );
+    }
+
+
+    function minutosEntre(
+        horaInicio,
+        horaFin
+    ) {
+
+        return Math.max(
+            0,
+            minutosHora(horaFin) -
+            minutosHora(horaInicio)
+        );
+    }
+
+
+    function generarIdTemporal() {
+
+        return `${Date.now()}-${Math.random()
+            .toString(36)
+            .slice(2, 8)}`;
+    }
+
+
+    function obtenerTurno(
+        horaInicio
+    ) {
+
+        const hora =
+            Number(
+                String(
+                    horaInicio
+                ).split(':')[0]
+            );
+
+
+        if (hora < 12) {
+            return 'mañana';
+        }
+
+
+        if (hora < 18) {
+            return 'tarde';
+        }
+
+
+        return 'noche';
+    }
+
+
+    function nombreDiaANumero(
+        dia
+    ) {
+
+        if (
+            dia === null ||
+            dia === undefined
+        ) {
+            return null;
+        }
+
+
+        if (
+            !Number.isNaN(
+                Number(dia)
+            )
+        ) {
+
+            const numero =
+                Number(dia);
+
+            if (
+                numero >= 1 &&
+                numero <= 7
+            ) {
+                return numero;
+            }
+        }
+
+
+        return diasNumericos[
+            normalizarTexto(
+                dia
+            )
+        ] ?? null;
+    }
+
+
+    function extraerColeccion(
+        respuesta
+    ) {
+
+        const body =
+            respuesta?.data;
+
+
+        if (
+            Array.isArray(
+                body
+            )
+        ) {
+            return body;
+        }
+
+
+        if (
+            Array.isArray(
+                body?.data
+            )
+        ) {
+            return body.data;
+        }
+
+
+        if (
+            Array.isArray(
+                body?.data?.data
+            )
+        ) {
+            return body.data.data;
+        }
+
+
+        if (
+            Array.isArray(
+                body?.profesores
+            )
+        ) {
+            return body.profesores;
+        }
+
+
+        return [];
+    }
+
+
+    function mensajeError(
+        error,
+        defecto =
+            'Ocurrió un error inesperado.'
+    ) {
+
+        const errores =
+            error?.response?.data?.errors;
+
+
+        if (
+            errores &&
+            typeof errores ===
+            'object'
+        ) {
+
+            const primerGrupo =
+                Object.values(
+                    errores
+                )[0];
+
+
+            if (
+                Array.isArray(
+                    primerGrupo
+                ) &&
+                primerGrupo.length
+            ) {
+                return primerGrupo[0];
+            }
+        }
+
+
+        return (
+            error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            defecto
+        );
+    }
+
+
+    function parsearInstituciones(
+        profesor
+    ) {
+
+        const valor =
+            profesor?.instituciones;
+
+
+        if (
+            Array.isArray(
+                valor
+            )
+        ) {
+            return valor;
+        }
+
+
+        if (
+            typeof valor ===
+            'string'
+        ) {
+
+            try {
+
+                const convertido =
+                    JSON.parse(
+                        valor
+                    );
+
+
+                if (
+                    Array.isArray(
+                        convertido
+                    )
+                ) {
+                    return convertido;
+                }
+
+            } catch {
+                // Si no es JSON seguimos abajo.
+            }
+
+
+            return valor
+                .split(',')
+                .map(
+                    item =>
+                        item.trim()
+                )
+                .filter(Boolean);
+        }
+
+
+        return [];
     }
 
 
@@ -242,7 +469,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </svg>
             `,
 
-
             institucion: `
                 <svg
                     width="17"
@@ -259,7 +485,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <path d="M9 21v-4h6v4"/>
                 </svg>
             `,
-
 
             dia: `
                 <svg
@@ -285,10 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // =========================================================
-    // CUSTOM SELECT
-    // =========================================================
-
     function obtenerWrapperSelect(
         select
     ) {
@@ -300,6 +521,282 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return document.querySelector(
             `[data-disponibilidad-select="${select.id}"]`
+        );
+    }
+
+
+    function cerrarCustomSelect(
+        wrapper
+    ) {
+
+        wrapper?.classList.remove(
+            'open'
+        );
+
+
+        wrapper
+            ?.querySelector(
+                '.disponibilidad-select-trigger'
+            )
+            ?.setAttribute(
+                'aria-expanded',
+                'false'
+            );
+    }
+
+
+    function cerrarTodosCustomSelects(
+        excepto = null
+    ) {
+
+        document
+            .querySelectorAll(
+                '[data-disponibilidad-select]'
+            )
+            .forEach(
+                wrapper => {
+
+                    if (
+                        wrapper !==
+                        excepto
+                    ) {
+
+                        cerrarCustomSelect(
+                            wrapper
+                        );
+                    }
+                }
+            );
+    }
+
+
+    function renderOpcionesCustomSelect(
+        wrapper,
+        busqueda = ''
+    ) {
+
+        const select =
+            document.getElementById(
+                wrapper.dataset
+                    .disponibilidadSelect
+            );
+
+
+        const container =
+            wrapper.querySelector(
+                '.disponibilidad-select-options'
+            );
+
+
+        if (
+            !select ||
+            !container
+        ) {
+            return;
+        }
+
+
+        const query =
+            normalizarTexto(
+                busqueda
+            );
+
+
+        const opciones =
+            Array.from(
+                select.options
+            )
+                .filter(
+                    option =>
+
+                        !option.disabled &&
+
+                        normalizarTexto(
+                            option.textContent
+                        ).includes(
+                            query
+                        )
+                );
+
+
+        if (
+            !opciones.length
+        ) {
+
+            container.innerHTML = `
+                <div class="disponibilidad-select-empty">
+                    No hay opciones disponibles
+                </div>
+            `;
+
+            return;
+        }
+
+
+        container.innerHTML =
+            opciones
+                .map(
+                    option => {
+
+                        const selected =
+                            String(
+                                option.value
+                            ) ===
+                            String(
+                                select.value
+                            );
+
+
+                        return `
+                            <button
+                                type="button"
+                                class="
+                                    disponibilidad-select-option
+                                    ${
+                                        selected
+                                            ? 'selected'
+                                            : ''
+                                    }
+                                "
+                                data-value="${esc(
+                                    option.value
+                                )}"
+                            >
+
+                                <span class="disponibilidad-option-icon">
+
+                                    ${iconoSelect(
+                                        wrapper.dataset.icon
+                                    )}
+
+                                </span>
+
+
+                                <span class="disponibilidad-option-text">
+
+                                    ${esc(
+                                        option.textContent
+                                    )}
+
+                                </span>
+
+
+                                <svg
+                                    class="disponibilidad-option-check"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2.2"
+                                >
+                                    <path d="m5 12 4 4L19 6"/>
+                                </svg>
+
+                            </button>
+                        `;
+                    }
+                )
+                .join('');
+
+
+        container
+            .querySelectorAll(
+                '.disponibilidad-select-option'
+            )
+            .forEach(
+                button => {
+
+                    button.addEventListener(
+                        'click',
+                        () => {
+
+                            select.value =
+                                button.dataset.value;
+
+
+                            select.dispatchEvent(
+                                new Event(
+                                    'change',
+                                    {
+                                        bubbles:
+                                            true
+                                    }
+                                )
+                            );
+
+
+                            actualizarCustomSelect(
+                                select
+                            );
+
+
+                            cerrarCustomSelect(
+                                wrapper
+                            );
+                        }
+                    );
+                }
+            );
+    }
+
+
+    function actualizarCustomSelect(
+        select
+    ) {
+
+        if (!select) {
+            return;
+        }
+
+
+        const wrapper =
+            obtenerWrapperSelect(
+                select
+            );
+
+
+        if (!wrapper) {
+            return;
+        }
+
+
+        const trigger =
+            wrapper.querySelector(
+                '.disponibilidad-select-trigger'
+            );
+
+
+        const texto =
+            wrapper.querySelector(
+                '.disponibilidad-select-text'
+            );
+
+
+        if (
+            !trigger ||
+            !texto
+        ) {
+            return;
+        }
+
+
+        trigger.disabled =
+            select.disabled;
+
+
+        const opcion =
+            select.options[
+                select.selectedIndex
+            ];
+
+
+        texto.textContent =
+            opcion?.textContent ||
+            wrapper.dataset.placeholder ||
+            'Seleccionar';
+
+
+        renderOpcionesCustomSelect(
+            wrapper
         );
     }
 
@@ -497,9 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ) {
 
                     if (search) {
-
-                        search.value =
-                            '';
+                        search.value = '';
                     }
 
 
@@ -535,285 +1030,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actualizarCustomSelect(
             select
-        );
-    }
-
-
-    function cerrarCustomSelect(
-        wrapper
-    ) {
-
-        wrapper?.classList.remove(
-            'open'
-        );
-
-
-        wrapper
-            ?.querySelector(
-                '.disponibilidad-select-trigger'
-            )
-            ?.setAttribute(
-                'aria-expanded',
-                'false'
-            );
-    }
-
-
-    function cerrarTodosCustomSelects(
-        excepto = null
-    ) {
-
-        document
-            .querySelectorAll(
-                '[data-disponibilidad-select]'
-            )
-            .forEach(
-                wrapper => {
-
-                    if (
-                        wrapper !==
-                        excepto
-                    ) {
-
-                        cerrarCustomSelect(
-                            wrapper
-                        );
-                    }
-                }
-            );
-    }
-
-
-    function renderOpcionesCustomSelect(
-        wrapper,
-        busqueda = ''
-    ) {
-
-        const select =
-            document.getElementById(
-                wrapper.dataset
-                    .disponibilidadSelect
-            );
-
-
-        const container =
-            wrapper.querySelector(
-                '.disponibilidad-select-options'
-            );
-
-
-        if (
-            !select ||
-            !container
-        ) {
-            return;
-        }
-
-
-        const query =
-            normalizarTexto(
-                busqueda
-            );
-
-
-        const opciones =
-            Array.from(
-                select.options
-            )
-                .filter(
-                    option =>
-
-                        !option.disabled &&
-
-                        normalizarTexto(
-                            option.textContent
-                        ).includes(
-                            query
-                        )
-                );
-
-
-        if (
-            !opciones.length
-        ) {
-
-            container.innerHTML = `
-
-                <div class="disponibilidad-select-empty">
-                    No hay opciones disponibles
-                </div>
-            `;
-
-
-            return;
-        }
-
-
-        container.innerHTML =
-            opciones
-                .map(
-                    option => {
-
-                        const selected =
-                            String(
-                                option.value
-                            ) ===
-                            String(
-                                select.value
-                            );
-
-
-                        return `
-
-                            <button
-                                type="button"
-                                class="
-                                    disponibilidad-select-option
-                                    ${
-                                        selected
-                                            ? 'selected'
-                                            : ''
-                                    }
-                                "
-                                data-value="${esc(
-                                    option.value
-                                )}"
-                            >
-
-                                <span class="disponibilidad-option-icon">
-
-                                    ${iconoSelect(
-                                        wrapper.dataset.icon
-                                    )}
-
-                                </span>
-
-
-                                <span class="disponibilidad-option-text">
-
-                                    ${esc(
-                                        option.textContent
-                                    )}
-
-                                </span>
-
-
-                                <svg
-                                    class="disponibilidad-option-check"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="2.2"
-                                >
-                                    <path d="m5 12 4 4L19 6"/>
-                                </svg>
-
-                            </button>
-                        `;
-                    }
-                )
-                .join('');
-
-
-        container
-            .querySelectorAll(
-                '.disponibilidad-select-option'
-            )
-            .forEach(
-                button => {
-
-                    button.addEventListener(
-                        'click',
-                        () => {
-
-                            select.value =
-                                button.dataset.value;
-
-
-                            select.dispatchEvent(
-                                new Event(
-                                    'change',
-                                    {
-                                        bubbles:
-                                            true
-                                    }
-                                )
-                            );
-
-
-                            actualizarCustomSelect(
-                                select
-                            );
-
-
-                            cerrarCustomSelect(
-                                wrapper
-                            );
-                        }
-                    );
-                }
-            );
-    }
-
-
-    function actualizarCustomSelect(
-        select
-    ) {
-
-        if (!select) {
-            return;
-        }
-
-
-        const wrapper =
-            obtenerWrapperSelect(
-                select
-            );
-
-
-        if (!wrapper) {
-            return;
-        }
-
-
-        const trigger =
-            wrapper.querySelector(
-                '.disponibilidad-select-trigger'
-            );
-
-
-        const texto =
-            wrapper.querySelector(
-                '.disponibilidad-select-text'
-            );
-
-
-        if (
-            !trigger ||
-            !texto
-        ) {
-            return;
-        }
-
-
-        trigger.disabled =
-            select.disabled;
-
-
-        const opcion =
-            select.options[
-                select.selectedIndex
-            ];
-
-
-        texto.textContent =
-            opcion?.textContent ||
-            wrapper.dataset.placeholder ||
-            'Seleccionar';
-
-
-        renderOpcionesCustomSelect(
-            wrapper
         );
     }
 
@@ -858,18 +1074,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // CARGAR PROFESORES
+    // BLOQUEAR INTERFAZ
     // =========================================================
 
-    function cargarProfesores() {
+    function bloquearInterfaz(
+        estado
+    ) {
 
-        const profesores =
-            leerStorage(
-                PROFESORES_KEY
-            );
+        cargando =
+            estado;
 
 
-        const profesorSeleccionado =
+        profesorSelect.disabled =
+            estado;
+
+
+        institucionSelect.disabled =
+            estado;
+
+
+        if (saveButton) {
+
+            saveButton.disabled =
+                estado ||
+                guardando;
+        }
+
+
+        actualizarCustomSelect(
+            profesorSelect
+        );
+
+        actualizarCustomSelect(
+            institucionSelect
+        );
+    }
+
+
+    // =========================================================
+    // CARGAR PROFESORES DESDE API
+    // =========================================================
+
+    async function cargarProfesores() {
+
+        const seleccionado =
             profesorSelect.value;
 
 
@@ -879,83 +1127,177 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         profesorSelect.innerHTML = `
-
             <option value="">
-                Seleccionar profesor
+                Cargando profesores...
             </option>
         `;
 
 
-        const disponibles =
-            profesores
-                .filter(
-                    profesor => {
+        actualizarCustomSelect(
+            profesorSelect
+        );
 
-                        /*
-                         * Solo profesores activos.
-                         */
-                        if (
-                            profesor.estado &&
-                            profesor.estado !==
-                            'activo'
-                        ) {
 
-                            return false;
+        try {
+
+            const response =
+                await window.axios.get(
+                    API_PROFESORES,
+                    {
+                        params: {
+                            estado:
+                                'activo',
+
+                            per_page:
+                                100
                         }
-
-
-                        /*
-                         * Compatibilidad con profesores antiguos.
-                         */
-                        if (
-                            !Array.isArray(
-                                profesor.instituciones
-                            ) ||
-                            !profesor.instituciones.length
-                        ) {
-
-                            return true;
-                        }
-
-
-                        return profesor.instituciones.includes(
-                            institucionActual
-                        );
-                    }
-                )
-                .sort(
-                    (a, b) => {
-
-                        const nombreA =
-                            [
-                                a.nombre,
-                                a.apellido_paterno,
-                                a.apellido_materno
-                            ]
-                                .filter(Boolean)
-                                .join(' ');
-
-
-                        const nombreB =
-                            [
-                                b.nombre,
-                                b.apellido_paterno,
-                                b.apellido_materno
-                            ]
-                                .filter(Boolean)
-                                .join(' ');
-
-
-                        return nombreA.localeCompare(
-                            nombreB,
-                            'es'
-                        );
                     }
                 );
 
 
-        disponibles.forEach(
-            profesor => {
+            let profesores =
+                extraerColeccion(
+                    response
+                );
+
+
+            profesores =
+                profesores
+                    .filter(
+                        profesor => {
+
+                            if (
+                                profesor.estado &&
+                                profesor.estado !==
+                                'activo'
+                            ) {
+                                return false;
+                            }
+
+
+                            const instituciones =
+                                parsearInstituciones(
+                                    profesor
+                                );
+
+
+                            if (
+                                instituciones.length ===
+                                0
+                            ) {
+                                return true;
+                            }
+
+
+                            return instituciones
+                                .map(
+                                    normalizarTexto
+                                )
+                                .includes(
+                                    normalizarTexto(
+                                        institucionActual
+                                    )
+                                );
+                        }
+                    )
+                    .sort(
+                        (a, b) => {
+
+                            const nombreA =
+                                [
+                                    a.nombre,
+                                    a.apellido_paterno,
+                                    a.apellido_materno
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ');
+
+
+                            const nombreB =
+                                [
+                                    b.nombre,
+                                    b.apellido_paterno,
+                                    b.apellido_materno
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ');
+
+
+                            return nombreA.localeCompare(
+                                nombreB,
+                                'es'
+                            );
+                        }
+                    );
+
+
+            profesorSelect.innerHTML = `
+                <option value="">
+                    Seleccionar profesor
+                </option>
+            `;
+
+
+            profesores.forEach(
+                profesor => {
+
+                    const option =
+                        document.createElement(
+                            'option'
+                        );
+
+
+                    option.value =
+                        String(
+                            profesor.id
+                        );
+
+
+                    const nombreCompleto =
+                        [
+                            profesor.nombre,
+                            profesor.apellido_paterno,
+                            profesor.apellido_materno
+                        ]
+                            .filter(Boolean)
+                            .join(' ');
+
+
+                    option.textContent =
+                        profesor.codigo
+
+                            ? `${nombreCompleto} · ${profesor.codigo}`
+
+                            : nombreCompleto;
+
+
+                    profesorSelect.appendChild(
+                        option
+                    );
+                }
+            );
+
+
+            const existe =
+                Array.from(
+                    profesorSelect.options
+                ).some(
+                    option =>
+                        option.value ===
+                        seleccionado
+                );
+
+
+            profesorSelect.value =
+                existe
+                    ? seleccionado
+                    : '';
+
+
+            if (
+                profesores.length ===
+                0
+            ) {
 
                 const option =
                     document.createElement(
@@ -964,82 +1306,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 option.value =
-                    String(
-                        profesor.id
-                    );
+                    '';
 
-
-                const nombreCompleto =
-                    [
-                        profesor.nombre,
-                        profesor.apellido_paterno,
-                        profesor.apellido_materno
-                    ]
-                        .filter(Boolean)
-                        .join(' ');
+                option.disabled =
+                    true;
 
 
                 option.textContent =
-                    profesor.codigo
+                    institucionActual ===
+                    'academia'
 
-                        ? `${nombreCompleto} · ${profesor.codigo}`
+                        ? 'No hay profesores activos para Academia'
 
-                        : nombreCompleto;
+                        : 'No hay profesores activos para Colegio';
 
 
                 profesorSelect.appendChild(
                     option
                 );
             }
-        );
 
 
-        const seleccionExiste =
-            Array.from(
-                profesorSelect.options
-            )
-                .some(
-                    option =>
-                        option.value ===
-                        profesorSeleccionado
-                );
+        } catch (error) {
+
+            console.error(
+                'Error cargando profesores:',
+                error
+            );
 
 
-        profesorSelect.value =
-            seleccionExiste
-                ? profesorSeleccionado
-                : '';
+            profesorSelect.innerHTML = `
+                <option value="">
+                    Error al cargar profesores
+                </option>
+            `;
 
 
-        if (
-            disponibles.length ===
-            0
-        ) {
-
-            const option =
-                document.createElement(
-                    'option'
-                );
-
-
-            option.value =
-                '';
-
-            option.disabled =
-                true;
-
-
-            option.textContent =
-                institucionActual ===
-                'academia'
-
-                    ? 'No hay profesores activos para Academia'
-
-                    : 'No hay profesores activos para Colegio';
-
-
-            profesorSelect.appendChild(
-                option
+            alert(
+                mensajeError(
+                    error,
+                    'No se pudieron cargar los profesores.'
+                )
             );
         }
 
@@ -1051,7 +1358,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // CLAVE
+    // CLAVE PROFESOR + INSTITUCIÓN
     // =========================================================
 
     function claveActual() {
@@ -1066,7 +1373,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // OBTENER SELECCIONADOS
+    // OBTENER BLOQUES SELECCIONADOS
     // =========================================================
 
     function obtenerSeleccionados() {
@@ -1082,9 +1389,15 @@ document.addEventListener('DOMContentLoaded', () => {
             .forEach(
                 slot => {
 
-                    ids.add(
-                        `${slot.dataset.dia}-${slot.dataset.hora}`
-                    );
+                    if (
+                        slot.dataset.dia &&
+                        slot.dataset.hora
+                    ) {
+
+                        ids.add(
+                            `${slot.dataset.dia}-${slot.dataset.hora}`
+                        );
+                    }
                 }
             );
 
@@ -1095,16 +1408,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // =========================================================
-    // PERSONALIZADOS ACTUALES
-    // =========================================================
-
     function personalizadosActuales() {
 
         if (
             !profesorSelect.value
         ) {
-
             return [];
         }
 
@@ -1112,49 +1420,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return personalizados[
             claveActual()
         ] || [];
-    }
-
-
-    // =========================================================
-    // MINUTOS
-    // =========================================================
-
-    function minutosEntre(
-        horaInicio,
-        horaFin
-    ) {
-
-        const [
-            hInicio,
-            mInicio
-        ] =
-            horaInicio
-                .split(':')
-                .map(Number);
-
-
-        const [
-            hFin,
-            mFin
-        ] =
-            horaFin
-                .split(':')
-                .map(Number);
-
-
-        return Math.max(
-            0,
-
-            (
-                hFin * 60 +
-                mFin
-            ) -
-
-            (
-                hInicio * 60 +
-                mInicio
-            )
-        );
     }
 
 
@@ -1220,28 +1485,37 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        countElement.textContent =
-            seleccionados.length +
-            personalizadosData.length;
+        if (countElement) {
+
+            countElement.textContent =
+                seleccionados.length +
+                personalizadosData.length;
+        }
 
 
-        daysElement.textContent =
-            dias.size;
+        if (daysElement) {
+
+            daysElement.textContent =
+                dias.size;
+        }
 
 
-        const horas =
-            minutosTotales /
-            60;
+        if (hoursElement) {
+
+            const horas =
+                minutosTotales /
+                60;
 
 
-        hoursElement.textContent =
-            Number.isInteger(
-                horas
-            )
-                ? horas
-                : horas.toFixed(
-                    1
-                );
+            hoursElement.textContent =
+                Number.isInteger(
+                    horas
+                )
+                    ? horas
+                    : horas.toFixed(
+                        1
+                    );
+        }
     }
 
 
@@ -1260,9 +1534,6 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        /*
-         * En móvil mantenemos texto legible.
-         */
         if (
             slot.closest(
                 '.mobile-day-panel'
@@ -1292,10 +1563,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // =========================================================
-    // LIMPIAR GRID
-    // =========================================================
-
     function limpiarGrid() {
 
         slots.forEach(
@@ -1309,10 +1576,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // CARGAR VISUAL
+    // CARGAR DISPONIBILIDAD VISUAL
     // =========================================================
 
-    function cargarDisponibilidad() {
+    function cargarDisponibilidadVisual() {
 
         limpiarGrid();
 
@@ -1322,7 +1589,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ) {
 
             actualizarResumen();
-
             return;
         }
 
@@ -1355,64 +1621,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // HIDRATAR STORAGE
+    // DISPONIBILIDAD DESDE API
     // =========================================================
 
-    function hidratarDesdeStorage(
-        clave
+    async function obtenerDisponibilidadesProfesor(
+        profesorId
     ) {
 
-        if (
-            disponibilidades[clave] !==
-            undefined ||
-            personalizados[clave] !==
-            undefined
-        ) {
-
-            return;
-        }
-
-
-        const separador =
-            clave.lastIndexOf(
-                '-'
+        const response =
+            await window.axios.get(
+                `${API_DISPONIBILIDADES}/profesor/${profesorId}`
             );
 
 
-        const profesorId =
-            clave.substring(
-                0,
-                separador
-            );
+        return extraerColeccion(
+            response
+        );
+    }
 
 
-        const institucion =
-            clave.substring(
-                separador + 1
-            );
-
-
-        const guardadas =
-            cargarTodasLasDisponibilidades()
-                .filter(
-                    item => {
-
-                        const id =
-                            item.profesor_id ??
-                            item.profesorId;
-
-
-                        return (
-
-                            String(id) ===
-                            String(profesorId) &&
-
-                            item.institucion ===
-                            institucion
-                        );
-                    }
-                );
-
+    function disponibilidadAEstadoVisual(
+        guardadas,
+        clave
+    ) {
 
         const idsGrid =
             [];
@@ -1424,21 +1655,34 @@ document.addEventListener('DOMContentLoaded', () => {
         guardadas.forEach(
             item => {
 
+                if (
+                    item.tipo &&
+                    item.tipo !==
+                    'disponible'
+                ) {
+                    return;
+                }
+
+
                 const dia =
-                    Number(
+                    nombreDiaANumero(
                         item.dia_semana ??
                         item.dia
                     );
 
 
                 const horaInicio =
-                    item.hora_inicio ??
-                    item.horaInicio;
+                    horaCorta(
+                        item.hora_inicio ??
+                        item.horaInicio
+                    );
 
 
                 const horaFin =
-                    item.hora_fin ??
-                    item.horaFin;
+                    horaCorta(
+                        item.hora_fin ??
+                        item.horaFin
+                    );
 
 
                 if (
@@ -1446,37 +1690,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     !horaInicio ||
                     !horaFin
                 ) {
-
                     return;
                 }
 
 
-                const [
-                    hi,
-                    mi
-                ] =
-                    horaInicio
-                        .split(':')
-                        .map(Number);
-
-
-                const [
-                    hf,
-                    mf
-                ] =
-                    horaFin
-                        .split(':')
-                        .map(Number);
-
-
                 const inicioMin =
-                    hi * 60 +
-                    mi;
+                    minutosHora(
+                        horaInicio
+                    );
 
 
                 const finMin =
-                    hf * 60 +
-                    mf;
+                    minutosHora(
+                        horaFin
+                    );
 
 
                 const duracion =
@@ -1484,17 +1711,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     inicioMin;
 
 
+                const minutoInicial =
+                    inicioMin %
+                    60;
+
+
+                const minutoFinal =
+                    finMin %
+                    60;
+
+
                 const alineado =
-
-                    mi === 0 &&
-
-                    mf === 0 &&
-
-                    duracion > 0 &&
-
+                    minutoInicial ===
+                        0 &&
+                    minutoFinal ===
+                        0 &&
+                    duracion >
+                        0 &&
                     duracion %
-                    DURACION_BLOQUE_GRID_MIN ===
-                    0;
+                        DURACION_BLOQUE_GRID_MIN ===
+                        0;
 
 
                 if (alineado) {
@@ -1521,15 +1757,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                         idsGrid.push(
-
-                            `${dia}-${String(hora).padStart(
+                            `${dia}-${String(
+                                hora
+                            ).padStart(
                                 2,
                                 '0'
-                            )}:${String(minuto).padStart(
+                            )}:${String(
+                                minuto
+                            ).padStart(
                                 2,
                                 '0'
                             )}`
-
                         );
 
 
@@ -1540,11 +1778,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
 
                     custom.push({
-
                         id:
-                            `${Date.now()}-${Math.random()
-                                .toString(36)
-                                .slice(2,8)}`,
+                            String(
+                                item.id ??
+                                generarIdTemporal()
+                            ),
+
+                        backendId:
+                            item.id ??
+                            null,
 
                         dia,
 
@@ -1574,27 +1816,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // =========================================================
-    // CAMBIO PROFESOR
-    // =========================================================
+    async function cargarDisponibilidadAPI() {
 
-    function alCambiarSeleccion() {
+        const profesorId =
+            profesorSelect.value;
 
-        actualizarCustomSelect(
-            profesorSelect
-        );
+
+        const institucion =
+            institucionSelect.value ||
+            'colegio';
+
+
+        limpiarGrid();
 
 
         if (
-            !profesorSelect.value
+            !profesorId
         ) {
 
-            limpiarGrid();
-
             renderizarPersonalizados();
-
             actualizarResumen();
-
             return;
         }
 
@@ -1603,61 +1844,147 @@ document.addEventListener('DOMContentLoaded', () => {
             claveActual();
 
 
-        hidratarDesdeStorage(
-            clave
+        bloquearInterfaz(
+            true
         );
 
 
-        cargarDisponibilidad();
+        try {
 
-        renderizarPersonalizados();
+            const todas =
+                await obtenerDisponibilidadesProfesor(
+                    profesorId
+                );
 
-        actualizarResumen();
+
+            const filtradas =
+                todas.filter(
+                    item =>
+
+                        normalizarTexto(
+                            item.institucion ??
+                            'colegio'
+                        ) ===
+                        normalizarTexto(
+                            institucion
+                        )
+                );
+
+
+            disponibilidadAEstadoVisual(
+                filtradas,
+                clave
+            );
+
+
+            cargarDisponibilidadVisual();
+
+            renderizarPersonalizados();
+
+
+        } catch (error) {
+
+            console.error(
+                'Error cargando disponibilidad:',
+                error
+            );
+
+
+            disponibilidades[
+                clave
+            ] =
+                [];
+
+            personalizados[
+                clave
+            ] =
+                [];
+
+
+            cargarDisponibilidadVisual();
+
+            renderizarPersonalizados();
+
+
+            alert(
+                mensajeError(
+                    error,
+                    'No se pudo cargar la disponibilidad del profesor.'
+                )
+            );
+
+        } finally {
+
+            bloquearInterfaz(
+                false
+            );
+        }
     }
 
 
+    // =========================================================
+    // CAMBIOS DE SELECT
+    // =========================================================
+
     profesorSelect.addEventListener(
         'change',
-        alCambiarSeleccion
+        async () => {
+
+            actualizarCustomSelect(
+                profesorSelect
+            );
+
+
+            await cargarDisponibilidadAPI();
+        }
     );
 
 
-    // =========================================================
-    // CAMBIO INSTITUCIÓN
-    // =========================================================
-
     institucionSelect.addEventListener(
         'change',
-        () => {
+        async () => {
 
             actualizarCustomSelect(
                 institucionSelect
             );
 
 
-            cargarProfesores();
+            profesorSelect.value =
+                '';
 
 
             limpiarGrid();
 
+
+            const claveAnterior =
+                Object.keys(
+                    disponibilidades
+                );
+
+
+            claveAnterior.forEach(
+                clave => {
+
+                    delete disponibilidades[
+                        clave
+                    ];
+
+                    delete personalizados[
+                        clave
+                    ];
+                }
+            );
+
+
+            await cargarProfesores();
+
+
             renderizarPersonalizados();
 
             actualizarResumen();
-
-
-            if (
-                profesorSelect.value
-            ) {
-
-                alCambiarSeleccion();
-            }
         }
     );
 
-
-    // =========================================================
-    // CAMBIO DÍA PERSONALIZADO
-    // =========================================================
 
     diaPersonalizadoSelect?.addEventListener(
         'change',
@@ -1671,7 +1998,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // SLOT
+    // CLICK SLOT
     // =========================================================
 
     slots.forEach(
@@ -1682,6 +2009,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 () => {
 
                     if (
+                        cargando ||
+                        guardando
+                    ) {
+                        return;
+                    }
+
+
+                    if (
                         !profesorSelect.value
                     ) {
 
@@ -1689,6 +2024,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             'Primero selecciona un profesor.'
                         );
 
+                        profesorSelect.focus();
 
                         return;
                     }
@@ -1748,13 +2084,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 () => {
 
                     if (
+                        cargando ||
+                        guardando
+                    ) {
+                        return;
+                    }
+
+
+                    if (
                         !profesorSelect.value
                     ) {
 
                         alert(
                             'Primero selecciona un profesor.'
                         );
-
 
                         return;
                     }
@@ -1850,12 +2193,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // TODO
+    // SELECCIONAR TODO
     // =========================================================
 
     selectAllButton?.addEventListener(
         'click',
         () => {
+
+            if (
+                cargando ||
+                guardando
+            ) {
+                return;
+            }
+
 
             if (
                 !profesorSelect.value
@@ -1864,7 +2215,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(
                     'Primero selecciona un profesor.'
                 );
-
 
                 return;
             }
@@ -1899,13 +2249,20 @@ document.addEventListener('DOMContentLoaded', () => {
         () => {
 
             if (
+                cargando ||
+                guardando
+            ) {
+                return;
+            }
+
+
+            if (
                 !profesorSelect.value
             ) {
 
                 alert(
                     'Primero selecciona un profesor.'
                 );
-
 
                 return;
             }
@@ -1919,6 +2276,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ] =
                 [];
 
+
+            personalizados[
+                claveActual()
+            ] =
+                [];
+
+
+            renderizarPersonalizados();
 
             actualizarResumen();
         }
@@ -2055,27 +2420,17 @@ document.addEventListener('DOMContentLoaded', () => {
                                 inicio =
                                     hora;
 
-
                                 anterior =
                                     hora;
-
 
                                 return;
                             }
 
 
-                            const [
-                                hAnterior,
-                                mAnterior
-                            ] =
-                                anterior
-                                    .split(':')
-                                    .map(Number);
-
-
                             const esperado =
-                                hAnterior * 60 +
-                                mAnterior +
+                                minutosHora(
+                                    anterior
+                                ) +
                                 DURACION_BLOQUE_GRID_MIN;
 
 
@@ -2103,8 +2458,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             ) {
 
                                 const fin =
-                                    hAnterior * 60 +
-                                    mAnterior +
+                                    minutosHora(
+                                        anterior
+                                    ) +
                                     DURACION_BLOQUE_GRID_MIN;
 
 
@@ -2149,22 +2505,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                     if (
-                        inicio !== null &&
-                        anterior !== null
+                        inicio !==
+                            null &&
+                        anterior !==
+                            null
                     ) {
 
-                        const [
-                            hAnterior,
-                            mAnterior
-                        ] =
-                            anterior
-                                .split(':')
-                                .map(Number);
-
-
                         const fin =
-                            hAnterior * 60 +
-                            mAnterior +
+                            minutosHora(
+                                anterior
+                            ) +
                             DURACION_BLOQUE_GRID_MIN;
 
 
@@ -2241,7 +2591,7 @@ document.addEventListener('DOMContentLoaded', () => {
         items
             .slice()
             .sort(
-                (a,b) =>
+                (a, b) =>
                     a.dia -
                     b.dia ||
                     a.horaInicio.localeCompare(
@@ -2320,13 +2670,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // =========================================================
-    // AGREGAR PERSONALIZADO
-    // =========================================================
-
     agregarPersonalizadoButton?.addEventListener(
         'click',
         () => {
+
+            if (
+                cargando ||
+                guardando
+            ) {
+                return;
+            }
+
 
             if (
                 !profesorSelect.value
@@ -2336,23 +2690,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Primero selecciona un profesor.'
                 );
 
-
                 return;
             }
 
 
             const dia =
                 Number(
-                    diaPersonalizadoSelect.value
+                    diaPersonalizadoSelect?.value
                 );
 
 
             const horaInicio =
-                inicioPersonalizadoInput.value;
+                inicioPersonalizadoInput?.value;
 
 
             const horaFin =
-                finPersonalizadoInput.value;
+                finPersonalizadoInput?.value;
 
 
             if (
@@ -2364,7 +2717,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(
                     'Completa el día, hora de inicio y hora de fin.'
                 );
-
 
                 return;
             }
@@ -2378,7 +2730,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert(
                     'La hora de fin debe ser posterior a la hora de inicio.'
                 );
-
 
                 return;
             }
@@ -2401,7 +2752,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
-            const traslape =
+            const traslapePersonalizado =
                 personalizados[
                     clave
                 ]
@@ -2409,24 +2760,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         item =>
 
                             item.dia ===
-                            dia &&
+                                dia &&
 
                             horaInicio <
-                            item.horaFin &&
+                                item.horaFin &&
 
                             item.horaInicio <
-                            horaFin
+                                horaFin
                     );
 
 
             if (
-                traslape
+                traslapePersonalizado
             ) {
 
                 alert(
                     'Ese horario se traslapa con otro horario personalizado del mismo día.'
                 );
-
 
                 return;
             }
@@ -2438,9 +2788,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 .push({
 
                     id:
-                        `${Date.now()}-${Math.random()
-                            .toString(36)
-                            .slice(2,8)}`,
+                        generarIdTemporal(),
+
+                    backendId:
+                        null,
 
                     dia,
 
@@ -2453,7 +2804,6 @@ document.addEventListener('DOMContentLoaded', () => {
             inicioPersonalizadoInput.value =
                 '';
 
-
             finPersonalizadoInput.value =
                 '';
 
@@ -2462,10 +2812,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     );
 
-
-    // =========================================================
-    // QUITAR PERSONALIZADO
-    // =========================================================
 
     listaPersonalizadosEl?.addEventListener(
         'click',
@@ -2499,8 +2845,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 )
                     .filter(
                         item =>
-                            item.id !==
-                            button.dataset.id
+                            String(
+                                item.id
+                            ) !==
+                            String(
+                                button.dataset.id
+                            )
                     );
 
 
@@ -2510,12 +2860,219 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // GUARDAR
+    // VALIDAR TRASLAPES
     // =========================================================
+
+    function existenTraslapes(
+        franjas
+    ) {
+
+        const porDia =
+            {};
+
+
+        franjas.forEach(
+            franja => {
+
+                const dia =
+                    franja.dia_semana;
+
+
+                if (
+                    !porDia[dia]
+                ) {
+                    porDia[dia] =
+                        [];
+                }
+
+
+                porDia[dia].push(
+                    franja
+                );
+            }
+        );
+
+
+        return Object
+            .values(
+                porDia
+            )
+            .some(
+                lista => {
+
+                    const ordenadas =
+                        lista
+                            .slice()
+                            .sort(
+                                (a, b) =>
+                                    a.hora_inicio.localeCompare(
+                                        b.hora_inicio
+                                    )
+                            );
+
+
+                    for (
+                        let i = 1;
+                        i < ordenadas.length;
+                        i++
+                    ) {
+
+                        if (
+                            ordenadas[i]
+                                .hora_inicio <
+                            ordenadas[i - 1]
+                                .hora_fin
+                        ) {
+                            return true;
+                        }
+                    }
+
+
+                    return false;
+                }
+            );
+    }
+
+
+    // =========================================================
+    // GUARDAR EN API
+    // =========================================================
+
+    async function eliminarDisponibilidadesActuales(
+        profesorId,
+        institucion
+    ) {
+
+        const todas =
+            await obtenerDisponibilidadesProfesor(
+                profesorId
+            );
+
+
+        const actuales =
+            todas.filter(
+                item =>
+
+                    String(
+                        item.profesor_id
+                    ) ===
+                        String(
+                            profesorId
+                        ) &&
+
+                    normalizarTexto(
+                        item.institucion ??
+                        'colegio'
+                    ) ===
+                        normalizarTexto(
+                            institucion
+                        )
+            );
+
+
+        if (
+            actuales.length ===
+            0
+        ) {
+            return;
+        }
+
+
+        await Promise.all(
+            actuales
+                .filter(
+                    item =>
+                        item.id
+                )
+                .map(
+                    item =>
+                        window.axios.delete(
+                            `${API_DISPONIBILIDADES}/${item.id}`
+                        )
+                )
+        );
+    }
+
+
+    async function crearDisponibilidades(
+        profesorId,
+        institucion,
+        franjas
+    ) {
+
+        for (
+            const franja of
+            franjas
+        ) {
+
+            const diaBackend =
+                diasBackend[
+                    Number(
+                        franja.dia_semana
+                    )
+                ];
+
+
+            if (
+                !diaBackend
+            ) {
+
+                throw new Error(
+                    'Se encontró un día inválido.'
+                );
+            }
+
+
+            const payload = {
+
+                profesor_id:
+                    Number(
+                        profesorId
+                    ),
+
+                dia_semana:
+                    diaBackend,
+
+                hora_inicio:
+                    franja.hora_inicio,
+
+                hora_fin:
+                    franja.hora_fin,
+
+                tipo:
+                    'disponible',
+
+                turno:
+                    obtenerTurno(
+                        franja.hora_inicio
+                    ),
+
+                institucion,
+
+                observacion:
+                    null
+            };
+
+
+            await window.axios.post(
+                API_DISPONIBILIDADES,
+                payload
+            );
+        }
+    }
+
 
     saveButton?.addEventListener(
         'click',
-        () => {
+        async () => {
+
+            if (
+                guardando ||
+                cargando
+            ) {
+                return;
+            }
+
 
             const profesorId =
                 profesorSelect.value;
@@ -2534,6 +3091,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Primero selecciona un profesor.'
                 );
 
+                profesorSelect.focus();
 
                 return;
             }
@@ -2561,86 +3119,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 personalizadosActuales();
 
 
-            const todasLasFranjas =
-                [
+            const todasLasFranjas = [
 
-                    ...franjasGrid,
+                ...franjasGrid,
 
-                    ...personalizadosData.map(
-                        item => ({
-
-                            dia_semana:
-                                item.dia,
-
-                            hora_inicio:
-                                item.horaInicio,
-
-                            hora_fin:
-                                item.horaFin
-                        })
-                    )
-                ];
-
-
-            const todas =
-                cargarTodasLasDisponibilidades();
-
-
-            const restantes =
-                todas.filter(
-                    item => {
-
-                        const id =
-                            item.profesor_id ??
-                            item.profesorId;
-
-
-                        return !(
-
-                            String(
-                                id
-                            ) ===
-                            String(
-                                profesorId
-                            ) &&
-
-                            item.institucion ===
-                            institucion
-                        );
-                    }
-                );
-
-
-            todasLasFranjas.forEach(
-                franja => {
-
-                    restantes.push({
-
-                        profesor_id:
-                            String(
-                                profesorId
-                            ),
-
-                        institucion,
+                ...personalizadosData.map(
+                    item => ({
 
                         dia_semana:
                             Number(
-                                franja.dia_semana
+                                item.dia
                             ),
 
                         hora_inicio:
-                            franja.hora_inicio,
+                            item.horaInicio,
 
                         hora_fin:
-                            franja.hora_fin
-                    });
+                            item.horaFin
+                    })
+                )
+            ];
+
+
+            if (
+                existenTraslapes(
+                    todasLasFranjas
+                )
+            ) {
+
+                alert(
+                    'Hay horarios que se traslapan. Revisa los bloques y horarios personalizados.'
+                );
+
+                return;
+            }
+
+
+            const sinHorarios =
+                todasLasFranjas.length ===
+                0;
+
+
+            if (
+                sinHorarios
+            ) {
+
+                const confirmar =
+                    window.confirm(
+                        'No hay ningún horario seleccionado.\n\nSi continúas, se eliminará la disponibilidad guardada de este profesor para esta institución.\n\n¿Deseas continuar?'
+                    );
+
+
+                if (
+                    !confirmar
+                ) {
+                    return;
                 }
-            );
-
-
-            guardarTodasLasDisponibilidades(
-                restantes
-            );
+            }
 
 
             const nombreProfesor =
@@ -2650,115 +3185,153 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Profesor';
 
 
-            const institucionTexto =
-                institucion ===
-                'academia'
-                    ? 'Academia'
-                    : 'Colegio';
+            guardando =
+                true;
 
 
-            alert(
-
-                `✅ Disponibilidad guardada correctamente.\n\n` +
-
-                `Profesor: ${nombreProfesor}\n` +
-
-                `Institución: ${institucionTexto}\n\n` +
-
-                `Esta información solamente indica cuándo puede trabajar el profesor.\n` +
-
-                `Todavía no se ha creado ninguna clase.`
-
-            );
+            saveButton.disabled =
+                true;
 
 
-            actualizarResumen();
-        }
-    );
+            const textoOriginal =
+                saveButton.innerHTML;
 
 
-    // =========================================================
-    // STORAGE
-    // =========================================================
-
-    window.addEventListener(
-        'storage',
-        event => {
-
-            if (
-                event.key ===
-                PROFESORES_KEY
-            ) {
-
-                cargarProfesores();
-            }
+            saveButton.innerHTML = `
+                <span>
+                    Guardando...
+                </span>
+            `;
 
 
-            if (
-                event.key ===
-                DISPONIBILIDAD_KEY &&
-                profesorSelect.value
-            ) {
+            try {
 
-                const clave =
-                    claveActual();
+                /*
+                |--------------------------------------------------------------------------
+                | 1. ELIMINAR SOLO LA DISPONIBILIDAD DE LA INSTITUCIÓN ACTUAL
+                |--------------------------------------------------------------------------
+                |
+                | Si estamos modificando Colegio, no tocamos Academia.
+                | Si estamos modificando Academia, no tocamos Colegio.
+                |
+                */
 
+                await eliminarDisponibilidadesActuales(
+                    profesorId,
+                    institucion
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | 2. CREAR NUEVA DISPONIBILIDAD
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    todasLasFranjas.length >
+                    0
+                ) {
+
+                    await crearDisponibilidades(
+                        profesorId,
+                        institucion,
+                        todasLasFranjas
+                    );
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | 3. RECARGAR DESDE BACKEND
+                |--------------------------------------------------------------------------
+                */
 
                 delete disponibilidades[
-                    clave
+                    claveActual()
                 ];
 
 
                 delete personalizados[
-                    clave
+                    claveActual()
                 ];
 
 
-                alCambiarSeleccion();
-            }
-        }
-    );
+                await cargarDisponibilidadAPI();
 
 
-    // =========================================================
-    // FOCUS
-    // =========================================================
+                const institucionTexto =
+                    institucion ===
+                    'academia'
 
-    window.addEventListener(
-        'focus',
-        () => {
+                        ? 'Academia'
 
-            const seleccionado =
-                profesorSelect.value;
+                        : 'Colegio';
 
 
-            cargarProfesores();
+                if (
+                    sinHorarios
+                ) {
 
-
-            const existe =
-                Array.from(
-                    profesorSelect.options
-                )
-                    .some(
-                        option =>
-                            option.value ===
-                            seleccionado
+                    alert(
+                        `Disponibilidad eliminada correctamente.\n\nProfesor: ${nombreProfesor}\nInstitución: ${institucionTexto}`
                     );
 
+                } else {
 
-            if (
-                seleccionado &&
-                existe
-            ) {
+                    alert(
+                        `Disponibilidad guardada correctamente.\n\nProfesor: ${nombreProfesor}\nInstitución: ${institucionTexto}\nFranjas guardadas: ${todasLasFranjas.length}`
+                    );
+                }
 
-                profesorSelect.value =
-                    seleccionado;
+
+            } catch (error) {
+
+                console.error(
+                    'Error guardando disponibilidad:',
+                    error
+                );
+
+
+                alert(
+                    mensajeError(
+                        error,
+                        'No se pudo guardar la disponibilidad.'
+                    )
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | RECARGAMOS EL ESTADO REAL
+                |--------------------------------------------------------------------------
+                |
+                | Si una petición intermedia falló, mostramos lo que realmente quedó
+                | registrado en la base de datos.
+                |
+                */
+
+                try {
+
+                    await cargarDisponibilidadAPI();
+
+                } catch {
+                    // Ya mostramos el error principal.
+                }
+
+            } finally {
+
+                guardando =
+                    false;
+
+
+                saveButton.disabled =
+                    false;
+
+
+                saveButton.innerHTML =
+                    textoOriginal;
             }
-
-
-            actualizarCustomSelect(
-                profesorSelect
-            );
         }
     );
 
@@ -2786,14 +3359,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // INICIO
     // =========================================================
 
-    cargarProfesores();
+    async function iniciar() {
 
-    limpiarGrid();
+        limpiarGrid();
 
-    renderizarPersonalizados();
+        renderizarPersonalizados();
 
-    actualizarResumen();
+        actualizarResumen();
 
-    actualizarTodosCustomSelects();
+        actualizarTodosCustomSelects();
+
+
+        await cargarProfesores();
+
+
+        actualizarTodosCustomSelects();
+    }
+
+
+    iniciar();
 
 });

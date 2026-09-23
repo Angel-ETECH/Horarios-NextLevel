@@ -20,7 +20,8 @@ class DisponibilidadProfesor extends Model
         'hora_fin',
         'tipo',
         'turno',
-        'observacion'
+        'institucion',
+        'observacion',
     ];
 
     protected $casts = [
@@ -28,55 +29,94 @@ class DisponibilidadProfesor extends Model
         'hora_fin' => 'datetime:H:i',
     ];
 
-    // ============ RELACIONES ============
+    // =========================================================
+    // RELACIONES
+    // =========================================================
 
     /**
-     * Una disponibilidad pertenece a un profesor
+     * Una disponibilidad pertenece a un profesor.
      */
     public function profesor()
     {
         return $this->belongsTo(Profesor::class);
     }
 
-    // ============ MÉTODOS ÚTILES ============
+    // =========================================================
+    // MÉTODOS ÚTILES
+    // =========================================================
 
     /**
-     * Verificar si una hora está dentro del bloque de disponibilidad
+     * Verificar si una hora está dentro del bloque.
      */
-    public function contieneHora($hora)
+    public function contieneHora($hora): bool
     {
-        return $this->hora_inicio <= $hora && $hora <= $this->hora_fin;
+        return
+            $this->hora_inicio <= $hora &&
+            $hora <= $this->hora_fin;
     }
 
     /**
-     * Obtener duración en horas
+     * Obtener duración en horas.
      */
     public function getDuracionHorasAttribute()
     {
-        return $this->hora_inicio->diffInHours($this->hora_fin);
+        return $this->hora_inicio
+            ->diffInHours(
+                $this->hora_fin
+            );
     }
 
+    // =========================================================
+    // SCOPES
+    // =========================================================
+
     /**
-     * Scope para disponibilidades activas (tipo disponible)
+     * Disponibilidades activas.
      */
     public function scopeDisponibles($query)
     {
-        return $query->where('tipo', 'disponible');
+        return $query->where(
+            'tipo',
+            'disponible'
+        );
     }
 
     /**
-     * Scope por día
+     * Filtrar por día.
      */
-    public function scopeDia($query, $dia)
-    {
-        return $query->where('dia_semana', $dia);
+    public function scopeDia(
+        $query,
+        $dia
+    ) {
+        return $query->where(
+            'dia_semana',
+            $dia
+        );
     }
 
     /**
-     * Scope por turno
+     * Filtrar por turno.
      */
-    public function scopeTurno($query, $turno)
-    {
-        return $query->where('turno', $turno);
+    public function scopeTurno(
+        $query,
+        $turno
+    ) {
+        return $query->where(
+            'turno',
+            $turno
+        );
+    }
+
+    /**
+     * Filtrar por institución.
+     */
+    public function scopeInstitucion(
+        $query,
+        $institucion
+    ) {
+        return $query->where(
+            'institucion',
+            $institucion
+        );
     }
 }

@@ -1048,14 +1048,12 @@
      ============================================================= --}}
 
 <script>
-
     document.addEventListener(
         'DOMContentLoaded',
         () => {
 
-
             // =========================================================
-            // ELEMENTOS DEL LOGIN
+            // ELEMENTOS
             // =========================================================
 
             const form =
@@ -1084,25 +1082,31 @@
                 );
 
 
-            // =========================================================
-            // COMPROBAR SI YA EXISTE UNA SESIÓN
-            // =========================================================
-            //
-            // Si el usuario ya inició sesión y vuelve al Login
-            // utilizando la flecha Atrás del navegador,
-            // no permitimos que se quede aquí.
-            //
-            // replace() evita crear otra entrada en el historial.
-            //
-            // =========================================================
-
             if (
-                localStorage.getItem(
-                    'nextlevel_auth'
-                ) === 'true'
+                !form ||
+                !usuario ||
+                !password ||
+                !mensaje
             ) {
+                return;
+            }
 
-                window.location.replace('/');
+
+            // =========================================================
+            // SI YA HAY TOKEN, IR AL DASHBOARD
+            // =========================================================
+
+            const tokenExistente =
+                localStorage.getItem(
+                    'nextlevel_token'
+                );
+
+
+            if (tokenExistente) {
+
+                window.location.replace(
+                    '/'
+                );
 
                 return;
             }
@@ -1131,12 +1135,12 @@
 
 
             // =========================================================
-            // MOSTRAR MENSAJES
+            // MENSAJES
             // =========================================================
 
             function mostrarMensaje(
                 texto,
-                tipo
+                tipo = 'error'
             ) {
 
                 mensaje.classList.remove(
@@ -1148,37 +1152,42 @@
 
                     'border-emerald-200',
                     'bg-emerald-50',
-                    'text-emerald-700'
+                    'text-emerald-700',
+
+                    'border-blue-200',
+                    'bg-blue-50',
+                    'text-blue-700'
                 );
 
 
-                // =====================================================
-                // ERROR
-                // =====================================================
-
                 if (
                     tipo ===
-                    'error'
+                    'success'
                 ) {
-
-                    mensaje.classList.add(
-                        'border-red-200',
-                        'bg-red-50',
-                        'text-red-700'
-                    );
-                }
-
-
-                // =====================================================
-                // CORRECTO
-                // =====================================================
-
-                else {
 
                     mensaje.classList.add(
                         'border-emerald-200',
                         'bg-emerald-50',
                         'text-emerald-700'
+                    );
+
+                } else if (
+                    tipo ===
+                    'info'
+                ) {
+
+                    mensaje.classList.add(
+                        'border-blue-200',
+                        'bg-blue-50',
+                        'text-blue-700'
+                    );
+
+                } else {
+
+                    mensaje.classList.add(
+                        'border-red-200',
+                        'bg-red-50',
+                        'text-red-700'
                     );
                 }
 
@@ -1189,40 +1198,35 @@
 
 
             // =========================================================
-            // INICIAR SESIÓN
+            // LOGIN REAL
             // =========================================================
 
             form.addEventListener(
                 'submit',
-                event => {
+                async event => {
 
-
-                    // Evita recargar la página
                     event.preventDefault();
 
 
-                    // =================================================
-                    // OBTENER CREDENCIALES
-                    // =================================================
-
-                    const user =
-                        usuario.value.trim();
+                    const email =
+                        usuario.value
+                            .trim();
 
                     const pass =
                         password.value;
 
 
                     // =================================================
-                    // VALIDAR CAMPOS VACÍOS
+                    // VALIDAR VACÍOS
                     // =================================================
 
                     if (
-                        !user ||
+                        !email ||
                         !pass
                     ) {
 
                         mostrarMensaje(
-                            'Completa el usuario y la contraseña.',
+                            'Completa el correo y la contraseña.',
                             'error'
                         );
 
@@ -1231,29 +1235,101 @@
 
 
                     // =================================================
-                    // CREDENCIALES DEL ADMINISTRADOR
-                    // =================================================
-                    //
-                    // Usuario:
-                    // admin
-                    //
-                    // Contraseña:
-                    // admin123
-                    //
+                    // DESHABILITAR BOTÓN
                     // =================================================
 
-                    if (
-                        user ===
-                        'admin' &&
+                    const submitButton =
+                        form.querySelector(
+                            'button[type="submit"]'
+                        );
 
-                        pass ===
-                        'admin123'
-                    ) {
+
+                    const textoOriginal =
+                        submitButton
+                            ? submitButton.innerHTML
+                            : null;
+
+
+                    if (submitButton) {
+
+                        submitButton.disabled =
+                            true;
+
+                        submitButton.classList.add(
+                            'opacity-70',
+                            'cursor-not-allowed'
+                        );
+
+                        submitButton.innerHTML =
+                            'Ingresando...';
+                    }
+
+
+                    try {
+
+                        // =============================================
+                        // PETICIÓN AL BACKEND
+                        // =============================================
+
+                        const response =
+                            await window.axios.post(
+                                '/api/auth/login',
+                                {
+                                    email:
+                                        email,
+
+                                    password:
+                                        pass
+                                }
+                            );
+
+
+                        const data =
+                            response?.data?.data;
+
+
+                        const token =
+                            data?.token;
+
+                        const user =
+                            data?.user;
+
+
+                        if (!token) {
+
+                            throw new Error(
+                                'El servidor no devolvió un token.'
+                            );
+                        }
 
 
                         // =============================================
-                        // GUARDAR SESIÓN
+                        // GUARDAR TOKEN REAL
                         // =============================================
+
+                        localStorage.setItem(
+                            'nextlevel_token',
+                            token
+                        );
+
+
+                        // =============================================
+                        // GUARDAR USUARIO
+                        // =============================================
+
+                        localStorage.setItem(
+                            'nextlevel_usuario',
+                            JSON.stringify(
+                                user || {}
+                            )
+                        );
+
+
+                        // =============================================
+                        // COMPATIBILIDAD TEMPORAL
+                        // =============================================
+                        // Si alguna parte vieja del frontend todavía
+                        // consulta nextlevel_auth, lo mantenemos por ahora.
 
                         localStorage.setItem(
                             'nextlevel_auth',
@@ -1261,43 +1337,21 @@
                         );
 
 
-                        localStorage.setItem(
-                            'nextlevel_rol',
-                            'administrador'
-                        );
-
-
-                        localStorage.setItem(
-                            'nextlevel_usuario',
-                            'Administrador'
-                        );
-
-
                         // =============================================
-                        // MENSAJE
+                        // CONFIGURAR AXIOS INMEDIATAMENTE
                         // =============================================
+
+                        window.axios.defaults.headers.common[
+                            'Authorization'
+                        ] =
+                            `Bearer ${token}`;
+
 
                         mostrarMensaje(
                             'Acceso correcto. Ingresando al sistema...',
-                            'ok'
+                            'success'
                         );
 
-
-                        // =============================================
-                        // IR AL DASHBOARD
-                        // =============================================
-                        //
-                        // IMPORTANTE:
-                        //
-                        // NO usar:
-                        //
-                        // window.location.href = '/';
-                        //
-                        // porque href agrega el Login al historial.
-                        //
-                        // replace() sustituye el Login por el Dashboard.
-                        //
-                        // =============================================
 
                         setTimeout(
                             () => {
@@ -1305,24 +1359,72 @@
                                 window.location.replace(
                                     '/'
                                 );
-
                             },
-                            500
+                            400
                         );
 
 
-                        return;
+                    } catch (error) {
+
+                        console.error(
+                            'Error en login:',
+                            error
+                        );
+
+
+                        const status =
+                            error?.response?.status;
+
+
+                        if (
+                            status ===
+                            422
+                        ) {
+
+                            const errores =
+                                error?.response?.data?.errors;
+
+
+                            const errorEmail =
+                                errores?.email?.[0];
+
+
+                            mostrarMensaje(
+                                errorEmail ||
+                                'Las credenciales son incorrectas.',
+                                'error'
+                            );
+
+                        } else {
+
+                            mostrarMensaje(
+                                error?.response?.data?.message ||
+                                'No se pudo iniciar sesión.',
+                                'error'
+                            );
+                        }
+
+
+                    } finally {
+
+                        if (submitButton) {
+
+                            submitButton.disabled =
+                                false;
+
+                            submitButton.classList.remove(
+                                'opacity-70',
+                                'cursor-not-allowed'
+                            );
+
+
+                            if (textoOriginal !== null) {
+
+                                submitButton.innerHTML =
+                                    textoOriginal;
+                            }
+                        }
                     }
-
-
-                    // =================================================
-                    // CREDENCIALES INCORRECTAS
-                    // =================================================
-
-                    mostrarMensaje(
-                        'Usuario o contraseña incorrectos.',
-                        'error'
-                    );
                 }
             );
         }
@@ -1330,28 +1432,20 @@
 
 
     // =============================================================
-    // PROTECCIÓN CUANDO SE USA ATRÁS / ADELANTE
-    // =============================================================
-    //
-    // Si el navegador restaura el Login desde su caché
-    // después de iniciar sesión, vuelve al Dashboard.
-    //
+    // PROTECCIÓN ATRÁS / ADELANTE
     // =============================================================
 
     window.addEventListener(
         'pageshow',
         () => {
 
-            const autenticado =
+            const token =
                 localStorage.getItem(
-                    'nextlevel_auth'
+                    'nextlevel_token'
                 );
 
 
-            if (
-                autenticado ===
-                'true'
-            ) {
+            if (token) {
 
                 window.location.replace(
                     '/'
@@ -1359,7 +1453,6 @@
             }
         }
     );
-
 </script>
 
 </body>
