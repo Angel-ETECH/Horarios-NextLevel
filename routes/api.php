@@ -78,12 +78,12 @@ Route::prefix('publico')->group(function () {
 
     Route::get('/horario/profesor/{id}/pdf', [
         PublicController::class,
-        'horarioProfesorPdf'
+        'descargarPdfProfesor'
     ]);
 
     Route::get('/horario/profesor/{id}/imagen', [
         PublicController::class,
-        'horarioProfesorImagen'
+        'imagenProfesor'
     ]);
 
     Route::get('/horario/grado/{id}', [

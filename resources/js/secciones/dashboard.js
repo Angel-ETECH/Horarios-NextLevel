@@ -42,6 +42,16 @@ document.addEventListener('DOMContentLoaded', () => {
             'dashboard-fecha'
         );
 
+    const saludoEl =
+        document.getElementById(
+            'dashboard-saludo'
+        );
+
+    const subtituloEl =
+        document.getElementById(
+            'dashboard-subtitulo'
+        );
+
     const headerProfesores =
         document.getElementById(
             'header-total-profesores'
@@ -113,6 +123,59 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+
+    function obtenerUsuarioActual() {
+
+        try {
+
+            return JSON.parse(
+                localStorage.getItem(
+                    'nextlevel_usuario'
+                ) ||
+                '{}'
+            );
+
+        } catch (error) {
+
+            return {};
+        }
+    }
+
+
+    function obtenerNombreUsuario() {
+
+        const usuario =
+            obtenerUsuarioActual();
+
+        return (
+            usuario.name ||
+            usuario.nombre ||
+            usuario.nombre_completo ||
+            usuario.email ||
+            'Administrador'
+        );
+    }
+
+
+    function actualizarBienvenida() {
+
+        if (
+            saludoEl
+        ) {
+
+            saludoEl.textContent =
+                `Hola, ${obtenerNombreUsuario()}`;
+        }
+
+        if (
+            subtituloEl
+        ) {
+
+            subtituloEl.textContent =
+                'Aquí tienes el estado actual de la gestión académica.';
+        }
     }
 
 
@@ -551,6 +614,125 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function marcarEstadisticasCargando(
+        cargando
+    ) {
+
+        [
+            headerProfesores,
+            headerCursos,
+            headerAulas,
+            headerHorarios,
+            totalProfesores,
+            totalCursos,
+            totalAulas,
+            totalHorarios
+        ].forEach(
+            elemento => {
+
+                if (!elemento) {
+                    return;
+                }
+
+                elemento.classList.toggle(
+                    'animate-pulse',
+                    cargando
+                );
+
+                elemento.classList.toggle(
+                    'text-slate-300',
+                    cargando
+                );
+
+                if (
+                    cargando
+                ) {
+
+                    elemento.textContent =
+                        '...';
+                }
+            }
+        );
+    }
+
+    function renderEstadoHorarios(
+        tipo,
+        titulo,
+        descripcion
+    ) {
+
+        const estilos = {
+            carga: {
+                contenedor:
+                    'bg-blue-50 text-blue-600',
+                icono:
+                    '<span class="h-6 w-6 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"></span>'
+            },
+
+            vacio: {
+                contenedor:
+                    'bg-slate-100 text-slate-400',
+                icono:
+                    '<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>'
+            },
+
+            descanso: {
+                contenedor:
+                    'bg-slate-100 text-slate-400',
+                icono:
+                    '<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9h12v5a6 6 0 0 1-12 0z"/><path d="M18 10h1a2 2 0 0 1 0 4h-1"/><path d="M8 3v3M12 3v3M16 3v3"/></svg>'
+            },
+
+            error: {
+                contenedor:
+                    'bg-red-50 text-red-500',
+                icono:
+                    '<svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6"/><path d="M12 17h.01"/></svg>'
+            }
+        };
+
+        const estado =
+            estilos[tipo] ||
+            estilos.vacio;
+
+        contenedorHorarios.innerHTML = `
+
+            <div class="px-6 py-12 text-center">
+
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl ${estado.contenedor}">
+                    ${estado.icono}
+                </div>
+
+                <p class="mt-4 font-bold ${tipo === 'error' ? 'text-red-600' : ''}" style="${tipo === 'error' ? '' : 'color:#0F2749;'}">
+                    ${esc(titulo)}
+                </p>
+
+                <p class="mx-auto mt-1 max-w-sm text-sm text-slate-400">
+                    ${esc(descripcion)}
+                </p>
+
+            </div>
+        `;
+    }
+
+
+    function mostrarHorariosCargando() {
+
+        if (
+            totalHoy
+        ) {
+            totalHoy.textContent =
+                'Cargando clases...';
+        }
+
+        renderEstadoHorarios(
+            'carga',
+            'Cargando horarios de hoy',
+            'Estamos consultando profesores, cursos, aulas y clases activas.'
+        );
+    }
+
+
     // =========================================================
     // ESTADO DE CLASE
     // =========================================================
@@ -644,77 +826,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
 
-            contenedorHorarios.innerHTML = `
-
-                <div
-                    class="
-                        px-6
-                        py-12
-                        text-center
-                    "
-                >
-
-                    <div
-                        class="
-                            mx-auto
-                            flex
-                            h-12
-                            w-12
-                            items-center
-                            justify-center
-                            rounded-2xl
-                            bg-slate-100
-                        "
-                    >
-
-                        <svg
-                            class="h-6 w-6 text-slate-400"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.8"
-                        >
-                            <path
-                                d="M6 9h12v5a6 6 0 0 1-12 0z"
-                            />
-
-                            <path
-                                d="M18 10h1a2 2 0 0 1 0 4h-1"
-                            />
-
-                            <path
-                                d="M8 3v3M12 3v3M16 3v3"
-                            />
-                        </svg>
-
-                    </div>
-
-
-                    <p
-                        class="
-                            mt-4
-                            font-bold
-                        "
-                        style="
-                            color:#0F2749;
-                        "
-                    >
-                        Hoy es domingo
-                    </p>
-
-
-                    <p
-                        class="
-                            mt-1
-                            text-sm
-                            text-slate-400
-                        "
-                    >
-                        No hay clases programadas.
-                    </p>
-
-                </div>
-            `;
+            renderEstadoHorarios(
+                'descanso',
+                'Hoy es domingo',
+                'No hay clases programadas para el día de descanso.'
+            );
 
             return;
         }
@@ -771,77 +887,11 @@ document.addEventListener('DOMContentLoaded', () => {
             !horariosHoy.length
         ) {
 
-            contenedorHorarios.innerHTML = `
-
-                <div
-                    class="
-                        px-6
-                        py-12
-                        text-center
-                    "
-                >
-
-                    <div
-                        class="
-                            mx-auto
-                            flex
-                            h-12
-                            w-12
-                            items-center
-                            justify-center
-                            rounded-2xl
-                            bg-slate-100
-                        "
-                    >
-
-                        <svg
-                            class="h-6 w-6 text-slate-400"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.8"
-                        >
-                            <rect
-                                x="3"
-                                y="5"
-                                width="18"
-                                height="16"
-                                rx="2"
-                            />
-
-                            <path
-                                d="M8 3v4M16 3v4M3 10h18"
-                            />
-                        </svg>
-
-                    </div>
-
-
-                    <p
-                        class="
-                            mt-4
-                            font-bold
-                        "
-                        style="
-                            color:#0F2749;
-                        "
-                    >
-                        No hay clases para hoy
-                    </p>
-
-
-                    <p
-                        class="
-                            mt-1
-                            text-sm
-                            text-slate-400
-                        "
-                    >
-                        No existen horarios activos para el día actual.
-                    </p>
-
-                </div>
-            `;
+            renderEstadoHorarios(
+                'vacio',
+                'No hay clases para hoy',
+                'No existen horarios activos para el día actual.'
+            );
 
             return;
         }
@@ -1117,6 +1167,17 @@ document.addEventListener('DOMContentLoaded', () => {
             true;
 
 
+        marcarEstadisticasCargando(
+            true
+        );
+
+        if (
+            !silencioso
+        ) {
+            mostrarHorariosCargando();
+        }
+
+
         try {
 
             const [
@@ -1175,85 +1236,25 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
+            actualizarEstadisticas();
+
+
             if (
                 !silencioso
             ) {
 
-                contenedorHorarios.innerHTML = `
-
-                    <div
-                        class="
-                            px-6
-                            py-12
-                            text-center
-                        "
-                    >
-
-                        <div
-                            class="
-                                mx-auto
-                                flex
-                                h-12
-                                w-12
-                                items-center
-                                justify-center
-                                rounded-2xl
-                                bg-red-50
-                                text-red-500
-                            "
-                        >
-
-                            <svg
-                                class="h-6 w-6"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-                                <circle
-                                    cx="12"
-                                    cy="12"
-                                    r="9"
-                                />
-
-                                <path
-                                    d="M12 7v6"
-                                />
-
-                                <path
-                                    d="M12 17h.01"
-                                />
-                            </svg>
-
-                        </div>
-
-
-                        <p
-                            class="
-                                mt-4
-                                font-bold
-                                text-red-600
-                            "
-                        >
-                            No se pudo cargar el dashboard
-                        </p>
-
-
-                        <p
-                            class="
-                                mt-1
-                                text-sm
-                                text-slate-400
-                            "
-                        >
-                            Revisa la conexión con la API.
-                        </p>
-
-                    </div>
-                `;
+                renderEstadoHorarios(
+                    'error',
+                    'No se pudo cargar el dashboard',
+                    'Revisa que MySQL esté encendido y que la API esté respondiendo.'
+                );
             }
 
         } finally {
+
+            marcarEstadisticasCargando(
+                false
+            );
 
             cargandoDashboard =
                 false;
@@ -1295,6 +1296,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================
 
     actualizarFecha();
+
+    actualizarBienvenida();
 
     cargarDashboard();
 

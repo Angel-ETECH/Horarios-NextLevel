@@ -95,7 +95,8 @@
             items-center
             justify-center
             px-4
-            py-8
+            py-4
+            sm:py-8
         "
     >
 
@@ -106,7 +107,7 @@
                 w-full
                 max-w-6xl
                 overflow-hidden
-                rounded-[30px]
+                rounded-3xl
                 border
                 border-slate-200
                 bg-white
@@ -446,7 +447,7 @@
                 class="
                     relative
                     flex
-                    min-h-[720px]
+                    min-h-0
                     flex-col
                     justify-center
                     px-6
@@ -454,6 +455,7 @@
                     sm:px-10
                     sm:py-10
                     lg:px-14
+                    lg:min-h-[720px]
                     lg:py-12
                 "
             >
@@ -567,8 +569,8 @@
                             text-slate-500
                         "
                     >
-                        Registra tu usuario, correo y contraseña
-                        para acceder al sistema.
+                        Registra tu nombre, correo, contraseña y
+                        código de invitación para acceder al sistema.
                     </p>
 
                 </div>
@@ -578,6 +580,8 @@
 
                 <div
                     id="registro-mensaje"
+                    role="status"
+                    aria-live="polite"
                     class="
                         mb-5
                         hidden
@@ -601,7 +605,7 @@
                 >
 
 
-                    {{-- USUARIO --}}
+                    {{-- NOMBRE --}}
 
                     <div>
 
@@ -615,7 +619,7 @@
                                 text-slate-700
                             "
                         >
-                            Usuario
+                            Nombre
                         </label>
 
 
@@ -651,8 +655,8 @@
                             <input
                                 id="registro-usuario"
                                 type="text"
-                                autocomplete="username"
-                                placeholder="Ej. angel"
+                                autocomplete="name"
+                                placeholder="Ej. Administrador"
                                 class="
                                     w-full
                                     rounded-xl
@@ -757,6 +761,93 @@
                     </div>
 
 
+                    {{-- CÓDIGO DE INVITACIÓN --}}
+
+                    <div>
+
+                        <label
+                            for="registro-codigo-invitacion"
+                            class="
+                                mb-2
+                                block
+                                text-sm
+                                font-semibold
+                                text-slate-700
+                            "
+                        >
+                            Código de invitación
+                        </label>
+
+
+                        <div class="relative">
+
+                            <div
+                                class="
+                                    pointer-events-none
+                                    absolute
+                                    inset-y-0
+                                    left-0
+                                    flex
+                                    items-center
+                                    pl-4
+                                    text-slate-400
+                                "
+                            >
+
+                                <svg
+                                    class="h-5 w-5"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                >
+                                    <path d="M15 7a4 4 0 1 1-2.83-3.83"/>
+                                    <path d="M12 12 21 3"/>
+                                    <path d="m16 3 5 5"/>
+                                    <path d="m19 6-2 2"/>
+                                </svg>
+
+                            </div>
+
+
+                            <input
+                                id="registro-codigo-invitacion"
+                                type="text"
+                                autocomplete="one-time-code"
+                                placeholder="Código entregado por administración"
+                                class="
+                                    w-full
+                                    rounded-xl
+                                    border
+                                    border-slate-200
+                                    bg-slate-50
+                                    py-3.5
+                                    pl-12
+                                    pr-4
+                                    text-sm
+                                    text-slate-800
+                                    outline-none
+                                    transition
+                                    hover:border-slate-300
+                                    focus:border-[#1B3A6B]
+                                    focus:bg-white
+                                    focus:ring-4
+                                    focus:ring-blue-100
+                                "
+                            >
+
+                        </div>
+
+                        <p
+                            id="registro-codigo-ayuda"
+                            class="mt-2 text-xs font-medium text-slate-400"
+                        >
+                            Ingresa el código entregado por administración.
+                        </p>
+
+                    </div>
+
+
                     {{-- CONTRASEÑA --}}
 
                     <div>
@@ -808,7 +899,7 @@
                                 id="registro-password"
                                 type="password"
                                 autocomplete="new-password"
-                                placeholder="Mínimo 8 caracteres"
+                                placeholder="Mínimo 6 caracteres"
                                 class="
                                     w-full
                                     rounded-xl
@@ -862,6 +953,13 @@
                             </button>
 
                         </div>
+
+                        <p
+                            id="registro-password-ayuda"
+                            class="mt-2 text-xs font-medium text-slate-400"
+                        >
+                            Usa al menos 6 caracteres.
+                        </p>
 
                     </div>
 
@@ -971,6 +1069,13 @@
                             </button>
 
                         </div>
+
+                        <p
+                            id="registro-confirmacion-ayuda"
+                            class="mt-2 text-xs font-medium text-slate-400"
+                        >
+                            Repite la contraseña para confirmar.
+                        </p>
 
                     </div>
 
@@ -1137,6 +1242,12 @@ document.addEventListener(
             );
 
 
+        const codigoInvitacion =
+            document.getElementById(
+                'registro-codigo-invitacion'
+            );
+
+
         const password =
             document.getElementById(
                 'registro-password'
@@ -1166,15 +1277,127 @@ document.addEventListener(
                 'ver-registro-confirmacion'
             );
 
+        const codigoAyuda =
+            document.getElementById(
+                'registro-codigo-ayuda'
+            );
+
+        const passwordAyuda =
+            document.getElementById(
+                'registro-password-ayuda'
+            );
+
+        const confirmationAyuda =
+            document.getElementById(
+                'registro-confirmacion-ayuda'
+            );
+
+        const TOKEN_KEY =
+            'nextlevel_token';
+
+        const USER_KEY =
+            'nextlevel_usuario';
+
+        const AUTH_KEY =
+            'nextlevel_auth';
+
+
+        function haySesionActiva() {
+
+            return Boolean(
+                obtenerTokenSeguro()
+            );
+        }
+
+        function obtenerTokenSeguro(
+            valor = localStorage.getItem(
+                TOKEN_KEY
+            )
+        ) {
+
+            const token =
+                String(valor || '').trim();
+
+            return (
+                token &&
+                token !== 'null' &&
+                token !== 'undefined'
+            )
+                ? token
+                : '';
+        }
+
+
+        function limpiarUsuarioParaSesion(
+            user
+        ) {
+
+            const usuario =
+                {
+                    ...(user || {})
+                };
+
+            delete usuario.password;
+            delete usuario.password_confirmation;
+            delete usuario.remember_token;
+
+            return usuario;
+        }
+
+
+        function guardarSesionAutenticada(
+            token,
+            user
+        ) {
+
+            const tokenSeguro =
+                obtenerTokenSeguro(
+                    token
+                );
+
+            if (
+                !tokenSeguro
+            ) {
+                throw new Error(
+                    'El servidor no devolvió un token válido.'
+                );
+            }
+
+            localStorage.setItem(
+                TOKEN_KEY,
+                tokenSeguro
+            );
+
+            localStorage.setItem(
+                USER_KEY,
+                JSON.stringify(
+                    limpiarUsuarioParaSesion(
+                        user
+                    )
+                )
+            );
+
+            localStorage.setItem(
+                AUTH_KEY,
+                'true'
+            );
+
+            window.axios
+                .defaults
+                .headers
+                .common[
+                    'Authorization'
+                ] =
+                    `Bearer ${tokenSeguro}`;
+        }
+
 
         // =====================================================
         // SI YA ESTÁ LOGUEADO
         // =====================================================
 
         if (
-            localStorage.getItem(
-                'nextlevel_auth'
-            ) === 'true'
+            haySesionActiva()
         ) {
 
             window.location.replace('/');
@@ -1272,6 +1495,133 @@ document.addEventListener(
                 texto;
         }
 
+        function obtenerPrimerErrorValidacion(
+            errores
+        ) {
+
+            return errores
+                ? Object.values(errores)
+                    .flat()
+                    .find(Boolean)
+                : null;
+        }
+
+
+        function obtenerMensajeError(
+            error,
+            mensajeGeneral
+        ) {
+
+            if (
+                !error?.response
+            ) {
+                return 'No se pudo conectar con el servidor. Revisa que MySQL, Apache y php artisan serve estén activos.';
+            }
+
+            const status =
+                error.response.status;
+
+            const data =
+                error.response.data || {};
+
+            const primerError =
+                obtenerPrimerErrorValidacion(
+                    data.errors
+                );
+
+            if (
+                primerError
+            ) {
+                return primerError;
+            }
+
+            if (
+                status ===
+                419
+            ) {
+                return 'La sesión de seguridad expiró. Recarga la página e inténtalo otra vez.';
+            }
+
+            if (
+                status ===
+                422
+            ) {
+                return data.message ||
+                    'Revisa los datos del formulario. Hay campos que no cumplen las reglas.';
+            }
+
+            if (
+                status >=
+                500
+            ) {
+                return 'El servidor tuvo un problema. Revisa que MySQL esté encendido y que la API esté respondiendo.';
+            }
+
+            return data.message ||
+                mensajeGeneral;
+        }
+
+
+        function activarCarga(
+            submitButton,
+            texto
+        ) {
+
+            if (
+                !submitButton
+            ) {
+                return null;
+            }
+
+            const textoOriginal =
+                submitButton.innerHTML;
+
+            submitButton.disabled =
+                true;
+
+            submitButton.classList.add(
+                'opacity-70',
+                'cursor-not-allowed'
+            );
+
+            submitButton.innerHTML =
+                `<span class="inline-flex items-center justify-center gap-2">
+                    <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+                    ${texto}
+                </span>`;
+
+            return textoOriginal;
+        }
+
+
+        function desactivarCarga(
+            submitButton,
+            textoOriginal
+        ) {
+
+            if (
+                !submitButton
+            ) {
+                return;
+            }
+
+            submitButton.disabled =
+                false;
+
+            submitButton.classList.remove(
+                'opacity-70',
+                'cursor-not-allowed'
+            );
+
+            if (
+                textoOriginal !==
+                null
+            ) {
+                submitButton.innerHTML =
+                    textoOriginal;
+            }
+        }
+
 
         // =====================================================
         // VALIDAR EMAIL
@@ -1288,17 +1638,181 @@ document.addEventListener(
 
 
         // =====================================================
-        // VALIDAR USUARIO
+        // VALIDAR NOMBRE
         // =====================================================
 
         function usuarioValido(
             valor
         ) {
 
-            return /^[a-zA-Z0-9._-]{4,30}$/.test(
+            return valor.length <= 100 &&
+                valor.trim().length >= 2 &&
+                /^[a-zA-ZÁÉÍÓÚÜÑáéíóúüñ\s'.-]+$/.test(
                 valor
             );
         }
+
+
+        // =====================================================
+        // VALIDACIÓN EN VIVO
+        // =====================================================
+
+        function actualizarAyuda(
+            elemento,
+            texto,
+            tipo = 'neutral'
+        ) {
+
+            if (
+                !elemento
+            ) {
+                return;
+            }
+
+            elemento.textContent =
+                texto;
+
+            elemento.classList.remove(
+                'text-slate-400',
+                'text-red-600',
+                'text-emerald-600'
+            );
+
+            elemento.classList.add(
+                tipo === 'ok'
+                    ? 'text-emerald-600'
+                    : tipo === 'error'
+                        ? 'text-red-600'
+                        : 'text-slate-400'
+            );
+        }
+
+
+        function validarCodigoEnVivo() {
+
+            if (
+                !codigoInvitacion
+            ) {
+                return;
+            }
+
+            const valor =
+                codigoInvitacion.value.trim();
+
+            if (
+                !valor
+            ) {
+                actualizarAyuda(
+                    codigoAyuda,
+                    'Ingresa el código entregado por administración.'
+                );
+
+                return;
+            }
+
+            actualizarAyuda(
+                codigoAyuda,
+                'Código listo para validar.',
+                'ok'
+            );
+        }
+
+
+        function validarPasswordEnVivo() {
+
+            if (
+                !password
+            ) {
+                return;
+            }
+
+            if (
+                !password.value
+            ) {
+                actualizarAyuda(
+                    passwordAyuda,
+                    'Usa al menos 6 caracteres.'
+                );
+
+            } else if (
+                password.value.length <
+                6
+            ) {
+
+                actualizarAyuda(
+                    passwordAyuda,
+                    'La contraseña todavía necesita 6 caracteres.',
+                    'error'
+                );
+
+            } else {
+
+                actualizarAyuda(
+                    passwordAyuda,
+                    'Contraseña válida.',
+                    'ok'
+                );
+            }
+
+            validarConfirmacionEnVivo();
+        }
+
+
+        function validarConfirmacionEnVivo() {
+
+            if (
+                !confirmation
+            ) {
+                return;
+            }
+
+            if (
+                !confirmation.value
+            ) {
+                actualizarAyuda(
+                    confirmationAyuda,
+                    'Repite la contraseña para confirmar.'
+                );
+
+                return;
+            }
+
+            if (
+                confirmation.value !==
+                password.value
+            ) {
+
+                actualizarAyuda(
+                    confirmationAyuda,
+                    'Las contraseñas no coinciden.',
+                    'error'
+                );
+
+                return;
+            }
+
+            actualizarAyuda(
+                confirmationAyuda,
+                'Las contraseñas coinciden.',
+                'ok'
+            );
+        }
+
+
+        codigoInvitacion?.addEventListener(
+            'input',
+            validarCodigoEnVivo
+        );
+
+        password?.addEventListener(
+            'input',
+            validarPasswordEnVivo
+        );
+
+        confirmation?.addEventListener(
+            'input',
+            validarConfirmacionEnVivo
+        );
 
 
         // =====================================================
@@ -1307,14 +1821,14 @@ document.addEventListener(
 
         form.addEventListener(
             'submit',
-            event => {
+            async event => {
 
                 event.preventDefault();
 
 
                 const datos = {
 
-                    username:
+                    name:
                         usuario.value.trim(),
 
                     email:
@@ -1324,8 +1838,15 @@ document.addEventListener(
                         password.value,
 
                     password_confirmation:
-                        confirmation.value
+                        confirmation.value,
+
+                    codigo_invitacion:
+                        codigoInvitacion.value.trim()
                 };
+
+                validarCodigoEnVivo();
+                validarPasswordEnVivo();
+                validarConfirmacionEnVivo();
 
 
                 // ---------------------------------------------
@@ -1333,14 +1854,15 @@ document.addEventListener(
                 // ---------------------------------------------
 
                 if (
-                    !datos.username ||
+                    !datos.name ||
                     !datos.email ||
+                    !datos.codigo_invitacion ||
                     !datos.password ||
                     !datos.password_confirmation
                 ) {
 
                     mostrarMensaje(
-                        'Completa todos los campos.',
+                        'Completa tu nombre, correo, código de invitación y contraseña.',
                         'error'
                     );
 
@@ -1349,17 +1871,17 @@ document.addEventListener(
 
 
                 // ---------------------------------------------
-                // USUARIO
+                // NOMBRE
                 // ---------------------------------------------
 
                 if (
                     !usuarioValido(
-                        datos.username
+                        datos.name
                     )
                 ) {
 
                     mostrarMensaje(
-                        'El usuario debe tener entre 4 y 30 caracteres y solo puede contener letras, números, punto, guion o guion bajo.',
+                        'Ingresa un nombre válido de hasta 100 caracteres.',
                         'error'
                     );
 
@@ -1392,11 +1914,11 @@ document.addEventListener(
 
                 if (
                     datos.password.length <
-                    8
+                    6
                 ) {
 
                     mostrarMensaje(
-                        'La contraseña debe tener al menos 8 caracteres.',
+                        'La contraseña debe tener al menos 6 caracteres.',
                         'error'
                     );
 
@@ -1418,37 +1940,79 @@ document.addEventListener(
                 }
 
 
-                // =================================================
-                // PREPARADO PARA BACKEND
-                // =================================================
-                //
-                // Más adelante:
-                //
-                // await axios.post(
-                //     '/api/register',
-                //     datos
-                // );
-                //
-                // NO guardamos contraseñas en localStorage.
-                // =================================================
+                const submitButton =
+                    form.querySelector(
+                        'button[type="submit"]'
+                    );
+
+                const textoOriginal =
+                    activarCarga(
+                        submitButton,
+                        'Creando cuenta...'
+                    );
 
 
-                console.log(
-                    'Registro preparado para backend:',
-                    {
-                        username:
-                            datos.username,
+                try {
 
-                        email:
-                            datos.email
+                    const response =
+                        await window.axios.post(
+                            '/api/register',
+                            datos
+                        );
+
+                    const data =
+                        response?.data?.data;
+
+                    const token =
+                        data?.token;
+
+                    const user =
+                        data?.user;
+
+                    if (
+                        !token
+                    ) {
+                        throw new Error(
+                            'El servidor no devolvió un token.'
+                        );
                     }
-                );
 
+                    guardarSesionAutenticada(
+                        token,
+                        user
+                    );
 
-                mostrarMensaje(
-                    'Formulario validado correctamente. Está preparado para conectarse al backend.',
-                    'info'
-                );
+                    mostrarMensaje(
+                        'Cuenta creada correctamente. Ingresando al sistema...',
+                        'ok'
+                    );
+
+                    setTimeout(
+                        () => {
+                            window.location.replace('/');
+                        },
+                        500
+                    );
+
+                } catch (
+                    error
+                ) {
+
+                    mostrarMensaje(
+                        obtenerMensajeError(
+                            error,
+                            'No se pudo crear la cuenta.'
+                        ),
+                        'error'
+                    );
+
+                } finally {
+
+                    desactivarCarga(
+                        submitButton,
+                        textoOriginal
+                    );
+                }
             }
         );
     }

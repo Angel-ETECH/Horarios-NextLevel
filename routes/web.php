@@ -105,16 +105,31 @@ Route::get('/login', function () {
 | y validar:
 |
 | - nombre
-| - usuario
 | - correo
 | - contraseña
 | - confirmación de contraseña
+| - código de invitación
 |
 */
 
 Route::get('/registro', function () {
     return view('register');
 })->name('register');
+
+
+/*
+|--------------------------------------------------------------------------
+| RECUPERACIÓN DE CONTRASEÑA
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/forgot-password', function () {
+    return view('forgot-password');
+})->name('password.request');
+
+Route::get('/reset-password', function () {
+    return view('reset-password');
+})->name('password.reset');
 
 
 /*

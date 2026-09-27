@@ -23,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnConsultar =
         document.getElementById('btn-consultar-horario');
 
+    const btnNuevaConsulta =
+        document.getElementById('btn-nueva-consulta');
+
     const mensaje =
         document.getElementById('consulta-mensaje');
 
@@ -46,6 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const horarioRender =
         document.getElementById('horario-render');
+
+    const horarioNavegacion =
+        document.getElementById('horario-navegacion');
 
 
     // =============================================================
@@ -917,6 +923,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function reiniciarConsulta() {
+
+        tipoSeleccionado =
+            '';
+
+        selector.value =
+            '';
+
+        selector.disabled =
+            true;
+
+        selector.innerHTML = `
+            <option value="">
+                Selecciona cómo deseas consultar el horario
+            </option>
+        `;
+
+        opcionesSelectorActuales =
+            [];
+
+        if (
+            selectorLabel
+        ) {
+
+            selectorLabel.textContent =
+                'Seleccionar';
+        }
+
+        if (
+            customSearch
+        ) {
+
+            customSearch.value =
+                '';
+        }
+
+        actualizarBotonesTipo();
+
+        actualizarCustomSelectVisual();
+
+        cerrarCustomSelect();
+
+        limpiarResultado();
+
+        mostrarMensaje(
+            'Listo. Elige nuevamente el tipo de consulta y selecciona una opción.',
+            'info'
+        );
+
+        document
+            .getElementById(
+                'consulta-formulario'
+            )
+            ?.scrollIntoView({
+                behavior:
+                    'smooth',
+
+                block:
+                    'start'
+            });
+    }
+
+
     function mostrarMensaje(
         texto,
         tipo = 'error'
@@ -958,6 +1027,63 @@ document.addEventListener('DOMContentLoaded', () => {
         mensaje.classList.remove(
             'hidden'
         );
+    }
+
+
+    function activarCargaBoton(
+        boton,
+        texto
+    ) {
+
+        if (!boton) {
+            return null;
+        }
+
+        const textoOriginal =
+            boton.innerHTML;
+
+        boton.disabled =
+            true;
+
+        boton.classList.add(
+            'opacity-70',
+            'cursor-not-allowed'
+        );
+
+        boton.innerHTML =
+            `<span class="inline-flex items-center justify-center gap-2">
+                <span class="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current"></span>
+                ${escaparHTML(texto)}
+            </span>`;
+
+        return textoOriginal;
+    }
+
+
+    function desactivarCargaBoton(
+        boton,
+        textoOriginal
+    ) {
+
+        if (!boton) {
+            return;
+        }
+
+        boton.disabled =
+            false;
+
+        boton.classList.remove(
+            'opacity-70',
+            'cursor-not-allowed'
+        );
+
+        if (
+            textoOriginal !==
+            null
+        ) {
+            boton.innerHTML =
+                textoOriginal;
+        }
     }
 
 
@@ -2135,12 +2261,53 @@ document.addEventListener('DOMContentLoaded', () => {
             'hidden'
         );
 
+        horarioNavegacion?.classList.remove(
+            'hidden'
+        );
+
 
         diaMovilActual =
             0;
 
 
         actualizarDiaMovil();
+    }
+
+    function renderizarHorarioVacio(
+        titulo,
+        descripcion
+    ) {
+
+        horarioRender.innerHTML = `
+
+            <div class="horario-estado-vacio">
+
+                <div class="horario-estado-vacio-icono">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                        <path d="M8 3v4M16 3v4M3 10h18"></path>
+                        <path d="M9 15h6"></path>
+                    </svg>
+                </div>
+
+                <h3>
+                    ${escaparHTML(titulo)}
+                </h3>
+
+                <p>
+                    ${escaparHTML(descripcion)}
+                </p>
+
+            </div>
+        `;
+
+        horarioNavegacion?.classList.add(
+            'hidden'
+        );
+
+        horarioContainer.classList.remove(
+            'hidden'
+        );
     }
 
 
@@ -2337,14 +2504,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         const textoBotonOriginal =
-            btnConsultar.innerHTML;
-
-
-        btnConsultar.disabled =
-            true;
-
-        btnConsultar.innerHTML =
-            'Consultando...';
+            activarCargaBoton(
+                btnConsultar,
+                'Consultando...'
+            );
 
 
         try {
@@ -2397,11 +2560,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     'info'
                 );
 
-
-                horarioContainer.classList.add(
-                    'hidden'
+                renderizarHorarioVacio(
+                    'Sin clases programadas',
+                    'La selección no tiene horarios registrados para la institución actual. Prueba con otra opción o consulta a administración.'
                 );
-
 
                 return;
             }
@@ -2428,11 +2590,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } finally {
 
-            btnConsultar.disabled =
-                false;
-
-            btnConsultar.innerHTML =
-                textoBotonOriginal;
+            desactivarCargaBoton(
+                btnConsultar,
+                textoBotonOriginal
+            );
         }
     }
 
@@ -2465,14 +2626,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             const textoOriginal =
-                btnDescargarPdf.innerHTML;
-
-
-            btnDescargarPdf.disabled =
-                true;
-
-            btnDescargarPdf.innerHTML =
-                'Descargando PDF...';
+                activarCargaBoton(
+                    btnDescargarPdf,
+                    'Descargando PDF...'
+                );
 
 
             try {
@@ -2583,6 +2740,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     1000
                 );
 
+
+                mostrarMensaje(
+                    'PDF preparado correctamente.',
+                    'info'
+                );
+
             } catch (error) {
 
                 console.error(
@@ -2600,12 +2763,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } finally {
 
-                btnDescargarPdf.disabled =
-                    false;
-
-
-                btnDescargarPdf.innerHTML =
-                    textoOriginal;
+                desactivarCargaBoton(
+                    btnDescargarPdf,
+                    textoOriginal
+                );
             }
         }
     );
@@ -2652,14 +2813,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             const textoOriginal =
-                btnDescargarImagen.innerHTML;
-
-
-            btnDescargarImagen.disabled =
-                true;
-
-            btnDescargarImagen.innerHTML =
-                'Generando imagen...';
+                activarCargaBoton(
+                    btnDescargarImagen,
+                    'Generando imagen...'
+                );
 
 
             let iframe =
@@ -2891,6 +3048,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 enlace.remove();
 
+
+                mostrarMensaje(
+                    'Imagen preparada correctamente.',
+                    'info'
+                );
+
             } catch (error) {
 
                 console.error(
@@ -2911,12 +3074,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 iframe?.remove();
 
 
-                btnDescargarImagen.disabled =
-                    false;
-
-
-                btnDescargarImagen.innerHTML =
-                    textoOriginal;
+                desactivarCargaBoton(
+                    btnDescargarImagen,
+                    textoOriginal
+                );
             }
         }
     );
@@ -3136,6 +3297,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnConsultar.addEventListener(
         'click',
         consultarHorario
+    );
+
+
+    btnNuevaConsulta?.addEventListener(
+        'click',
+        reiniciarConsulta
     );
 
 

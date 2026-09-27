@@ -21,9 +21,176 @@
         box-shadow: 0 12px 34px rgba(15, 39, 73, .08);
     }
 
+    .grado-stat-card {
+        min-height: 126px;
+    }
+
+    .grado-stat-blue {
+        border-top: 4px solid #1B3A6B;
+    }
+
+    .grado-stat-red {
+        border-top: 4px solid #DB0808;
+    }
+
+    .grado-stat-gray {
+        border-top: 4px solid #94A3B8;
+    }
+
     .grado-input:focus {
         border-color: #1B3A6B;
         box-shadow: 0 0 0 3px rgba(27, 58, 107, .08);
+    }
+
+    .grado-native-select {
+        display: none;
+    }
+
+    .grado-filter-select {
+        position: relative;
+    }
+
+    .grado-filter-trigger {
+        position: relative;
+        display: flex;
+        min-height: 54px;
+        width: 100%;
+        align-items: center;
+        gap: .75rem;
+        border: 1px solid #dbe5f0;
+        border-radius: 1rem;
+        background: #fff;
+        padding: .55rem 2.75rem .55rem .6rem;
+        text-align: left;
+        color: #0F2749;
+        box-shadow: 0 8px 24px rgba(15, 39, 73, .04);
+        transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+    }
+
+    .grado-filter-trigger:hover {
+        border-color: rgba(27, 58, 107, .28);
+        box-shadow: 0 12px 28px rgba(15, 39, 73, .07);
+    }
+
+    .grado-filter-select.open .grado-filter-trigger,
+    .grado-filter-trigger:focus-visible {
+        border-color: #1B3A6B;
+        box-shadow: 0 0 0 3px rgba(27, 58, 107, .10), 0 14px 34px rgba(15, 39, 73, .10);
+        outline: none;
+    }
+
+    .grado-filter-icon {
+        display: inline-flex;
+        height: 38px;
+        width: 38px;
+        flex: 0 0 38px;
+        align-items: center;
+        justify-content: center;
+        border-radius: .85rem;
+        background: #eef4fb;
+        color: #1B3A6B;
+    }
+
+    .grado-filter-label {
+        display: block;
+        font-size: .62rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: #8da0ba;
+    }
+
+    .grado-filter-value {
+        display: block;
+        overflow: hidden;
+        color: #172b49;
+        font-size: .9rem;
+        font-weight: 800;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .grado-filter-chevron {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        height: 1rem;
+        width: 1rem;
+        transform: translateY(-50%);
+        color: #64748b;
+        transition: transform .2s ease;
+    }
+
+    .grado-filter-select.open .grado-filter-chevron {
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .grado-filter-panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + .5rem);
+        z-index: 90;
+        display: none;
+        overflow: hidden;
+        border: 1px solid #dbe5f0;
+        border-radius: 1rem;
+        background: #fff;
+        padding: .45rem;
+        box-shadow: 0 22px 50px rgba(15, 39, 73, .16);
+    }
+
+    .grado-filter-select.open .grado-filter-panel {
+        display: block;
+    }
+
+    .grado-filter-option {
+        display: flex;
+        min-height: 44px;
+        width: 100%;
+        align-items: center;
+        gap: .7rem;
+        border: 0;
+        border-radius: .75rem;
+        background: transparent;
+        padding: .55rem .75rem;
+        color: #172b49;
+        cursor: pointer;
+        font-size: .9rem;
+        font-weight: 750;
+        text-align: left;
+        transition: background .15s ease, color .15s ease;
+    }
+
+    .grado-filter-option:hover,
+    .grado-filter-option.selected {
+        background: #eef4fb;
+        color: #0F2749;
+    }
+
+    .grado-filter-option-icon {
+        display: inline-flex;
+        height: 30px;
+        width: 30px;
+        flex: 0 0 30px;
+        align-items: center;
+        justify-content: center;
+        border-radius: .65rem;
+        background: #f0f5fb;
+        color: #1B3A6B;
+    }
+
+    .grado-filter-check {
+        margin-left: auto;
+        height: 1rem;
+        width: 1rem;
+        color: #1B3A6B;
+        opacity: 0;
+    }
+
+    .grado-filter-option.selected .grado-filter-check {
+        opacity: 1;
     }
 
     .custom-select-wrapper {
@@ -114,39 +281,70 @@
     ========================================================== --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-        <div>
-            <div class="mb-2 flex items-center gap-3">
-                <span class="h-1 w-8 rounded-full" style="background:#DB0808;"></span>
+        <div class="flex items-center gap-4">
 
-                <span
-                    class="text-[11px] font-bold uppercase tracking-[0.18em]"
-                    style="color:#DB0808;"
+            <div
+                class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl"
+                style="
+                    background:
+                        linear-gradient(
+                            145deg,
+                            rgba(27,58,107,.12),
+                            rgba(219,8,8,.05)
+                        );
+                    color:#1B3A6B;
+                "
+            >
+                <svg
+                    class="h-7 w-7"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                 >
-                    Gestión académica
-                </span>
+                    <path d="M4 19.5V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14.5"/>
+                    <path d="M8 7h8"/>
+                    <path d="M8 11h8"/>
+                    <path d="M8 15h5"/>
+                    <path d="M3 21h18"/>
+                </svg>
             </div>
 
-            <h1
-                class="text-2xl font-extrabold tracking-tight sm:text-3xl"
-                style="color:#0F2749;"
-            >
-                Grados y secciones
-            </h1>
 
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Administra los grados, secciones, turnos y capacidades académicas del sistema.
-            </p>
+            <div>
+
+                <h1
+                    class="text-2xl font-extrabold tracking-tight sm:text-3xl"
+                    style="color:#0F2749;"
+                >
+                    Grados
+                </h1>
+
+                <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                    Administra grados, secciones, turnos y capacidades académicas.
+                </p>
+
+            </div>
         </div>
 
 
         <button
             type="button"
             id="open-grado-modal"
-            class="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-            style="background:#DB0808;"
+            class="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5"
+            style="
+                background:
+                    linear-gradient(
+                        135deg,
+                        #1B3A6B,
+                        #0F2749
+                    );
+            "
         >
             <svg
-                class="h-4 w-4"
+                class="h-5 w-5"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -154,10 +352,12 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
             >
-                <path d="M12 5v14M5 12h14"/>
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 8v8"/>
+                <path d="M8 12h8"/>
             </svg>
 
-            Nuevo grado
+            Agregar grado
         </button>
 
     </div>
@@ -179,29 +379,41 @@
     ========================================================== --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
-        <div class="grado-card grado-card-hover rounded-2xl bg-white p-5">
-            <div class="flex items-start justify-between gap-4">
+        <div class="grado-card grado-stat-card grado-stat-blue grado-card-hover rounded-2xl bg-white p-5">
+            <div class="flex items-center justify-between gap-4">
 
                 <div>
-                    <p class="text-sm text-slate-500">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Total de grados
                     </p>
 
                     <p
                         id="total-grados"
-                        class="mt-1 text-2xl font-extrabold"
+                        class="mt-2 text-3xl font-extrabold"
                         style="color:#0F2749;"
                     >
                         0
                     </p>
+
+                    <p class="mt-2 text-xs text-slate-400">
+                        Registrados en el sistema
+                    </p>
                 </div>
 
                 <div
-                    class="flex h-11 w-11 items-center justify-center rounded-xl"
-                    style="background:rgba(27,58,107,.08); color:#1B3A6B;"
+                    class="flex h-14 w-14 items-center justify-center rounded-2xl"
+                    style="
+                        background:
+                            linear-gradient(
+                                145deg,
+                                #E8EEFA,
+                                #DCE7F7
+                            );
+                        color:#1B3A6B;
+                    "
                 >
                     <svg
-                        class="h-5 w-5"
+                        class="h-7 w-7"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -216,31 +428,48 @@
         </div>
 
 
-        <div class="grado-card grado-card-hover rounded-2xl bg-white p-5">
-            <div class="flex items-start justify-between gap-4">
+        <div class="grado-card grado-stat-card grado-stat-red grado-card-hover rounded-2xl bg-white p-5">
+            <div class="flex items-center justify-between gap-4">
 
                 <div>
-                    <p class="text-sm text-slate-500">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Grados activos
                     </p>
 
                     <p
                         id="grados-activos"
-                        class="mt-1 text-2xl font-extrabold text-emerald-600"
+                        class="mt-2 text-3xl font-extrabold"
+                        style="color:#DB0808;"
                     >
                         0
                     </p>
+
+                    <p class="mt-2 text-xs text-slate-400">
+                        Disponibles para asignación
+                    </p>
                 </div>
 
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <div
+                    class="flex h-14 w-14 items-center justify-center rounded-2xl"
+                    style="
+                        background:
+                            linear-gradient(
+                                145deg,
+                                rgba(219,8,8,.10),
+                                rgba(141,7,7,.05)
+                            );
+                        color:#DB0808;
+                    "
+                >
                     <svg
-                        class="h-5 w-5"
+                        class="h-7 w-7"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
                         stroke-width="2"
                     >
-                        <path d="m5 12 4 4L19 6"/>
+                        <path d="M12 3 19 6v5c0 4.7-2.8 8-7 10-4.2-2-7-5.3-7-10V6z"/>
+                        <path d="m9 12 2 2 4-4"/>
                     </svg>
                 </div>
 
@@ -248,29 +477,33 @@
         </div>
 
 
-        <div class="grado-card grado-card-hover rounded-2xl bg-white p-5">
-            <div class="flex items-start justify-between gap-4">
+        <div class="grado-card grado-stat-card grado-stat-blue grado-card-hover rounded-2xl bg-white p-5">
+            <div class="flex items-center justify-between gap-4">
 
                 <div>
-                    <p class="text-sm text-slate-500">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Total estudiantes
                     </p>
 
                     <p
                         id="total-estudiantes-grados"
-                        class="mt-1 text-2xl font-extrabold"
+                        class="mt-2 text-3xl font-extrabold"
                         style="color:#1B3A6B;"
                     >
                         0
                     </p>
+
+                    <p class="mt-2 text-xs text-slate-400">
+                        Matriculados actualmente
+                    </p>
                 </div>
 
                 <div
-                    class="flex h-11 w-11 items-center justify-center rounded-xl"
-                    style="background:rgba(27,58,107,.08); color:#1B3A6B;"
+                    class="flex h-14 w-14 items-center justify-center rounded-2xl"
+                    style="background:#E8EEF7; color:#1B3A6B;"
                 >
                     <svg
-                        class="h-5 w-5"
+                        class="h-7 w-7"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -287,26 +520,30 @@
         </div>
 
 
-        <div class="grado-card grado-card-hover rounded-2xl bg-white p-5">
-            <div class="flex items-start justify-between gap-4">
+        <div class="grado-card grado-stat-card grado-stat-gray grado-card-hover rounded-2xl bg-white p-5">
+            <div class="flex items-center justify-between gap-4">
 
                 <div>
-                    <p class="text-sm text-slate-500">
+                    <p class="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Capacidad total
                     </p>
 
                     <p
                         id="capacidad-total-grados"
-                        class="mt-1 text-2xl font-extrabold"
-                        style="color:#DB0808;"
+                        class="mt-2 text-3xl font-extrabold"
+                        style="color:#64748B;"
                     >
                         0
                     </p>
+
+                    <p class="mt-2 text-xs text-slate-400">
+                        Cupos disponibles por grado
+                    </p>
                 </div>
 
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
+                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
                     <svg
-                        class="h-5 w-5"
+                        class="h-7 w-7"
                         viewBox="0 0 24 24"
                         fill="none"
                         stroke="currentColor"
@@ -391,13 +628,66 @@
 
                 <select
                     id="filtro-grado-nivel"
-                    class="grado-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                    class="grado-native-select"
                 >
                     <option value="">Todos</option>
                     <option value="primaria">Primaria</option>
                     <option value="secundaria">Secundaria</option>
                     <option value="academia">Academia</option>
                 </select>
+
+                <div class="grado-filter-select" data-filter-select="filtro-grado-nivel">
+                    <button type="button" class="grado-filter-trigger" aria-expanded="false">
+                        <span class="grado-filter-icon">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m4 19 8-14 8 14"/>
+                                <path d="M8.5 13h7"/>
+                            </svg>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="grado-filter-label">Nivel</span>
+                            <span class="grado-filter-value">Todos</span>
+                        </span>
+                        <svg class="grado-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                    </button>
+
+                    <div class="grado-filter-panel">
+                        <button type="button" class="grado-filter-option selected" data-value="">
+                            <span class="grado-filter-option-icon">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </span>
+                            <span>Todos</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="primaria">
+                            <span class="grado-filter-option-icon">P</span>
+                            <span>Primaria</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="secundaria">
+                            <span class="grado-filter-option-icon">S</span>
+                            <span>Secundaria</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="academia">
+                            <span class="grado-filter-option-icon">A</span>
+                            <span>Academia</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
             </div>
 
@@ -414,7 +704,7 @@
 
                 <select
                     id="filtro-grado-turno"
-                    class="grado-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                    class="grado-native-select"
                 >
                     <option value="">Todos</option>
                     <option value="mañana">Mañana</option>
@@ -422,6 +712,66 @@
                     <option value="noche">Noche</option>
                     <option value="completo">Completo</option>
                 </select>
+
+                <div class="grado-filter-select" data-filter-select="filtro-grado-turno">
+                    <button type="button" class="grado-filter-trigger" aria-expanded="false">
+                        <span class="grado-filter-icon">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="8"/>
+                                <path d="M12 8v4l3 2"/>
+                            </svg>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="grado-filter-label">Turno</span>
+                            <span class="grado-filter-value">Todos</span>
+                        </span>
+                        <svg class="grado-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                    </button>
+
+                    <div class="grado-filter-panel">
+                        <button type="button" class="grado-filter-option selected" data-value="">
+                            <span class="grado-filter-option-icon">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </span>
+                            <span>Todos</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="mañana">
+                            <span class="grado-filter-option-icon">M</span>
+                            <span>Mañana</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="tarde">
+                            <span class="grado-filter-option-icon">T</span>
+                            <span>Tarde</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="noche">
+                            <span class="grado-filter-option-icon">N</span>
+                            <span>Noche</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="completo">
+                            <span class="grado-filter-option-icon">C</span>
+                            <span>Completo</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
             </div>
 
@@ -438,12 +788,58 @@
 
                 <select
                     id="filtro-grado-estado"
-                    class="grado-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                    class="grado-native-select"
                 >
                     <option value="">Todos</option>
                     <option value="1">Activo</option>
                     <option value="0">Inactivo</option>
                 </select>
+
+                <div class="grado-filter-select" data-filter-select="filtro-grado-estado">
+                    <button type="button" class="grado-filter-trigger" aria-expanded="false">
+                        <span class="grado-filter-icon">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 13c0 5-3.5 7-8 8-4.5-1-8-3-8-8V5l8-3 8 3v8Z"/>
+                                <path d="m9 12 2 2 4-4"/>
+                            </svg>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="grado-filter-label">Estado</span>
+                            <span class="grado-filter-value">Todos</span>
+                        </span>
+                        <svg class="grado-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                    </button>
+
+                    <div class="grado-filter-panel">
+                        <button type="button" class="grado-filter-option selected" data-value="">
+                            <span class="grado-filter-option-icon">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </span>
+                            <span>Todos</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="1">
+                            <span class="grado-filter-option-icon">A</span>
+                            <span>Activo</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="grado-filter-option" data-value="0">
+                            <span class="grado-filter-option-icon">I</span>
+                            <span>Inactivo</span>
+                            <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
             </div>
 

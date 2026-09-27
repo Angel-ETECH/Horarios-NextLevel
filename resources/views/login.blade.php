@@ -104,7 +104,8 @@
                 items-center
                 justify-center
                 px-4
-                py-8
+                py-4
+                sm:py-8
             "
         >
 
@@ -115,7 +116,7 @@
                     w-full
                     max-w-6xl
                     overflow-hidden
-                    rounded-[30px]
+                    rounded-3xl
                     border
                     border-slate-200
                     bg-white
@@ -537,7 +538,7 @@
                     class="
                         relative
                         flex
-                        min-h-[700px]
+                        min-h-0
                         flex-col
                         justify-center
                         px-6
@@ -545,6 +546,7 @@
                         sm:px-10
                         sm:py-10
                         lg:px-14
+                        lg:min-h-[700px]
                         lg:py-12
                     "
                 >
@@ -679,6 +681,49 @@
                             para acceder al panel administrativo.
                         </p>
 
+
+                        <div class="mt-5">
+
+                            <a
+                                href="{{ route('register') }}"
+                                class="
+                                    inline-flex
+                                    items-center
+                                    gap-2
+                                    rounded-xl
+                                    border
+                                    border-slate-200
+                                    bg-slate-50
+                                    px-4
+                                    py-2.5
+                                    text-sm
+                                    font-bold
+                                    transition
+                                    hover:border-blue-200
+                                    hover:bg-blue-50
+                                "
+                                style="color:#1B3A6B;"
+                            >
+
+                                <svg
+                                    class="h-4 w-4"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <circle cx="9" cy="8" r="4"></circle>
+                                    <path d="M3 21a6 6 0 0 1 12 0"></path>
+                                    <path d="M19 8v6"></path>
+                                    <path d="M16 11h6"></path>
+                                </svg>
+
+                                Crear cuenta
+
+                            </a>
+
+                        </div>
+
                     </div>
 
 
@@ -689,6 +734,8 @@
 
                     <div
                         id="login-mensaje"
+                        role="status"
+                        aria-live="polite"
                         class="
                             mb-5
                             hidden
@@ -818,18 +865,39 @@
 
                         <div>
 
-                            <label
-                                for="password"
+                            <div
                                 class="
                                     mb-2
-                                    block
+                                    flex
+                                    items-center
+                                    justify-between
+                                    gap-3
                                     text-sm
-                                    font-semibold
-                                    text-slate-700
                                 "
                             >
-                                Contraseña
-                            </label>
+                                <label
+                                    for="password"
+                                    class="
+                                        font-semibold
+                                        text-slate-700
+                                    "
+                                >
+                                    Contraseña
+                                </label>
+
+                                <a
+                                    href="{{ route('password.request') }}"
+                                    class="
+                                        text-xs
+                                        font-bold
+                                        transition
+                                        hover:underline
+                                    "
+                                    style="color:#1B3A6B;"
+                                >
+                                    ¿Olvidaste tu contraseña?
+                                </a>
+                            </div>
 
 
                             <div class="relative">
@@ -1018,35 +1086,6 @@
                         </button>
 
                     </form>
-
-
-
-                    {{-- =================================================
-                         REGISTRO
-                    ================================================== --}}
-
-                    <div class="mt-5 text-center">
-
-                        <p class="text-sm text-slate-500">
-
-                            ¿No tienes una cuenta?
-
-                            <a
-                                href="{{ route('register') }}"
-                                class="
-                                    ml-1
-                                    font-bold
-                                    transition
-                                    hover:underline
-                                "
-                                style="color:#1B3A6B;"
-                            >
-                                Crear cuenta
-                            </a>
-
-                        </p>
-
-                    </div>
 
 
 
@@ -1301,20 +1340,116 @@
                     return;
                 }
 
+                const TOKEN_KEY =
+                    'nextlevel_token';
+
+                const USER_KEY =
+                    'nextlevel_usuario';
+
+                const AUTH_KEY =
+                    'nextlevel_auth';
+
+                const AUTH_NOTICE_KEY =
+                    'nextlevel_auth_notice';
+
+
+                function haySesionActiva() {
+
+                    return Boolean(
+                        obtenerTokenSeguro()
+                    );
+                }
+
+                function obtenerTokenSeguro(
+                    valor = localStorage.getItem(
+                        TOKEN_KEY
+                    )
+                ) {
+
+                    const token =
+                        String(valor || '').trim();
+
+                    return (
+                        token &&
+                        token !== 'null' &&
+                        token !== 'undefined'
+                    )
+                        ? token
+                        : '';
+                }
+
+
+                function limpiarUsuarioParaSesion(
+                    user
+                ) {
+
+                    const usuario =
+                        {
+                            ...(user || {})
+                        };
+
+                    delete usuario.password;
+                    delete usuario.password_confirmation;
+                    delete usuario.remember_token;
+
+                    return usuario;
+                }
+
+
+                function guardarSesionAutenticada(
+                    token,
+                    user
+                ) {
+
+                    const tokenSeguro =
+                        obtenerTokenSeguro(
+                            token
+                        );
+
+                    if (
+                        !tokenSeguro
+                    ) {
+                        throw new Error(
+                            'El servidor no devolvió un token válido.'
+                        );
+                    }
+
+                    localStorage.setItem(
+                        TOKEN_KEY,
+                        tokenSeguro
+                    );
+
+                    localStorage.setItem(
+                        USER_KEY,
+                        JSON.stringify(
+                            limpiarUsuarioParaSesion(
+                                user
+                            )
+                        )
+                    );
+
+                    localStorage.setItem(
+                        AUTH_KEY,
+                        'true'
+                    );
+
+                    window.axios
+                        .defaults
+                        .headers
+                        .common[
+                            'Authorization'
+                        ] =
+                            `Bearer ${tokenSeguro}`;
+                }
+
 
 
                 // =====================================================
                 // SI YA EXISTE TOKEN
                 // =====================================================
 
-                const tokenExistente =
-                    localStorage.getItem(
-                        'nextlevel_token'
-                    );
-
-
                 if (
-                    tokenExistente
+                    haySesionActiva()
                 ) {
 
                     window.location.replace(
@@ -1322,6 +1457,27 @@
                     );
 
                     return;
+                }
+
+
+                const avisoSesion =
+                    sessionStorage.getItem(
+                        AUTH_NOTICE_KEY
+                    );
+
+
+                if (
+                    avisoSesion
+                ) {
+
+                    sessionStorage.removeItem(
+                        AUTH_NOTICE_KEY
+                    );
+
+                    mostrarMensaje(
+                        avisoSesion,
+                        'info'
+                    );
                 }
 
 
@@ -1408,6 +1564,138 @@
                         texto;
                 }
 
+                function obtenerPrimerErrorValidacion(
+                    errores
+                ) {
+
+                    return errores
+                        ? Object.values(errores)
+                            .flat()
+                            .find(Boolean)
+                        : null;
+                }
+
+
+                function obtenerMensajeError(
+                    error,
+                    mensajeGeneral
+                ) {
+
+                    if (
+                        !error?.response
+                    ) {
+                        return 'No se pudo conectar con el servidor. Revisa que MySQL, Apache y php artisan serve estén activos.';
+                    }
+
+                    const status =
+                        error.response.status;
+
+                    const data =
+                        error.response.data || {};
+
+                    const primerError =
+                        obtenerPrimerErrorValidacion(
+                            data.errors
+                        );
+
+                    if (
+                        primerError
+                    ) {
+                        return primerError;
+                    }
+
+                    if (
+                        status ===
+                        401
+                    ) {
+                        return data.message ||
+                            'El correo electrónico o la contraseña son incorrectos.';
+                    }
+
+                    if (
+                        status ===
+                        419
+                    ) {
+                        return 'La sesión de seguridad expiró. Recarga la página e inténtalo otra vez.';
+                    }
+
+                    if (
+                        status >=
+                        500
+                    ) {
+                        return 'El servidor tuvo un problema. Revisa que MySQL esté encendido y que la API esté respondiendo.';
+                    }
+
+                    return data.message ||
+                        mensajeGeneral;
+                }
+
+
+                function activarCarga(
+                    submitButton,
+                    texto
+                ) {
+
+                    if (
+                        !submitButton
+                    ) {
+                        return null;
+                    }
+
+                    const textoOriginal =
+                        submitButton.innerHTML;
+
+                    submitButton.disabled =
+                        true;
+
+
+                    submitButton.classList.add(
+                        'opacity-70',
+                        'cursor-not-allowed'
+                    );
+
+
+                    submitButton.innerHTML =
+                        `<span class="inline-flex items-center justify-center gap-2">
+                            <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+                            ${texto}
+                        </span>`;
+
+                    return textoOriginal;
+                }
+
+
+                function desactivarCarga(
+                    submitButton,
+                    textoOriginal
+                ) {
+
+                    if (
+                        !submitButton
+                    ) {
+                        return;
+                    }
+
+                    submitButton.disabled =
+                        false;
+
+
+                    submitButton.classList.remove(
+                        'opacity-70',
+                        'cursor-not-allowed'
+                    );
+
+
+                    if (
+                        textoOriginal !==
+                        null
+                    ) {
+
+                        submitButton.innerHTML =
+                            textoOriginal;
+                    }
+                }
+
 
 
                 // =====================================================
@@ -1458,35 +1746,16 @@
 
 
                         const textoOriginal =
-                            submitButton
-                                ? submitButton.innerHTML
-                                : null;
+                            activarCarga(
+                                submitButton,
+                                'Ingresando...'
+                            );
 
 
 
                         // =================================================
                         // ESTADO CARGANDO
                         // =================================================
-
-                        if (
-                            submitButton
-                        ) {
-
-                            submitButton.disabled =
-                                true;
-
-
-                            submitButton.classList.add(
-                                'opacity-70',
-                                'cursor-not-allowed'
-                            );
-
-
-                            submitButton.innerHTML =
-                                'Ingresando...';
-                        }
-
-
 
                         try {
 
@@ -1497,7 +1766,7 @@
 
                             const response =
                                 await window.axios.post(
-                                    '/api/auth/login',
+                                    '/api/login',
                                     {
                                         email:
                                             email,
@@ -1532,52 +1801,10 @@
 
 
 
-                            // =============================================
-                            // GUARDAR TOKEN
-                            // =============================================
-
-                            localStorage.setItem(
-                                'nextlevel_token',
-                                token
+                            guardarSesionAutenticada(
+                                token,
+                                user
                             );
-
-
-
-                            // =============================================
-                            // GUARDAR USUARIO AUTENTICADO
-                            // =============================================
-
-                            localStorage.setItem(
-                                'nextlevel_usuario',
-                                JSON.stringify(
-                                    user || {}
-                                )
-                            );
-
-
-
-                            // =============================================
-                            // COMPATIBILIDAD TEMPORAL
-                            // =============================================
-
-                            localStorage.setItem(
-                                'nextlevel_auth',
-                                'true'
-                            );
-
-
-
-                            // =============================================
-                            // CONFIGURAR AXIOS
-                            // =============================================
-
-                            window.axios
-                                .defaults
-                                .headers
-                                .common[
-                                    'Authorization'
-                                ] =
-                                    `Bearer ${token}`;
 
 
 
@@ -1603,82 +1830,22 @@
                             error
                         ) {
 
-
-                            console.error(
-                                'Error en login:',
-                                error
+                            mostrarMensaje(
+                                obtenerMensajeError(
+                                    error,
+                                    'No se pudo iniciar sesión.'
+                                ),
+                                'error'
                             );
-
-
-                            const status =
-                                error?.response?.status;
-
-
-
-                            if (
-                                status ===
-                                422
-                            ) {
-
-                                const errores =
-                                    error
-                                        ?.response
-                                        ?.data
-                                        ?.errors;
-
-
-                                const errorEmail =
-                                    errores
-                                        ?.email
-                                        ?.[0];
-
-
-                                mostrarMensaje(
-                                    errorEmail ||
-                                    'El correo electrónico o la contraseña son incorrectos.',
-                                    'error'
-                                );
-
-                            } else {
-
-                                mostrarMensaje(
-                                    error
-                                        ?.response
-                                        ?.data
-                                        ?.message ||
-
-                                    'No se pudo iniciar sesión.',
-                                    'error'
-                                );
-                            }
 
 
                         } finally {
 
 
-                            if (
-                                submitButton
-                            ) {
-
-                                submitButton.disabled =
-                                    false;
-
-
-                                submitButton.classList.remove(
-                                    'opacity-70',
-                                    'cursor-not-allowed'
-                                );
-
-
-                                if (
-                                    textoOriginal !==
-                                    null
-                                ) {
-
-                                    submitButton.innerHTML =
-                                        textoOriginal;
-                                }
-                            }
+                            desactivarCarga(
+                                submitButton,
+                                textoOriginal
+                            );
                         }
                     }
                 );
@@ -1695,14 +1862,8 @@
             'pageshow',
             () => {
 
-                const token =
-                    localStorage.getItem(
-                        'nextlevel_token'
-                    );
-
-
                 if (
-                    token
+                    haySesionActiva()
                 ) {
 
                     window.location.replace(

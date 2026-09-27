@@ -668,7 +668,71 @@
 
             font-size: 11px;
 
+            font-weight: 700;
+
             text-align: center;
+        }
+
+        .horario-estado-vacio {
+            display: flex;
+
+            min-height: 260px;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding: 38px 18px;
+
+            text-align: center;
+        }
+
+        .horario-estado-vacio-icono {
+            display: flex;
+
+            width: 56px;
+
+            height: 56px;
+
+            align-items: center;
+
+            justify-content: center;
+
+            border-radius: 18px;
+
+            background: #F1F5F9;
+
+            color: #64748B;
+        }
+
+        .horario-estado-vacio-icono svg {
+            width: 27px;
+
+            height: 27px;
+        }
+
+        .horario-estado-vacio h3 {
+            margin-top: 16px;
+
+            color: var(--azul-noche);
+
+            font-size: 18px;
+
+            font-weight: 900;
+        }
+
+        .horario-estado-vacio p {
+            max-width: 430px;
+
+            margin-top: 8px;
+
+            color: #64748B;
+
+            font-size: 14px;
+
+            line-height: 1.6;
         }
 
 
@@ -697,6 +761,31 @@
 
         @media (max-width:640px) {
 
+            header img {
+                width: 46px;
+
+                height: 46px;
+            }
+
+            header h1 {
+                font-size: 15px;
+            }
+
+            header p {
+                font-size: 11px;
+            }
+
+            #consulta-formulario {
+                border-radius: 20px;
+
+                padding: 16px;
+            }
+
+            #consulta-nombre,
+            #consulta-detalle {
+                overflow-wrap: anywhere;
+            }
+
             .custom-select-button {
                 min-height: 56px;
             }
@@ -712,11 +801,19 @@
             #acciones-descarga.visible {
                 width: 100%;
 
-                flex-direction: column;
+                display: grid;
+
+                grid-template-columns: 1fr;
             }
 
             .btn-descarga {
                 width: 100%;
+
+                justify-content: center;
+            }
+
+            .tipo-consulta {
+                min-height: 84px;
             }
 
             #horario-navegacion {
@@ -1570,6 +1667,8 @@
 
         <div
             id="consulta-mensaje"
+            role="status"
+            aria-live="polite"
             class="mb-6 hidden"
         ></div>
 
@@ -1678,6 +1777,48 @@
                         "
                     >
                     </span>
+
+
+                    <button
+                        id="btn-nueva-consulta"
+                        type="button"
+                        class="
+                            inline-flex
+                            w-full
+                            items-center
+                            justify-center
+                            gap-2
+                            rounded-xl
+                            border
+                            border-slate-200
+                            bg-white
+                            px-4
+                            py-2.5
+                            text-xs
+                            font-bold
+                            text-slate-600
+                            transition
+                            hover:border-blue-200
+                            hover:bg-blue-50
+                            hover:text-[#1B3A6B]
+                            sm:w-auto
+                        "
+                    >
+
+                        <svg
+                            class="h-4 w-4"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M3 12a9 9 0 1 0 3-6.7"/>
+                            <path d="M3 3v6h6"/>
+                        </svg>
+
+                        Nueva consulta
+
+                    </button>
 
 
                     {{-- SOLO SE MUESTRA PARA PROFESORES --}}

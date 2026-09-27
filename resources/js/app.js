@@ -35,6 +35,9 @@ const USER_KEY =
 const AUTH_KEY =
     'nextlevel_auth';
 
+const AUTH_NOTICE_KEY =
+    'nextlevel_auth_notice';
+
 
 const RUTA_LOGIN =
     '/login';
@@ -52,6 +55,10 @@ const RUTAS_PUBLICAS = [
 
     '/registro',
 
+    '/forgot-password',
+
+    '/reset-password',
+
     '/consulta-horarios'
 
 ];
@@ -64,9 +71,7 @@ const RUTAS_PUBLICAS = [
 function configurarTokenAxios() {
 
     const token =
-        localStorage.getItem(
-            TOKEN_KEY
-        );
+        obtenerTokenSesion();
 
 
     if (token) {
@@ -82,6 +87,35 @@ function configurarTokenAxios() {
             'Authorization'
         ];
     }
+}
+
+
+function normalizarToken(
+    valor
+) {
+
+    const token =
+        String(valor || '').trim();
+
+    if (
+        !token ||
+        token === 'null' ||
+        token === 'undefined'
+    ) {
+        return '';
+    }
+
+    return token;
+}
+
+
+function obtenerTokenSesion() {
+
+    return normalizarToken(
+        localStorage.getItem(
+            TOKEN_KEY
+        )
+    );
 }
 
 
@@ -124,12 +158,23 @@ function esRutaPublica(ruta) {
 function estaAutenticado() {
 
     const token =
+        obtenerTokenSesion();
+
+    const authAnterior =
         localStorage.getItem(
-            TOKEN_KEY
+            AUTH_KEY
         );
 
 
-    return Boolean(token);
+    if (token) {
+        return true;
+    }
+
+    if (authAnterior) {
+        limpiarSesion();
+    }
+
+    return false;
 }
 
 
@@ -169,6 +214,157 @@ function limpiarSesion() {
 
 
     configurarTokenAxios();
+}
+
+
+function obtenerUsuarioActual() {
+
+    try {
+
+        const usuario =
+            JSON.parse(
+            localStorage.getItem(
+                USER_KEY
+            ) ||
+            '{}'
+        );
+
+        if (
+            usuario &&
+            typeof usuario === 'object'
+        ) {
+            delete usuario.password;
+            delete usuario.password_confirmation;
+            delete usuario.remember_token;
+        }
+
+        return usuario;
+
+    } catch (error) {
+
+        localStorage.removeItem(
+            USER_KEY
+        );
+
+        return {};
+    }
+}
+
+
+function obtenerNombreUsuario() {
+
+    const usuario =
+        obtenerUsuarioActual();
+
+    return (
+        usuario.name ||
+        usuario.nombre ||
+        usuario.nombre_completo ||
+        usuario.email ||
+        'Administrador'
+    );
+}
+
+
+function actualizarUsuarioEnInterfaz() {
+
+    const nombreEl =
+        document.getElementById(
+            'sidebar-nombre-usuario'
+        );
+
+    if (!nombreEl) {
+        return;
+    }
+
+    nombreEl.textContent =
+        obtenerNombreUsuario();
+}
+
+
+// =========================================================
+// AVISO DE SESIÓN
+// =========================================================
+
+function guardarAvisoSesion(
+    mensaje
+) {
+
+    sessionStorage.setItem(
+        AUTH_NOTICE_KEY,
+        mensaje
+    );
+}
+
+
+// =========================================================
+// ESTADO DE BOTONES
+// =========================================================
+
+function activarCargaBoton(
+    boton,
+    texto
+) {
+
+    if (!boton) {
+        return null;
+    }
+
+    const contenidoOriginal =
+        boton.innerHTML;
+
+    boton.disabled =
+        true;
+
+    boton.setAttribute(
+        'aria-busy',
+        'true'
+    );
+
+    boton.classList.add(
+        'opacity-70',
+        'cursor-not-allowed'
+    );
+
+    boton.innerHTML =
+        `<span class="inline-flex items-center justify-center gap-2">
+            <span class="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current"></span>
+            ${texto}
+        </span>`;
+
+    return contenidoOriginal;
+}
+
+
+function desactivarCargaBoton(
+    boton,
+    contenidoOriginal
+) {
+
+    if (!boton) {
+        return;
+    }
+
+    boton.disabled =
+        false;
+
+    boton.removeAttribute(
+        'aria-busy'
+    );
+
+    boton.classList.remove(
+        'opacity-70',
+        'cursor-not-allowed'
+    );
+
+    if (
+        contenidoOriginal !==
+        null
+    ) {
+
+        boton.innerHTML =
+            contenidoOriginal;
+    }
 }
 
 
@@ -301,6 +497,10 @@ window.axios.interceptors.response.use(
                 )
             ) {
 
+                guardarAvisoSesion(
+                    'Tu sesión expiró. Vuelve a iniciar sesión para continuar.'
+                );
+
                 window.location.replace(
                     RUTA_LOGIN
                 );
@@ -325,6 +525,8 @@ document.addEventListener(
 
         protegerNavegacion();
 
+        actualizarUsuarioEnInterfaz();
+
 
         // =================================================
         // CERRAR SESIÓN
@@ -345,11 +547,20 @@ document.addEventListener(
             'click',
             async () => {
 
-                const token =
-                    localStorage.getItem(
-                        TOKEN_KEY
-                    );
+                if (
+                    btnCerrarSesion.disabled
+                ) {
+                    return;
+                }
 
+                const token =
+                    obtenerTokenSesion();
+
+                const contenidoOriginal =
+                    activarCargaBoton(
+                        btnCerrarSesion,
+                        'Cerrando sesión...'
+                    );
 
                 try {
 
@@ -371,6 +582,14 @@ document.addEventListener(
 
                     limpiarSesion();
 
+                    guardarAvisoSesion(
+                        'Sesión cerrada correctamente.'
+                    );
+
+                    desactivarCargaBoton(
+                        btnCerrarSesion,
+                        contenidoOriginal
+                    );
 
                     window.location.replace(
                         RUTA_LOGIN
@@ -407,7 +626,11 @@ window.addEventListener(
 
         if (
             event.key ===
-            TOKEN_KEY
+            TOKEN_KEY ||
+            event.key ===
+            AUTH_KEY ||
+            event.key ===
+            USER_KEY
         ) {
 
             configurarTokenAxios();

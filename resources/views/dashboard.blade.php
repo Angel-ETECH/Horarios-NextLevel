@@ -60,6 +60,22 @@
         transform: translateX(4px);
     }
 
+    @media (max-width: 640px) {
+
+        .dashboard-page {
+            margin-inline: -2px;
+        }
+
+        .dashboard-card:hover,
+        .dashboard-action:hover {
+            transform: none;
+        }
+
+        .dashboard-card {
+            border-radius: 18px;
+        }
+    }
+
 </style>
 
 
@@ -71,7 +87,7 @@
     ========================================================== --}}
 
     <section
-        class="relative overflow-hidden rounded-[26px] p-6 md:p-8"
+        class="relative overflow-hidden rounded-3xl p-5 sm:p-6 md:p-8"
         style="
             background:
                 linear-gradient(
@@ -174,7 +190,11 @@
                 <h1
                     class="text-2xl font-extrabold tracking-tight text-white md:text-4xl"
                 >
-                    Bienvenido a
+                    <span
+                        id="dashboard-saludo"
+                    >
+                        Bienvenido a
+                    </span>
 
                     <span
                         style="color:#FF7373;"
@@ -185,6 +205,7 @@
 
 
                 <p
+                    id="dashboard-subtitulo"
                     class="mt-2 max-w-xl text-sm leading-6 text-white/65 md:text-base"
                 >
                     Administra profesores, cursos, aulas y horarios
@@ -233,7 +254,7 @@
         ====================================================== --}}
 
         <div
-            class="relative z-10 mt-7 grid grid-cols-2 gap-4 border-t border-white/10 pt-6 md:grid-cols-4"
+            class="relative z-10 mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-5 sm:gap-4 sm:pt-6 md:grid-cols-4"
         >
 
             <div>
@@ -870,9 +891,17 @@
                     </div>
 
 
-                    <span class="text-slate-300">
-                        →
-                    </span>
+                    <svg
+                        class="h-4 w-4 text-slate-300"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
 
                 </a>
 
@@ -888,7 +917,18 @@
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                         style="background:#FEE2E2;"
                     >
-                        📘
+                        <svg
+                            class="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#8D0707"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                            <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/>
+                        </svg>
                     </div>
 
 
@@ -908,9 +948,17 @@
                     </div>
 
 
-                    <span class="text-slate-300">
-                        →
-                    </span>
+                    <svg
+                        class="h-4 w-4 text-slate-300"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
 
                 </a>
 
@@ -926,7 +974,22 @@
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                         style="background:#DBEAFE;"
                     >
-                        🔗
+                        <svg
+                            class="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#1B3A6B"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M16 3h5v5"/>
+                            <path d="M21 3l-7 7"/>
+                            <path d="M8 21H3v-5"/>
+                            <path d="M3 21l7-7"/>
+                            <path d="M14 14l7 7"/>
+                            <path d="M3 3l7 7"/>
+                        </svg>
                     </div>
 
 
@@ -946,9 +1009,17 @@
                     </div>
 
 
-                    <span class="text-slate-300">
-                        →
-                    </span>
+                    <svg
+                        class="h-4 w-4 text-slate-300"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
 
                 </a>
 
@@ -964,7 +1035,23 @@
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
                         style="background:#F3E8FF;"
                     >
-                        🗓️
+                        <svg
+                            class="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#6D28D9"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <rect x="3" y="4" width="18" height="18" rx="2"/>
+                            <path d="M16 2v4"/>
+                            <path d="M8 2v4"/>
+                            <path d="M3 10h18"/>
+                            <path d="M8 14h.01"/>
+                            <path d="M12 14h.01"/>
+                            <path d="M16 14h.01"/>
+                        </svg>
                     </div>
 
 
@@ -984,9 +1071,17 @@
                     </div>
 
 
-                    <span class="text-slate-300">
-                        →
-                    </span>
+                    <svg
+                        class="h-4 w-4 text-slate-300"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="m9 18 6-6-6-6"/>
+                    </svg>
 
                 </a>
 

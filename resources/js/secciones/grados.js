@@ -1804,6 +1804,214 @@ document.addEventListener('DOMContentLoaded', () => {
     // FILTROS
     // =========================================================
 
+    function cerrarFiltrosVisuales(
+        excepto = null
+    ) {
+
+        document
+            .querySelectorAll('.grado-filter-select.open')
+            .forEach(
+                wrapper => {
+
+                    if (
+                        wrapper ===
+                        excepto
+                    ) {
+                        return;
+                    }
+
+                    wrapper.classList.remove(
+                        'open'
+                    );
+
+                    wrapper
+                        .querySelector('.grado-filter-trigger')
+                        ?.setAttribute(
+                            'aria-expanded',
+                            'false'
+                        );
+                }
+            );
+    }
+
+
+    function sincronizarFiltroVisual(
+        wrapper
+    ) {
+
+        const select =
+            document.getElementById(
+                wrapper.dataset.filterSelect
+            );
+
+        const valorTexto =
+            wrapper.querySelector(
+                '.grado-filter-value'
+            );
+
+        const opciones =
+            wrapper.querySelectorAll(
+                '.grado-filter-option'
+            );
+
+        if (
+            !select ||
+            !valorTexto
+        ) {
+            return;
+        }
+
+        let opcionActiva =
+            null;
+
+        opciones.forEach(
+            opcion => {
+
+                const seleccionada =
+                    opcion.dataset.value ===
+                    select.value;
+
+                opcion.classList.toggle(
+                    'selected',
+                    seleccionada
+                );
+
+                if (seleccionada) {
+                    opcionActiva =
+                        opcion;
+                }
+            }
+        );
+
+        valorTexto.textContent =
+            opcionActiva?.querySelector('span:nth-child(2)')?.textContent?.trim() ||
+            select.selectedOptions?.[0]?.textContent?.trim() ||
+            'Todos';
+    }
+
+
+    function sincronizarFiltrosVisuales() {
+
+        document
+            .querySelectorAll('.grado-filter-select')
+            .forEach(
+                sincronizarFiltroVisual
+            );
+    }
+
+
+    document
+        .querySelectorAll('.grado-filter-select')
+        .forEach(
+            wrapper => {
+
+                const select =
+                    document.getElementById(
+                        wrapper.dataset.filterSelect
+                    );
+
+                const trigger =
+                    wrapper.querySelector(
+                        '.grado-filter-trigger'
+                    );
+
+                const opciones =
+                    wrapper.querySelectorAll(
+                        '.grado-filter-option'
+                    );
+
+                if (
+                    !select ||
+                    !trigger
+                ) {
+                    return;
+                }
+
+                trigger.addEventListener(
+                    'click',
+                    () => {
+
+                        const abrir =
+                            !wrapper.classList.contains(
+                                'open'
+                            );
+
+                        cerrarFiltrosVisuales(
+                            wrapper
+                        );
+
+                        wrapper.classList.toggle(
+                            'open',
+                            abrir
+                        );
+
+                        trigger.setAttribute(
+                            'aria-expanded',
+                            abrir ? 'true' : 'false'
+                        );
+                    }
+                );
+
+                opciones.forEach(
+                    opcion => {
+
+                        opcion.addEventListener(
+                            'click',
+                            () => {
+
+                                select.value =
+                                    opcion.dataset.value ?? '';
+
+                                sincronizarFiltroVisual(
+                                    wrapper
+                                );
+
+                                cerrarFiltrosVisuales();
+
+                                select.dispatchEvent(
+                                    new Event(
+                                        'change',
+                                        {
+                                            bubbles: true
+                                        }
+                                    )
+                                );
+                            }
+                        );
+                    }
+                );
+
+                select.addEventListener(
+                    'change',
+                    () => sincronizarFiltroVisual(
+                        wrapper
+                    )
+                );
+
+                sincronizarFiltroVisual(
+                    wrapper
+                );
+            }
+        );
+
+
+    document.addEventListener(
+        'click',
+        event => {
+
+            if (
+                event.target.closest(
+                    '.grado-filter-select'
+                )
+            ) {
+                return;
+            }
+
+            cerrarFiltrosVisuales();
+        }
+    );
+
+
     function actualizarFiltros() {
 
         paginaActual =
@@ -1894,6 +2102,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (filtroAnio) {
                 filtroAnio.value = '';
             }
+
+            sincronizarFiltrosVisuales();
 
 
             paginaActual =
