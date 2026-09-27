@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================
-    // VERIFICAR QUE ESTAMOS EN DASHBOARD
+    // VERIFICAR DASHBOARD
     // =========================================================
 
     const contenedorHorarios =
@@ -15,22 +15,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // LOCALSTORAGE
+    // API
     // =========================================================
 
-    const KEYS = {
-
+    const API = {
         profesores:
-            'nextlevel_profesores',
+            '/api/profesores',
 
         cursos:
-            'nextlevel_cursos',
+            '/api/cursos',
 
         aulas:
-            'nextlevel_aulas',
+            '/api/aulas',
 
         horarios:
-            'nextlevel_horarios'
+            '/api/horarios'
     };
 
 
@@ -42,7 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(
             'dashboard-fecha'
         );
-
 
     const headerProfesores =
         document.getElementById(
@@ -64,7 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'header-total-horarios'
         );
 
-
     const totalProfesores =
         document.getElementById(
             'dashboard-total-profesores'
@@ -85,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'dashboard-total-horarios'
         );
 
-
     const totalHoy =
         document.getElementById(
             'dashboard-total-hoy'
@@ -93,37 +89,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // LEER STORAGE
+    // ESTADO
     // =========================================================
 
-    function leer(clave) {
+    let profesoresCache = [];
+    let cursosCache = [];
+    let aulasCache = [];
+    let horariosCache = [];
 
-        try {
-
-            const datos =
-                JSON.parse(
-                    localStorage.getItem(clave) ||
-                    '[]'
-                );
-
-            return Array.isArray(datos)
-                ? datos
-                : [];
-
-        } catch (error) {
-
-            console.error(
-                `Error leyendo ${clave}:`,
-                error
-            );
-
-            return [];
-        }
-    }
+    let cargandoDashboard =
+        false;
 
 
     // =========================================================
-    // ESCAPAR HTML
+    // UTILIDADES
     // =========================================================
 
     function esc(valor) {
@@ -137,8 +116,208 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function normalizarTexto(valor) {
+
+        return String(valor ?? '')
+            .trim()
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(
+                /[\u0300-\u036f]/g,
+                ''
+            );
+    }
+
+
+    function minutosHora(hora) {
+
+        if (!hora) {
+            return 0;
+        }
+
+        const partes =
+            String(hora)
+                .slice(0, 5)
+                .split(':')
+                .map(Number);
+
+        return (
+            (partes[0] || 0) *
+            60
+        ) +
+        (
+            partes[1] || 0
+        );
+    }
+
+
+    function minutosActuales() {
+
+        const ahora =
+            new Date();
+
+        return (
+            ahora.getHours() *
+            60
+        ) +
+        ahora.getMinutes();
+    }
+
+
+    function obtenerDiaActualTexto() {
+
+        const dias = [
+            'domingo',
+            'lunes',
+            'martes',
+            'miercoles',
+            'jueves',
+            'viernes',
+            'sabado'
+        ];
+
+        return dias[
+            new Date().getDay()
+        ];
+    }
+
+
+    function extraerLista(
+        payload
+    ) {
+
+        if (
+            Array.isArray(
+                payload
+            )
+        ) {
+            return payload;
+        }
+
+        if (
+            Array.isArray(
+                payload?.data
+            )
+        ) {
+            return payload.data;
+        }
+
+        if (
+            Array.isArray(
+                payload?.data?.data
+            )
+        ) {
+            return payload.data.data;
+        }
+
+        return [];
+    }
+
+
+    function extraerMeta(
+        payload
+    ) {
+
+        if (
+            payload?.meta &&
+            typeof payload.meta ===
+            'object'
+        ) {
+            return payload.meta;
+        }
+
+        if (
+            payload?.data &&
+            !Array.isArray(
+                payload.data
+            ) &&
+            payload.data?.last_page
+        ) {
+
+            return {
+                current_page:
+                    payload.data.current_page,
+
+                last_page:
+                    payload.data.last_page,
+
+                per_page:
+                    payload.data.per_page,
+
+                total:
+                    payload.data.total
+            };
+        }
+
+        return null;
+    }
+
+
+    async function cargarTodasLasPaginas(
+        url,
+        params = {}
+    ) {
+
+        const primera =
+            await window.axios.get(
+                url,
+                {
+                    params: {
+                        ...params,
+                        per_page: 100,
+                        page: 1
+                    }
+                }
+            );
+
+        const lista = [
+            ...extraerLista(
+                primera.data
+            )
+        ];
+
+        const meta =
+            extraerMeta(
+                primera.data
+            );
+
+        const ultimaPagina =
+            Number(
+                meta?.last_page ||
+                1
+            );
+
+        for (
+            let pagina = 2;
+            pagina <= ultimaPagina;
+            pagina++
+        ) {
+
+            const respuesta =
+                await window.axios.get(
+                    url,
+                    {
+                        params: {
+                            ...params,
+                            per_page: 100,
+                            page: pagina
+                        }
+                    }
+                );
+
+            lista.push(
+                ...extraerLista(
+                    respuesta.data
+                )
+            );
+        }
+
+        return lista;
+    }
+
+
     // =========================================================
-    // FECHA ACTUAL
+    // FECHA
     // =========================================================
 
     function actualizarFecha() {
@@ -147,10 +326,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-
         const ahora =
             new Date();
-
 
         const texto =
             ahora.toLocaleDateString(
@@ -170,6 +347,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             );
 
+        const textoFinal =
+            texto.charAt(0)
+                .toUpperCase() +
+            texto.slice(1);
 
         fechaEl.innerHTML = `
 
@@ -195,241 +376,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
             </svg>
 
-            ${
-                texto.charAt(0)
-                    .toUpperCase() +
-                texto.slice(1)
-            }
+            ${esc(
+                textoFinal
+            )}
         `;
     }
 
 
     // =========================================================
-    // ESTADÍSTICAS
+    // NOMBRES
     // =========================================================
 
-    function actualizarEstadisticas() {
-
-        const profesores =
-            leer(
-                KEYS.profesores
-            );
-
-        const cursos =
-            leer(
-                KEYS.cursos
-            );
-
-        const aulas =
-            leer(
-                KEYS.aulas
-            );
-
-        const horarios =
-            leer(
-                KEYS.horarios
-            );
-
-
-        const valores = {
-
-            profesores:
-                profesores.length,
-
-            cursos:
-                cursos.length,
-
-            aulas:
-                aulas.length,
-
-            horarios:
-                horarios.length
-        };
-
-
-        if (headerProfesores) {
-
-            headerProfesores.textContent =
-                valores.profesores;
-        }
-
-
-        if (headerCursos) {
-
-            headerCursos.textContent =
-                valores.cursos;
-        }
-
-
-        if (headerAulas) {
-
-            headerAulas.textContent =
-                valores.aulas;
-        }
-
-
-        if (headerHorarios) {
-
-            headerHorarios.textContent =
-                valores.horarios;
-        }
-
-
-        if (totalProfesores) {
-
-            totalProfesores.textContent =
-                valores.profesores;
-        }
-
-
-        if (totalCursos) {
-
-            totalCursos.textContent =
-                valores.cursos;
-        }
-
-
-        if (totalAulas) {
-
-            totalAulas.textContent =
-                valores.aulas;
-        }
-
-
-        if (totalHorarios) {
-
-            totalHorarios.textContent =
-                valores.horarios;
-        }
-    }
-
-
-    // =========================================================
-    // DÍA ACTUAL
-    // =========================================================
-    //
-    // JavaScript:
-    //
-    // Domingo = 0
-    // Lunes   = 1
-    // ...
-    // Sábado  = 6
-    //
-    // Coincide con dia_semana de tu horario.
-    //
-    // =========================================================
-
-    function obtenerDiaActual() {
-
-        return new Date().getDay();
-    }
-
-
-    // =========================================================
-    // CONVERTIR HORA A MINUTOS
-    // =========================================================
-
-    function minutosHora(hora) {
-
-        if (!hora) {
-            return 0;
-        }
-
-
-        const [
-            horas,
-            minutos
-        ] =
-            String(hora)
-                .split(':')
-                .map(Number);
-
-
-        return (
-            (horas || 0) * 60 +
-            (minutos || 0)
-        );
-    }
-
-
-    // =========================================================
-    // MINUTOS ACTUALES
-    // =========================================================
-
-    function minutosActuales() {
-
-        const ahora =
-            new Date();
-
-
-        return (
-            ahora.getHours() *
-            60 +
-            ahora.getMinutes()
-        );
-    }
-
-
-    // =========================================================
-    // NOMBRE DEL PROFESOR
-    // =========================================================
-
-    function nombreProfesor(profesor) {
+    function nombreProfesor(
+        profesor
+    ) {
 
         if (!profesor) {
             return 'Profesor no disponible';
         }
-
 
         const nombre =
             profesor.nombre ||
             profesor.nombres ||
             '';
 
-
         const apellidos = [
-
             profesor.apellido_paterno,
-
-            profesor.apellidoPaterno,
-
-            profesor.apellido,
-
-            profesor.apellido_materno
-
+            profesor.apellido_materno,
+            profesor.apellido
         ]
             .filter(Boolean)
             .join(' ');
 
-
         return (
             `${nombre} ${apellidos}`
-                .replace(/\s+/g, ' ')
+                .replace(
+                    /\s+/g,
+                    ' '
+                )
                 .trim() ||
+
+            profesor.nombre_completo ||
+
             'Profesor'
         );
     }
 
 
-    // =========================================================
-    // NOMBRE CURSO
-    // =========================================================
-
-    function nombreCurso(curso) {
+    function nombreCurso(
+        curso
+    ) {
 
         return (
             curso?.nombre ||
             curso?.nombre_curso ||
+            curso?.codigo ||
             'Curso no disponible'
         );
     }
 
 
-    // =========================================================
-    // NOMBRE AULA
-    // =========================================================
-
-    function nombreAula(aula) {
+    function nombreAula(
+        aula
+    ) {
 
         return (
             aula?.nombre ||
@@ -440,8 +449,110 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function nombreGrado(
+        grado
+    ) {
+
+        return (
+            grado?.nombre_completo ||
+            grado?.nombre ||
+            `${grado?.grado || ''} ${
+                grado?.seccion || ''
+            }`.trim() ||
+            ''
+        );
+    }
+
+
     // =========================================================
-    // ESTADO DE LA CLASE
+    // ESTADÍSTICAS
+    // =========================================================
+
+    function actualizarEstadisticas() {
+
+        const valores = {
+
+            profesores:
+                profesoresCache.length,
+
+            cursos:
+                cursosCache.length,
+
+            aulas:
+                aulasCache.length,
+
+            horarios:
+                horariosCache.length
+        };
+
+
+        if (
+            headerProfesores
+        ) {
+            headerProfesores.textContent =
+                valores.profesores;
+        }
+
+
+        if (
+            headerCursos
+        ) {
+            headerCursos.textContent =
+                valores.cursos;
+        }
+
+
+        if (
+            headerAulas
+        ) {
+            headerAulas.textContent =
+                valores.aulas;
+        }
+
+
+        if (
+            headerHorarios
+        ) {
+            headerHorarios.textContent =
+                valores.horarios;
+        }
+
+
+        if (
+            totalProfesores
+        ) {
+            totalProfesores.textContent =
+                valores.profesores;
+        }
+
+
+        if (
+            totalCursos
+        ) {
+            totalCursos.textContent =
+                valores.cursos;
+        }
+
+
+        if (
+            totalAulas
+        ) {
+            totalAulas.textContent =
+                valores.aulas;
+        }
+
+
+        if (
+            totalHorarios
+        ) {
+            totalHorarios.textContent =
+                valores.horarios;
+        }
+    }
+
+
+    // =========================================================
+    // ESTADO DE CLASE
     // =========================================================
 
     function obtenerEstadoClase(
@@ -451,12 +562,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const ahora =
             minutosActuales();
 
-
         const inicio =
             minutosHora(
                 horario.hora_inicio
             );
-
 
         const fin =
             minutosHora(
@@ -513,53 +622,121 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // RENDER HORARIOS DE HOY
+    // HORARIOS DE HOY
     // =========================================================
 
     function renderHorariosHoy() {
 
-        const horarios =
-            leer(
-                KEYS.horarios
-            );
-
-
-        const profesores =
-            leer(
-                KEYS.profesores
-            );
-
-
-        const cursos =
-            leer(
-                KEYS.cursos
-            );
-
-
-        const aulas =
-            leer(
-                KEYS.aulas
-            );
-
-
         const diaActual =
-            obtenerDiaActual();
+            obtenerDiaActualTexto();
+
+
+        if (
+            diaActual ===
+            'domingo'
+        ) {
+
+            if (
+                totalHoy
+            ) {
+                totalHoy.textContent =
+                    '0 clases programadas';
+            }
+
+
+            contenedorHorarios.innerHTML = `
+
+                <div
+                    class="
+                        px-6
+                        py-12
+                        text-center
+                    "
+                >
+
+                    <div
+                        class="
+                            mx-auto
+                            flex
+                            h-12
+                            w-12
+                            items-center
+                            justify-center
+                            rounded-2xl
+                            bg-slate-100
+                        "
+                    >
+
+                        <svg
+                            class="h-6 w-6 text-slate-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                        >
+                            <path
+                                d="M6 9h12v5a6 6 0 0 1-12 0z"
+                            />
+
+                            <path
+                                d="M18 10h1a2 2 0 0 1 0 4h-1"
+                            />
+
+                            <path
+                                d="M8 3v3M12 3v3M16 3v3"
+                            />
+                        </svg>
+
+                    </div>
+
+
+                    <p
+                        class="
+                            mt-4
+                            font-bold
+                        "
+                        style="
+                            color:#0F2749;
+                        "
+                    >
+                        Hoy es domingo
+                    </p>
+
+
+                    <p
+                        class="
+                            mt-1
+                            text-sm
+                            text-slate-400
+                        "
+                    >
+                        No hay clases programadas.
+                    </p>
+
+                </div>
+            `;
+
+            return;
+        }
 
 
         const horariosHoy =
-            horarios
+            horariosCache
                 .filter(
-                    horario =>
+                    horario => {
 
-                        Number(
-                            horario.dia_semana
-                        ) ===
-                        Number(
-                            diaActual
-                        ) &&
+                        return (
+                            normalizarTexto(
+                                horario.dia_semana
+                            ) ===
+                            diaActual &&
 
-                        horario.estado !==
-                        'inactivo'
+                            normalizarTexto(
+                                horario.estado
+                            ) ===
+                            'activo'
+                        );
+                    }
                 )
                 .sort(
                     (a, b) =>
@@ -574,93 +751,93 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
 
 
-        if (totalHoy) {
+        if (
+            totalHoy
+        ) {
 
             totalHoy.textContent =
                 `${horariosHoy.length} ${
-                    horariosHoy.length === 1
+                    horariosHoy.length ===
+                    1
+
                         ? 'clase programada'
+
                         : 'clases programadas'
                 }`;
         }
 
 
-        // =====================================================
-        // DOMINGO
-        // =====================================================
-
         if (
-            diaActual === 0
+            !horariosHoy.length
         ) {
 
             contenedorHorarios.innerHTML = `
 
                 <div
-                    class="px-6 py-12 text-center"
+                    class="
+                        px-6
+                        py-12
+                        text-center
+                    "
                 >
 
                     <div
-                        class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-xl"
+                        class="
+                            mx-auto
+                            flex
+                            h-12
+                            w-12
+                            items-center
+                            justify-center
+                            rounded-2xl
+                            bg-slate-100
+                        "
                     >
-                        ☕
+
+                        <svg
+                            class="h-6 w-6 text-slate-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                        >
+                            <rect
+                                x="3"
+                                y="5"
+                                width="18"
+                                height="16"
+                                rx="2"
+                            />
+
+                            <path
+                                d="M8 3v4M16 3v4M3 10h18"
+                            />
+                        </svg>
+
                     </div>
 
 
                     <p
-                        class="mt-4 font-bold"
-                        style="color:#0F2749;"
-                    >
-                        Hoy es domingo
-                    </p>
-
-
-                    <p
-                        class="mt-1 text-sm text-slate-400"
-                    >
-                        No hay clases programadas.
-                    </p>
-
-                </div>
-            `;
-
-            return;
-        }
-
-
-        // =====================================================
-        // SIN CLASES
-        // =====================================================
-
-        if (
-            horariosHoy.length ===
-            0
-        ) {
-
-            contenedorHorarios.innerHTML = `
-
-                <div
-                    class="px-6 py-12 text-center"
-                >
-
-                    <div
-                        class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-xl"
-                    >
-                        🗓️
-                    </div>
-
-
-                    <p
-                        class="mt-4 font-bold"
-                        style="color:#0F2749;"
+                        class="
+                            mt-4
+                            font-bold
+                        "
+                        style="
+                            color:#0F2749;
+                        "
                     >
                         No hay clases para hoy
                     </p>
 
 
                     <p
-                        class="mt-1 text-sm text-slate-400"
+                        class="
+                            mt-1
+                            text-sm
+                            text-slate-400
+                        "
                     >
-                        Las clases creadas desde Asignaciones aparecerán aquí automáticamente.
+                        No existen horarios activos para el día actual.
                     </p>
 
                 </div>
@@ -670,50 +847,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        // =====================================================
-        // MOSTRAR CLASES
-        // =====================================================
-
         contenedorHorarios.innerHTML =
             horariosHoy
                 .map(
                     horario => {
-
-                        const profesor =
-                            profesores.find(
-                                item =>
-                                    String(
-                                        item.id
-                                    ) ===
-                                    String(
-                                        horario.profesor_id
-                                    )
-                            );
-
-
-                        const curso =
-                            cursos.find(
-                                item =>
-                                    String(
-                                        item.id
-                                    ) ===
-                                    String(
-                                        horario.curso_id
-                                    )
-                            );
-
-
-                        const aula =
-                            aulas.find(
-                                item =>
-                                    String(
-                                        item.id
-                                    ) ===
-                                    String(
-                                        horario.aula_id
-                                    )
-                            );
-
 
                         const estado =
                             obtenerEstadoClase(
@@ -721,11 +858,28 @@ document.addEventListener('DOMContentLoaded', () => {
                             );
 
 
+                        const profesor =
+                            horario.profesor;
+
+
+                        const curso =
+                            horario.curso;
+
+
+                        const aula =
+                            horario.aula;
+
+
+                        const grado =
+                            horario.grado;
+
+
                         return `
 
                             <div
                                 class="
-                                    flex items-center
+                                    flex
+                                    items-center
                                     gap-4
                                     border-b
                                     border-slate-100
@@ -738,35 +892,64 @@ document.addEventListener('DOMContentLoaded', () => {
                                 "
                             >
 
-                                <!-- HORA -->
                                 <div
-                                    class="w-14 shrink-0 text-center"
+                                    class="
+                                        w-14
+                                        shrink-0
+                                        text-center
+                                    "
                                 >
 
                                     <p
-                                        class="text-sm font-extrabold"
-                                        style="color:#0F2749;"
+                                        class="
+                                            text-sm
+                                            font-extrabold
+                                        "
+                                        style="
+                                            color:#0F2749;
+                                        "
                                     >
                                         ${esc(
-                                            horario.hora_inicio
+                                            String(
+                                                horario.hora_inicio ||
+                                                ''
+                                            ).slice(
+                                                0,
+                                                5
+                                            )
                                         )}
                                     </p>
 
 
                                     <p
-                                        class="mt-0.5 text-[9px] font-semibold text-slate-300"
+                                        class="
+                                            mt-0.5
+                                            text-[9px]
+                                            font-semibold
+                                            text-slate-300
+                                        "
                                     >
                                         ${esc(
-                                            horario.hora_fin
+                                            String(
+                                                horario.hora_fin ||
+                                                ''
+                                            ).slice(
+                                                0,
+                                                5
+                                            )
                                         )}
                                     </p>
 
                                 </div>
 
 
-                                <!-- BARRA -->
                                 <div
-                                    class="h-12 w-1 shrink-0 rounded-full"
+                                    class="
+                                        h-12
+                                        w-1
+                                        shrink-0
+                                        rounded-full
+                                    "
                                     style="
                                         background:
                                             ${estado.barra};
@@ -774,18 +957,30 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ></div>
 
 
-                                <!-- INFO -->
                                 <div
-                                    class="min-w-0 flex-1"
+                                    class="
+                                        min-w-0
+                                        flex-1
+                                    "
                                 >
 
                                     <div
-                                        class="flex flex-wrap items-center gap-2"
+                                        class="
+                                            flex
+                                            flex-wrap
+                                            items-center
+                                            gap-2
+                                        "
                                     >
 
                                         <p
-                                            class="truncate font-bold"
-                                            style="color:#0F2749;"
+                                            class="
+                                                truncate
+                                                font-bold
+                                            "
+                                            style="
+                                                color:#0F2749;
+                                            "
                                         >
                                             ${esc(
                                                 nombreCurso(
@@ -813,8 +1008,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                                     <p
-                                        class="mt-1 truncate text-sm text-slate-400"
+                                        class="
+                                            mt-1
+                                            truncate
+                                            text-sm
+                                            text-slate-400
+                                        "
                                     >
+
                                         ${esc(
                                             nombreProfesor(
                                                 profesor
@@ -822,7 +1023,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                         )}
 
                                         <span
-                                            class="px-1 text-slate-300"
+                                            class="
+                                                px-1
+                                                text-slate-300
+                                            "
                                         >
                                             ·
                                         </span>
@@ -832,12 +1036,33 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 aula
                                             )
                                         )}
+
+                                        ${
+                                            grado
+                                                ? `
+                                                    <span
+                                                        class="
+                                                            px-1
+                                                            text-slate-300
+                                                        "
+                                                    >
+                                                        ·
+                                                    </span>
+
+                                                    ${esc(
+                                                        nombreGrado(
+                                                            grado
+                                                        )
+                                                    )}
+                                                `
+                                                : ''
+                                        }
+
                                     </p>
 
                                 </div>
 
 
-                                <!-- INSTITUCIÓN -->
                                 <span
                                     class="
                                         hidden
@@ -851,17 +1076,18 @@ document.addEventListener('DOMContentLoaded', () => {
                                         sm:inline-flex
                                     "
                                 >
+
                                     ${
-                                        String(
+                                        normalizarTexto(
                                             horario.institucion
-                                        )
-                                        .toLowerCase() ===
+                                        ) ===
                                         'academia'
 
                                             ? 'Academia'
 
                                             : 'Colegio'
                                     }
+
                                 </span>
 
                             </div>
@@ -873,57 +1099,193 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
-    // ACTUALIZAR TODO
+    // CARGAR DATOS REALES
     // =========================================================
 
-    function actualizarDashboard() {
+    async function cargarDashboard(
+        silencioso = false
+    ) {
 
-        actualizarFecha();
+        if (
+            cargandoDashboard
+        ) {
+            return;
+        }
 
-        actualizarEstadisticas();
 
-        renderHorariosHoy();
+        cargandoDashboard =
+            true;
+
+
+        try {
+
+            const [
+                profesores,
+                cursos,
+                aulas,
+                horarios
+            ] =
+                await Promise.all([
+
+                    cargarTodasLasPaginas(
+                        API.profesores
+                    ),
+
+                    cargarTodasLasPaginas(
+                        API.cursos
+                    ),
+
+                    cargarTodasLasPaginas(
+                        API.aulas
+                    ),
+
+                    cargarTodasLasPaginas(
+                        API.horarios
+                    )
+
+                ]);
+
+
+            profesoresCache =
+                profesores;
+
+
+            cursosCache =
+                cursos;
+
+
+            aulasCache =
+                aulas;
+
+
+            horariosCache =
+                horarios;
+
+
+            actualizarEstadisticas();
+
+            renderHorariosHoy();
+
+
+        } catch (error) {
+
+            console.error(
+                'Error cargando dashboard:',
+                error
+            );
+
+
+            if (
+                !silencioso
+            ) {
+
+                contenedorHorarios.innerHTML = `
+
+                    <div
+                        class="
+                            px-6
+                            py-12
+                            text-center
+                        "
+                    >
+
+                        <div
+                            class="
+                                mx-auto
+                                flex
+                                h-12
+                                w-12
+                                items-center
+                                justify-center
+                                rounded-2xl
+                                bg-red-50
+                                text-red-500
+                            "
+                        >
+
+                            <svg
+                                class="h-6 w-6"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <circle
+                                    cx="12"
+                                    cy="12"
+                                    r="9"
+                                />
+
+                                <path
+                                    d="M12 7v6"
+                                />
+
+                                <path
+                                    d="M12 17h.01"
+                                />
+                            </svg>
+
+                        </div>
+
+
+                        <p
+                            class="
+                                mt-4
+                                font-bold
+                                text-red-600
+                            "
+                        >
+                            No se pudo cargar el dashboard
+                        </p>
+
+
+                        <p
+                            class="
+                                mt-1
+                                text-sm
+                                text-slate-400
+                            "
+                        >
+                            Revisa la conexión con la API.
+                        </p>
+
+                    </div>
+                `;
+            }
+
+        } finally {
+
+            cargandoDashboard =
+                false;
+        }
     }
 
 
     // =========================================================
-    // CAMBIOS EN LOCALSTORAGE
+    // ACTUALIZAR AL VOLVER
     // =========================================================
 
     window.addEventListener(
-        'storage',
-        event => {
+        'focus',
+        () => {
 
-            if (
-                Object.values(
-                    KEYS
-                ).includes(
-                    event.key
-                )
-            ) {
-
-                actualizarDashboard();
-            }
+            cargarDashboard(
+                true
+            );
         }
     );
 
 
     // =========================================================
-    // ACTUALIZAR AL REGRESAR A LA PESTAÑA
-    // =========================================================
-
-    window.addEventListener(
-        'focus',
-        actualizarDashboard
-    );
-
-
-    // =========================================================
-    // ACTUALIZAR ESTADO DE CLASES CADA MINUTO
+    // ACTUALIZAR ESTADO DE CLASES
     // =========================================================
 
     setInterval(
-        renderHorariosHoy,
+        () => {
+
+            renderHorariosHoy();
+
+        },
         60000
     );
 
@@ -932,6 +1294,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // INICIO
     // =========================================================
 
-    actualizarDashboard();
+    actualizarFecha();
+
+    cargarDashboard();
 
 });

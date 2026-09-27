@@ -3,10 +3,6 @@
 
 <head>
 
-    {{-- =========================================================
-         CONFIGURACIÓN BÁSICA DE LA PÁGINA
-         ========================================================= --}}
-
     <meta charset="UTF-8">
 
     <meta
@@ -17,7 +13,6 @@
     <title>Iniciar sesión - Next Level School</title>
 
 
-    {{-- Favicon de la pestaña del navegador --}}
     <link
         rel="icon"
         type="image/png"
@@ -25,7 +20,6 @@
     >
 
 
-    {{-- CSS Y JAVASCRIPT PRINCIPAL DEL PROYECTO --}}
     @vite([
         'resources/css/app.css',
         'resources/js/app.js'
@@ -33,11 +27,6 @@
 
 </head>
 
-
-{{-- =============================================================
-     CUERPO GENERAL
-     El fondo combina gris, azul y rojo de forma suave.
-     ============================================================= --}}
 
 <body
     class="min-h-screen"
@@ -67,43 +56,72 @@
 
 
         {{-- =========================================================
-             DECORACIÓN EXTERIOR
-             Son manchas difuminadas que ayudan a combinar el fondo
-             con los colores azul y rojo de la institución.
-             ========================================================= --}}
+             DECORACIÓN DEL FONDO
+        ========================================================== --}}
 
         <div
-            class="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full opacity-15 blur-3xl"
+            class="
+                pointer-events-none
+                absolute
+                -left-32
+                -top-32
+                h-96
+                w-96
+                rounded-full
+                opacity-15
+                blur-3xl
+            "
             style="background:#1B3A6B;"
         ></div>
 
+
         <div
-            class="pointer-events-none absolute -bottom-40 -right-32 h-[420px] w-[420px] rounded-full opacity-10 blur-3xl"
+            class="
+                pointer-events-none
+                absolute
+                -bottom-40
+                -right-32
+                h-[420px]
+                w-[420px]
+                rounded-full
+                opacity-10
+                blur-3xl
+            "
             style="background:#DB0808;"
         ></div>
 
 
 
         {{-- =========================================================
-             CENTRADO DEL LOGIN
-             ========================================================= --}}
+             CONTENEDOR PRINCIPAL
+        ========================================================== --}}
 
         <div
-            class="relative flex min-h-screen items-center justify-center px-4 py-8"
+            class="
+                relative
+                flex
+                min-h-screen
+                items-center
+                justify-center
+                px-4
+                py-8
+            "
         >
 
 
-            {{-- =====================================================
-                 CONTENEDOR PRINCIPAL
-                 En escritorio divide la pantalla en dos columnas:
-                 izquierda = presentación
-                 derecha   = formulario de login
-                 ===================================================== --}}
-
             <div
-                class="grid w-full max-w-6xl overflow-hidden rounded-[30px]
-                       border border-slate-200 bg-white
-                       shadow-2xl lg:grid-cols-2"
+                class="
+                    grid
+                    w-full
+                    max-w-6xl
+                    overflow-hidden
+                    rounded-[30px]
+                    border
+                    border-slate-200
+                    bg-white
+                    shadow-2xl
+                    lg:grid-cols-2
+                "
                 style="
                     box-shadow:
                         0 30px 80px rgba(15,39,73,.16);
@@ -112,28 +130,40 @@
 
 
 
-                {{-- =================================================
+                {{-- =====================================================
                      PANEL IZQUIERDO
-                     Solo aparece en pantallas grandes.
-                     Contiene imagen, logo y presentación.
-                     ================================================= --}}
+                ====================================================== --}}
 
                 <div
-                    class="relative hidden min-h-[700px] overflow-hidden
-                           px-10 py-12 text-white
-                           lg:flex lg:flex-col lg:justify-between"
+                    class="
+                        relative
+                        hidden
+                        min-h-[700px]
+                        overflow-hidden
+                        px-10
+                        py-12
+                        text-white
+                        lg:flex
+                        lg:flex-col
+                        lg:justify-between
+                    "
                 >
 
 
-                    {{-- FOTO DE FONDO
-                         object-cover hace que la imagen llene todo
-                         el panel sin deformarse. --}}
+                    {{-- Imagen de fondo --}}
 
                     <img
                         src="{{ asset('images/Academia-Next-Level.jpeg') }}"
                         alt=""
                         aria-hidden="true"
-                        class="pointer-events-none absolute inset-0 h-full w-full object-cover"
+                        class="
+                            pointer-events-none
+                            absolute
+                            inset-0
+                            h-full
+                            w-full
+                            object-cover
+                        "
                         style="
                             object-position:52% center;
 
@@ -148,12 +178,14 @@
                     >
 
 
-
-                    {{-- CAPA OSCURA SOBRE LA FOTO
-                         Facilita la lectura del texto blanco. --}}
+                    {{-- Capa oscura --}}
 
                     <div
-                        class="pointer-events-none absolute inset-0"
+                        class="
+                            pointer-events-none
+                            absolute
+                            inset-0
+                        "
                         style="
                             background:
                                 linear-gradient(
@@ -166,11 +198,16 @@
                     ></div>
 
 
-
-                    {{-- SOMBRA INFERIOR DE LA FOTO --}}
+                    {{-- Sombra inferior --}}
 
                     <div
-                        class="pointer-events-none absolute inset-x-0 bottom-0 h-72"
+                        class="
+                            pointer-events-none
+                            absolute
+                            inset-x-0
+                            bottom-0
+                            h-72
+                        "
                         style="
                             background:
                                 linear-gradient(
@@ -182,11 +219,16 @@
                     ></div>
 
 
-
-                    {{-- SOMBRA SUPERIOR DE LA FOTO --}}
+                    {{-- Sombra superior --}}
 
                     <div
-                        class="pointer-events-none absolute inset-x-0 top-0 h-52"
+                        class="
+                            pointer-events-none
+                            absolute
+                            inset-x-0
+                            top-0
+                            h-52
+                        "
                         style="
                             background:
                                 linear-gradient(
@@ -198,61 +240,96 @@
                     ></div>
 
 
-
-                    {{-- DETALLE ROJO SUPERIOR DERECHO --}}
+                    {{-- Detalle rojo --}}
 
                     <div
-                        class="absolute right-0 top-0 z-10 h-1.5 w-36"
+                        class="
+                            absolute
+                            right-0
+                            top-0
+                            z-10
+                            h-1.5
+                            w-36
+                        "
                         style="background:#DB0808;"
                     ></div>
 
 
 
                     {{-- =================================================
-                         LOGO Y NOMBRE DE NEXT LEVEL
-                         ================================================= --}}
+                         LOGO Y MARCA
+                    ================================================== --}}
 
                     <div class="relative z-20">
 
                         <div class="flex items-center gap-4">
 
 
-                            {{-- Logo transparente --}}
                             <div
-                                class="flex h-20 w-20 shrink-0 items-center justify-center"
+                                class="
+                                    flex
+                                    h-20
+                                    w-20
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                "
                             >
 
                                 <img
                                     src="{{ asset('images/logo-next-level.png') }}"
                                     alt="Next Level School"
-                                    class="h-full w-full object-contain drop-shadow-xl"
+                                    class="
+                                        h-full
+                                        w-full
+                                        object-contain
+                                        drop-shadow-xl
+                                    "
                                 >
 
                             </div>
 
 
-
-                            {{-- Nombre de la institución --}}
                             <div>
 
                                 <p
-                                    class="text-2xl font-extrabold tracking-tight text-white"
+                                    class="
+                                        text-2xl
+                                        font-extrabold
+                                        tracking-tight
+                                        text-white
+                                    "
                                 >
                                     Next Level
                                 </p>
 
 
-                                <div class="mt-1 flex items-center gap-2">
+                                <div
+                                    class="
+                                        mt-1
+                                        flex
+                                        items-center
+                                        gap-2
+                                    "
+                                >
 
-                                    {{-- Línea roja --}}
                                     <span
-                                        class="h-[3px] w-8 rounded-full"
+                                        class="
+                                            h-[3px]
+                                            w-8
+                                            rounded-full
+                                        "
                                         style="background:#DB0808;"
                                     ></span>
 
 
                                     <span
-                                        class="text-sm font-semibold tracking-[0.25em] text-slate-200"
+                                        class="
+                                            text-sm
+                                            font-semibold
+                                            tracking-[0.25em]
+                                            text-slate-200
+                                        "
                                     >
                                         SCHOOL
                                     </span>
@@ -268,25 +345,43 @@
 
 
                     {{-- =================================================
-                         CONTENIDO CENTRAL DEL PANEL IZQUIERDO
-                         ================================================= --}}
+                         CONTENIDO PRINCIPAL IZQUIERDO
+                    ================================================== --}}
 
                     <div
-                        class="relative z-20 my-auto py-12"
+                        class="
+                            relative
+                            z-20
+                            my-auto
+                            py-12
+                        "
                     >
 
 
-                        {{-- Etiqueta pequeña --}}
                         <span
-                            class="inline-flex items-center gap-2
-                                   rounded-full border border-white/15
-                                   bg-black/20 px-4 py-2
-                                   text-xs font-semibold text-white
-                                   backdrop-blur-sm"
+                            class="
+                                inline-flex
+                                items-center
+                                gap-2
+                                rounded-full
+                                border
+                                border-white/15
+                                bg-black/20
+                                px-4
+                                py-2
+                                text-xs
+                                font-semibold
+                                text-white
+                                backdrop-blur-sm
+                            "
                         >
 
                             <span
-                                class="h-2 w-2 rounded-full"
+                                class="
+                                    h-2
+                                    w-2
+                                    rounded-full
+                                "
                                 style="background:#DB0808;"
                             ></span>
 
@@ -295,12 +390,16 @@
                         </span>
 
 
-
-                        {{-- Título principal --}}
                         <h1
-                            class="mt-7 max-w-lg text-4xl
-                                   font-extrabold leading-[1.18]
-                                   tracking-tight text-white"
+                            class="
+                                mt-7
+                                max-w-lg
+                                text-4xl
+                                font-extrabold
+                                leading-[1.18]
+                                tracking-tight
+                                text-white
+                            "
                         >
 
                             Organiza tus horarios de forma
@@ -315,11 +414,14 @@
                         </h1>
 
 
-
-                        {{-- Descripción --}}
                         <p
-                            class="mt-6 max-w-lg text-[15px]
-                                   leading-7 text-slate-200"
+                            class="
+                                mt-6
+                                max-w-lg
+                                text-[15px]
+                                leading-7
+                                text-slate-200
+                            "
                         >
                             Administra profesores, cursos, aulas,
                             disponibilidades, asignaciones y horarios
@@ -327,10 +429,13 @@
                         </p>
 
 
-
-                        {{-- Pequeña línea decorativa --}}
                         <div
-                            class="mt-8 h-px w-20 bg-white/30"
+                            class="
+                                mt-8
+                                h-px
+                                w-20
+                                bg-white/30
+                            "
                         ></div>
 
                     </div>
@@ -338,21 +443,37 @@
 
 
                     {{-- =================================================
-                         PARTE INFERIOR DEL PANEL IZQUIERDO
-                         ================================================= --}}
+                         PIE IZQUIERDO
+                    ================================================== --}}
 
                     <div
-                        class="relative z-20 flex items-center gap-3
-                               border-t border-white/15 pt-6"
+                        class="
+                            relative
+                            z-20
+                            flex
+                            items-center
+                            gap-3
+                            border-t
+                            border-white/15
+                            pt-6
+                        "
                     >
 
 
-                        {{-- Icono de seguridad --}}
                         <div
-                            class="flex h-10 w-10 shrink-0
-                                   items-center justify-center
-                                   rounded-xl border border-white/10
-                                   bg-white/10 backdrop-blur-sm"
+                            class="
+                                flex
+                                h-10
+                                w-10
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-xl
+                                border
+                                border-white/10
+                                bg-white/10
+                                backdrop-blur-sm
+                            "
                         >
 
                             <svg
@@ -364,27 +485,39 @@
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                             >
+
                                 <path
                                     d="M12 3l7 4v5c0 5-3 8-7 9-4-1-7-4-7-9V7l7-4z"
-                                />
+                                ></path>
 
                                 <path
                                     d="M9 12l2 2 4-4"
-                                />
+                                ></path>
+
                             </svg>
 
                         </div>
 
 
-
-                        {{-- Descripción del acceso --}}
                         <div>
 
-                            <p class="text-xs font-bold text-white">
+                            <p
+                                class="
+                                    text-xs
+                                    font-bold
+                                    text-white
+                                "
+                            >
                                 Acceso administrativo
                             </p>
 
-                            <p class="mt-0.5 text-[11px] text-slate-300">
+                            <p
+                                class="
+                                    mt-0.5
+                                    text-[11px]
+                                    text-slate-300
+                                "
+                            >
                                 Sistema de gestión de horarios
                             </p>
 
@@ -396,51 +529,80 @@
 
 
 
-                {{-- =================================================
+                {{-- =====================================================
                      PANEL DERECHO
-                     Contiene el formulario de inicio de sesión.
-                     ================================================= --}}
+                ====================================================== --}}
 
                 <div
-                    class="relative flex min-h-[700px]
-                           flex-col justify-center
-                           px-6 py-8
-                           sm:px-10 sm:py-10
-                           lg:px-14 lg:py-12"
+                    class="
+                        relative
+                        flex
+                        min-h-[700px]
+                        flex-col
+                        justify-center
+                        px-6
+                        py-8
+                        sm:px-10
+                        sm:py-10
+                        lg:px-14
+                        lg:py-12
+                    "
                 >
 
 
 
                     {{-- =================================================
-                         LOGO PARA CELULARES Y TABLETS
-                         El panel izquierdo se oculta en móvil,
-                         por eso aquí se muestra nuevamente el logo.
-                         ================================================= --}}
+                         LOGO MÓVIL
+                    ================================================== --}}
 
                     <div
-                        class="mb-8 flex items-center justify-center lg:hidden"
+                        class="
+                            mb-8
+                            flex
+                            items-center
+                            justify-center
+                            lg:hidden
+                        "
                     >
 
                         <div class="text-center">
 
                             <div
-                                class="mx-auto flex h-20 w-20
-                                       items-center justify-center
-                                       rounded-2xl bg-white p-2
-                                       shadow-lg ring-1 ring-slate-200"
+                                class="
+                                    mx-auto
+                                    flex
+                                    h-20
+                                    w-20
+                                    items-center
+                                    justify-center
+                                    rounded-2xl
+                                    bg-white
+                                    p-2
+                                    shadow-lg
+                                    ring-1
+                                    ring-slate-200
+                                "
                             >
 
                                 <img
                                     src="{{ asset('images/logo-next-level.png') }}"
                                     alt="Next Level School"
-                                    class="h-full w-full object-contain"
+                                    class="
+                                        h-full
+                                        w-full
+                                        object-contain
+                                    "
                                 >
 
                             </div>
 
 
                             <h1
-                                class="mt-4 text-2xl font-extrabold"
+                                class="
+                                    mt-4
+                                    text-2xl
+                                    font-extrabold
+                                "
                                 style="color:#0F2749;"
                             >
                                 Next Level School
@@ -453,20 +615,37 @@
 
 
                     {{-- =================================================
-                         ENCABEZADO DEL FORMULARIO
-                         ================================================= --}}
+                         ENCABEZADO
+                    ================================================== --}}
 
                     <div class="mb-8">
 
-                        <div class="mb-4 flex items-center gap-3">
+                        <div
+                            class="
+                                mb-4
+                                flex
+                                items-center
+                                gap-3
+                            "
+                        >
 
                             <span
-                                class="h-1 w-9 rounded-full"
+                                class="
+                                    h-1
+                                    w-9
+                                    rounded-full
+                                "
                                 style="background:#DB0808;"
                             ></span>
 
+
                             <span
-                                class="text-xs font-bold uppercase tracking-[0.20em]"
+                                class="
+                                    text-xs
+                                    font-bold
+                                    uppercase
+                                    tracking-[0.20em]
+                                "
                                 style="color:#DB0808;"
                             >
                                 Bienvenido
@@ -476,7 +655,12 @@
 
 
                         <h2
-                            class="text-3xl font-extrabold tracking-tight sm:text-4xl"
+                            class="
+                                text-3xl
+                                font-extrabold
+                                tracking-tight
+                                sm:text-4xl
+                            "
                             style="color:#0F2749;"
                         >
                             Iniciar sesión
@@ -484,10 +668,15 @@
 
 
                         <p
-                            class="mt-3 text-sm leading-6 text-slate-500"
+                            class="
+                                mt-3
+                                text-sm
+                                leading-6
+                                text-slate-500
+                            "
                         >
-                            Ingresa tus credenciales para acceder
-                            al panel administrativo.
+                            Ingresa tu correo electrónico y contraseña
+                            para acceder al panel administrativo.
                         </p>
 
                     </div>
@@ -495,54 +684,71 @@
 
 
                     {{-- =================================================
-                         MENSAJES DEL LOGIN
-                         Aquí aparecen errores o confirmación de acceso.
-                         ================================================= --}}
+                         MENSAJE DEL LOGIN
+                    ================================================== --}}
 
                     <div
                         id="login-mensaje"
-                        class="mb-5 hidden rounded-xl border
-                               px-4 py-3 text-sm font-medium"
-                    >
-                    </div>
+                        class="
+                            mb-5
+                            hidden
+                            rounded-xl
+                            border
+                            px-4
+                            py-3
+                            text-sm
+                            font-medium
+                        "
+                    ></div>
 
 
 
                     {{-- =================================================
-                         FORMULARIO DE LOGIN
-                         ================================================= --}}
+                         FORMULARIO
+                    ================================================== --}}
 
                     <form
                         id="login-form"
                         class="space-y-5"
-                        autocomplete="off"
+                        autocomplete="on"
                     >
 
 
+
                         {{-- =============================================
-                             CAMPO USUARIO
-                             ============================================= --}}
+                             CORREO ELECTRÓNICO
+                        ============================================== --}}
 
                         <div>
 
                             <label
-                                for="usuario"
-                                class="mb-2 block text-sm
-                                       font-semibold text-slate-700"
+                                for="email"
+                                class="
+                                    mb-2
+                                    block
+                                    text-sm
+                                    font-semibold
+                                    text-slate-700
+                                "
                             >
-                                Usuario
+                                Correo electrónico
                             </label>
 
 
                             <div class="relative">
 
 
-                                {{-- Icono de usuario --}}
                                 <div
-                                    class="pointer-events-none absolute
-                                           inset-y-0 left-0
-                                           flex items-center pl-4
-                                           text-slate-400"
+                                    class="
+                                        pointer-events-none
+                                        absolute
+                                        inset-y-0
+                                        left-0
+                                        flex
+                                        items-center
+                                        pl-4
+                                        text-slate-400
+                                    "
                                 >
 
                                     <svg
@@ -551,40 +757,53 @@
                                         fill="none"
                                         stroke="currentColor"
                                         stroke-width="1.8"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
                                     >
-                                        <circle
-                                            cx="12"
-                                            cy="8"
-                                            r="4"
-                                        ></circle>
+
+                                        <rect
+                                            x="3"
+                                            y="5"
+                                            width="18"
+                                            height="14"
+                                            rx="2"
+                                        ></rect>
 
                                         <path
-                                            d="M4 21a8 8 0 0 1 16 0"
+                                            d="m3 7 9 6 9-6"
                                         ></path>
+
                                     </svg>
 
                                 </div>
 
 
-
-                                {{-- Entrada de usuario --}}
                                 <input
-                                    type="text"
-                                    id="usuario"
-                                    name="nextlevel_demo_usuario"
-                                    autocomplete="off"
-                                    placeholder="Ingresa tu usuario"
-                                    class="w-full rounded-xl
-                                           border border-slate-200
-                                           bg-slate-50
-                                           py-3.5 pl-12 pr-4
-                                           text-sm text-slate-800
-                                           outline-none transition
-                                           hover:border-slate-300
-                                           focus:border-[#1B3A6B]
-                                           focus:bg-white
-                                           focus:ring-4
-                                           focus:ring-blue-100"
+                                    type="email"
+                                    id="email"
+                                    name="email"
+                                    autocomplete="email"
+                                    placeholder="Ingresa tu correo electrónico"
+                                    required
+                                    class="
+                                        w-full
+                                        rounded-xl
+                                        border
+                                        border-slate-200
+                                        bg-slate-50
+                                        py-3.5
+                                        pl-12
+                                        pr-4
+                                        text-sm
+                                        text-slate-800
+                                        outline-none
+                                        transition
+                                        hover:border-slate-300
+                                        focus:border-[#1B3A6B]
+                                        focus:bg-white
+                                        focus:ring-4
+                                        focus:ring-blue-100
+                                    "
                                 >
 
                             </div>
@@ -594,15 +813,20 @@
 
 
                         {{-- =============================================
-                             CAMPO CONTRASEÑA
-                             ============================================= --}}
+                             CONTRASEÑA
+                        ============================================== --}}
 
                         <div>
 
                             <label
                                 for="password"
-                                class="mb-2 block text-sm
-                                       font-semibold text-slate-700"
+                                class="
+                                    mb-2
+                                    block
+                                    text-sm
+                                    font-semibold
+                                    text-slate-700
+                                "
                             >
                                 Contraseña
                             </label>
@@ -611,12 +835,17 @@
                             <div class="relative">
 
 
-                                {{-- Icono de candado --}}
                                 <div
-                                    class="pointer-events-none absolute
-                                           inset-y-0 left-0
-                                           flex items-center pl-4
-                                           text-slate-400"
+                                    class="
+                                        pointer-events-none
+                                        absolute
+                                        inset-y-0
+                                        left-0
+                                        flex
+                                        items-center
+                                        pl-4
+                                        text-slate-400
+                                    "
                                 >
 
                                     <svg
@@ -644,37 +873,49 @@
                                 </div>
 
 
-
-                                {{-- Entrada de contraseña --}}
                                 <input
                                     type="password"
                                     id="password"
-                                    name="nextlevel_demo_password"
-                                    autocomplete="new-password"
+                                    name="password"
+                                    autocomplete="current-password"
                                     placeholder="Ingresa tu contraseña"
-                                    class="w-full rounded-xl
-                                           border border-slate-200
-                                           bg-slate-50
-                                           py-3.5 pl-12 pr-12
-                                           text-sm text-slate-800
-                                           outline-none transition
-                                           hover:border-slate-300
-                                           focus:border-[#1B3A6B]
-                                           focus:bg-white
-                                           focus:ring-4
-                                           focus:ring-blue-100"
+                                    required
+                                    class="
+                                        w-full
+                                        rounded-xl
+                                        border
+                                        border-slate-200
+                                        bg-slate-50
+                                        py-3.5
+                                        pl-12
+                                        pr-12
+                                        text-sm
+                                        text-slate-800
+                                        outline-none
+                                        transition
+                                        hover:border-slate-300
+                                        focus:border-[#1B3A6B]
+                                        focus:bg-white
+                                        focus:ring-4
+                                        focus:ring-blue-100
+                                    "
                                 >
 
 
-
-                                {{-- Botón para mostrar u ocultar contraseña --}}
                                 <button
                                     type="button"
                                     id="btn-ver-password"
-                                    class="absolute inset-y-0 right-0
-                                           flex items-center px-4
-                                           text-slate-400 transition
-                                           hover:text-slate-700"
+                                    class="
+                                        absolute
+                                        inset-y-0
+                                        right-0
+                                        flex
+                                        items-center
+                                        px-4
+                                        text-slate-400
+                                        transition
+                                        hover:text-slate-700
+                                    "
                                     aria-label="Mostrar u ocultar contraseña"
                                 >
 
@@ -707,19 +948,31 @@
 
 
                         {{-- =============================================
-                             BOTÓN PARA INICIAR SESIÓN
-                             ============================================= --}}
+                             BOTÓN INICIAR SESIÓN
+                        ============================================== --}}
 
                         <button
                             type="submit"
-                            class="group flex w-full
-                                   items-center justify-center gap-2
-                                   rounded-xl px-4 py-3.5
-                                   text-sm font-bold text-white
-                                   shadow-lg transition duration-200
-                                   hover:-translate-y-0.5
-                                   hover:shadow-xl
-                                   active:translate-y-0"
+                            class="
+                                group
+                                flex
+                                w-full
+                                items-center
+                                justify-center
+                                gap-2
+                                rounded-xl
+                                px-4
+                                py-3.5
+                                text-sm
+                                font-bold
+                                text-white
+                                shadow-lg
+                                transition
+                                duration-200
+                                hover:-translate-y-0.5
+                                hover:shadow-xl
+                                active:translate-y-0
+                            "
                             style="
                                 background:
                                     linear-gradient(
@@ -734,9 +987,12 @@
                         >
 
                             <svg
-                                class="h-5 w-5
-                                       transition-transform
-                                       group-hover:translate-x-0.5"
+                                class="
+                                    h-5
+                                    w-5
+                                    transition-transform
+                                    group-hover:translate-x-0.5
+                                "
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -762,83 +1018,131 @@
                         </button>
 
                     </form>
-                    {{-- =================================================
-     REGISTRO DE NUEVO USUARIO
-================================================= --}}
-
-<div class="mt-5 text-center">
-
-    <p class="text-sm text-slate-500">
-
-        ¿No tienes una cuenta?
-
-        <a
-            href="{{ route('register') }}"
-            class="
-                ml-1
-                font-bold
-                transition
-                hover:underline
-            "
-            style="color:#1B3A6B;"
-        >
-            Crear cuenta
-        </a>
-
-    </p>
-
-</div>
 
 
 
                     {{-- =================================================
-                         DIVISOR ENTRE LOGIN Y CONSULTA DEL PROFESOR
-                         ================================================= --}}
+                         REGISTRO
+                    ================================================== --}}
 
-                    <div class="my-7 flex items-center gap-4">
+                    <div class="mt-5 text-center">
 
-                        <div class="h-px flex-1 bg-slate-200"></div>
+                        <p class="text-sm text-slate-500">
 
-                        <span
-                            class="text-[11px] font-bold
-                                   uppercase tracking-widest
-                                   text-slate-400"
-                        >
-                            También puedes
-                        </span>
+                            ¿No tienes una cuenta?
 
-                        <div class="h-px flex-1 bg-slate-200"></div>
+                            <a
+                                href="{{ route('register') }}"
+                                class="
+                                    ml-1
+                                    font-bold
+                                    transition
+                                    hover:underline
+                                "
+                                style="color:#1B3A6B;"
+                            >
+                                Crear cuenta
+                            </a>
+
+                        </p>
 
                     </div>
 
 
 
                     {{-- =================================================
-                         ACCESO PARA CONSULTAR HORARIO DE PROFESOR
-                         No inicia sesión como administrador.
-                         ================================================= --}}
+                         DIVISOR
+                    ================================================== --}}
+
+                    <div
+                        class="
+                            my-7
+                            flex
+                            items-center
+                            gap-4
+                        "
+                    >
+
+                        <div
+                            class="
+                                h-px
+                                flex-1
+                                bg-slate-200
+                            "
+                        ></div>
+
+
+                        <span
+                            class="
+                                text-[11px]
+                                font-bold
+                                uppercase
+                                tracking-widest
+                                text-slate-400
+                            "
+                        >
+                            También puedes
+                        </span>
+
+
+                        <div
+                            class="
+                                h-px
+                                flex-1
+                                bg-slate-200
+                            "
+                        ></div>
+
+                    </div>
+
+
+
+                    {{-- =================================================
+                         CONSULTA PÚBLICA
+                    ================================================== --}}
 
                     <a
                         href="{{ route('horarios.consulta') }}"
-                        class="group flex w-full
-                               items-center justify-between
-                               rounded-xl border border-slate-200
-                               bg-white px-4 py-3.5
-                               transition
-                               hover:border-red-200
-                               hover:bg-red-50/50"
+                        class="
+                            group
+                            flex
+                            w-full
+                            items-center
+                            justify-between
+                            rounded-xl
+                            border
+                            border-slate-200
+                            bg-white
+                            px-4
+                            py-3.5
+                            transition
+                            hover:border-red-200
+                            hover:bg-red-50/50
+                        "
                     >
 
-                        <div class="flex items-center gap-3">
+                        <div
+                            class="
+                                flex
+                                items-center
+                                gap-3
+                            "
+                        >
 
 
-                            {{-- Icono profesor --}}
                             <div
-                                class="flex h-10 w-10 shrink-0
-                                       items-center justify-center
-                                       rounded-lg bg-red-50
-                                       transition
-                                       group-hover:bg-red-100"
+                                class="
+                                    flex
+                                    h-10
+                                    w-10
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    bg-red-50
+                                    transition
+                                    group-hover:bg-red-100
+                                "
                                 style="color:#DB0808;"
                             >
 
@@ -865,20 +1169,26 @@
                             </div>
 
 
-
-                            {{-- Texto --}}
                             <div class="text-left">
 
                                 <p
-                                    class="text-sm font-bold text-slate-800"
+                                    class="
+                                        text-sm
+                                        font-bold
+                                        text-slate-800
+                                    "
                                 >
-                                    Ver horario de profesor
+                                    Consultar horario
                                 </p>
 
                                 <p
-                                    class="mt-0.5 text-xs text-slate-500"
+                                    class="
+                                        mt-0.5
+                                        text-xs
+                                        text-slate-500
+                                    "
                                 >
-                                    Consulta tu horario semanal
+                                    Consulta horarios sin iniciar sesión
                                 </p>
 
                             </div>
@@ -886,13 +1196,15 @@
                         </div>
 
 
-
-                        {{-- Flecha derecha --}}
                         <svg
-                            class="h-5 w-5 text-slate-400
-                                   transition
-                                   group-hover:translate-x-1
-                                   group-hover:text-red-500"
+                            class="
+                                h-5
+                                w-5
+                                text-slate-400
+                                transition
+                                group-hover:translate-x-1
+                                group-hover:text-red-500
+                            "
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -910,126 +1222,18 @@
 
 
                     {{-- =================================================
-                         CREDENCIALES DE DEMOSTRACIÓN
-                         Muestra qué usuario y contraseña usar.
-                         ================================================= --}}
-
-                    <div
-                        class="mt-6 overflow-hidden
-                               rounded-xl border border-slate-200
-                               bg-slate-50"
-                    >
-
-                        <div class="flex">
-
-
-                            {{-- Línea roja lateral --}}
-                            <div
-                                class="w-1.5 shrink-0"
-                                style="background:#DB0808;"
-                            ></div>
-
-
-                            <div class="flex-1 px-4 py-3">
-
-                                <div class="flex items-start gap-3">
-
-
-                                    {{-- Icono de información --}}
-                                    <div
-                                        class="mt-0.5 flex h-8 w-8
-                                               shrink-0 items-center
-                                               justify-center rounded-lg
-                                               bg-white shadow-sm"
-                                        style="color:#1B3A6B;"
-                                    >
-
-                                        <svg
-                                            class="h-4 w-4"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                        >
-
-                                            <circle
-                                                cx="12"
-                                                cy="12"
-                                                r="9"
-                                            ></circle>
-
-                                            <path
-                                                d="M12 11v5"
-                                            ></path>
-
-                                            <path
-                                                d="M12 8h.01"
-                                            ></path>
-
-                                        </svg>
-
-                                    </div>
-
-
-
-                                    {{-- Datos de acceso --}}
-                                    <div>
-
-                                        <p
-                                            class="text-xs font-bold"
-                                            style="color:#0F2749;"
-                                        >
-                                            Credenciales de demostración
-                                        </p>
-
-
-                                        <p
-                                            class="mt-1.5 text-xs text-slate-500"
-                                        >
-
-                                            Usuario:
-
-                                            <strong class="text-slate-700">
-                                                admin
-                                            </strong>
-
-
-                                            <span
-                                                class="mx-1.5 text-slate-300"
-                                            >
-                                                |
-                                            </span>
-
-
-                                            Contraseña:
-
-                                            <strong class="text-slate-700">
-                                                admin123
-                                            </strong>
-
-                                        </p>
-
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-
-                    {{-- =================================================
-                         PIE DEL LOGIN
-                         ================================================= --}}
+                         PIE
+                    ================================================== --}}
 
                     <p
-                        class="mt-7 text-center
-                               text-[11px] text-slate-400"
+                        class="
+                            mt-7
+                            text-center
+                            text-[11px]
+                            text-slate-400
+                        "
                     >
-                        © 2026 Next Level School · Gestión académica
+                        © {{ date('Y') }} Next Level School · Gestión académica
                     </p>
 
                 </div>
@@ -1043,82 +1247,90 @@
 
 
     {{-- =============================================================
-     JAVASCRIPT DEL LOGIN SIMULADO
-     No utiliza base de datos ni backend.
-     ============================================================= --}}
+         JAVASCRIPT DEL LOGIN
+         Autenticación real mediante la API de Laravel.
+    ============================================================= --}}
 
-<script>
-    document.addEventListener(
-        'DOMContentLoaded',
-        () => {
+    <script>
 
-            // =========================================================
-            // ELEMENTOS
-            // =========================================================
-
-            const form =
-                document.getElementById(
-                    'login-form'
-                );
-
-            const usuario =
-                document.getElementById(
-                    'usuario'
-                );
-
-            const password =
-                document.getElementById(
-                    'password'
-                );
-
-            const mensaje =
-                document.getElementById(
-                    'login-mensaje'
-                );
-
-            const btnVerPassword =
-                document.getElementById(
-                    'btn-ver-password'
-                );
+        document.addEventListener(
+            'DOMContentLoaded',
+            () => {
 
 
-            if (
-                !form ||
-                !usuario ||
-                !password ||
-                !mensaje
-            ) {
-                return;
-            }
+                // =====================================================
+                // ELEMENTOS
+                // =====================================================
+
+                const form =
+                    document.getElementById(
+                        'login-form'
+                    );
 
 
-            // =========================================================
-            // SI YA HAY TOKEN, IR AL DASHBOARD
-            // =========================================================
-
-            const tokenExistente =
-                localStorage.getItem(
-                    'nextlevel_token'
-                );
+                const emailInput =
+                    document.getElementById(
+                        'email'
+                    );
 
 
-            if (tokenExistente) {
-
-                window.location.replace(
-                    '/'
-                );
-
-                return;
-            }
+                const password =
+                    document.getElementById(
+                        'password'
+                    );
 
 
-            // =========================================================
-            // MOSTRAR / OCULTAR CONTRASEÑA
-            // =========================================================
+                const mensaje =
+                    document.getElementById(
+                        'login-mensaje'
+                    );
 
-            if (btnVerPassword) {
 
-                btnVerPassword.addEventListener(
+                const btnVerPassword =
+                    document.getElementById(
+                        'btn-ver-password'
+                    );
+
+
+                if (
+                    !form ||
+                    !emailInput ||
+                    !password ||
+                    !mensaje
+                ) {
+                    return;
+                }
+
+
+
+                // =====================================================
+                // SI YA EXISTE TOKEN
+                // =====================================================
+
+                const tokenExistente =
+                    localStorage.getItem(
+                        'nextlevel_token'
+                    );
+
+
+                if (
+                    tokenExistente
+                ) {
+
+                    window.location.replace(
+                        '/'
+                    );
+
+                    return;
+                }
+
+
+
+                // =====================================================
+                // MOSTRAR / OCULTAR CONTRASEÑA
+                // =====================================================
+
+                btnVerPassword?.addEventListener(
                     'click',
                     () => {
 
@@ -1131,329 +1343,376 @@
                                 : 'password';
                     }
                 );
-            }
 
 
-            // =========================================================
-            // MENSAJES
-            // =========================================================
 
-            function mostrarMensaje(
-                texto,
-                tipo = 'error'
-            ) {
+                // =====================================================
+                // MENSAJES
+                // =====================================================
 
-                mensaje.classList.remove(
-                    'hidden',
-
-                    'border-red-200',
-                    'bg-red-50',
-                    'text-red-700',
-
-                    'border-emerald-200',
-                    'bg-emerald-50',
-                    'text-emerald-700',
-
-                    'border-blue-200',
-                    'bg-blue-50',
-                    'text-blue-700'
-                );
-
-
-                if (
-                    tipo ===
-                    'success'
+                function mostrarMensaje(
+                    texto,
+                    tipo = 'error'
                 ) {
 
-                    mensaje.classList.add(
+                    mensaje.classList.remove(
+                        'hidden',
+
+                        'border-red-200',
+                        'bg-red-50',
+                        'text-red-700',
+
                         'border-emerald-200',
                         'bg-emerald-50',
-                        'text-emerald-700'
-                    );
+                        'text-emerald-700',
 
-                } else if (
-                    tipo ===
-                    'info'
-                ) {
-
-                    mensaje.classList.add(
                         'border-blue-200',
                         'bg-blue-50',
                         'text-blue-700'
                     );
 
-                } else {
 
-                    mensaje.classList.add(
-                        'border-red-200',
-                        'bg-red-50',
-                        'text-red-700'
-                    );
+                    if (
+                        tipo ===
+                        'success'
+                    ) {
+
+                        mensaje.classList.add(
+                            'border-emerald-200',
+                            'bg-emerald-50',
+                            'text-emerald-700'
+                        );
+
+                    } else if (
+                        tipo ===
+                        'info'
+                    ) {
+
+                        mensaje.classList.add(
+                            'border-blue-200',
+                            'bg-blue-50',
+                            'text-blue-700'
+                        );
+
+                    } else {
+
+                        mensaje.classList.add(
+                            'border-red-200',
+                            'bg-red-50',
+                            'text-red-700'
+                        );
+                    }
+
+
+                    mensaje.textContent =
+                        texto;
                 }
 
 
-                mensaje.textContent =
-                    texto;
-            }
+
+                // =====================================================
+                // LOGIN REAL
+                // =====================================================
+
+                form.addEventListener(
+                    'submit',
+                    async event => {
 
 
-            // =========================================================
-            // LOGIN REAL
-            // =========================================================
-
-            form.addEventListener(
-                'submit',
-                async event => {
-
-                    event.preventDefault();
+                        event.preventDefault();
 
 
-                    const email =
-                        usuario.value
-                            .trim();
-
-                    const pass =
-                        password.value;
+                        const email =
+                            emailInput.value
+                                .trim();
 
 
-                    // =================================================
-                    // VALIDAR VACÍOS
-                    // =================================================
-
-                    if (
-                        !email ||
-                        !pass
-                    ) {
-
-                        mostrarMensaje(
-                            'Completa el correo y la contraseña.',
-                            'error'
-                        );
-
-                        return;
-                    }
+                        const pass =
+                            password.value;
 
 
-                    // =================================================
-                    // DESHABILITAR BOTÓN
-                    // =================================================
 
-                    const submitButton =
-                        form.querySelector(
-                            'button[type="submit"]'
-                        );
-
-
-                    const textoOriginal =
-                        submitButton
-                            ? submitButton.innerHTML
-                            : null;
-
-
-                    if (submitButton) {
-
-                        submitButton.disabled =
-                            true;
-
-                        submitButton.classList.add(
-                            'opacity-70',
-                            'cursor-not-allowed'
-                        );
-
-                        submitButton.innerHTML =
-                            'Ingresando...';
-                    }
-
-
-                    try {
-
-                        // =============================================
-                        // PETICIÓN AL BACKEND
-                        // =============================================
-
-                        const response =
-                            await window.axios.post(
-                                '/api/auth/login',
-                                {
-                                    email:
-                                        email,
-
-                                    password:
-                                        pass
-                                }
-                            );
-
-
-                        const data =
-                            response?.data?.data;
-
-
-                        const token =
-                            data?.token;
-
-                        const user =
-                            data?.user;
-
-
-                        if (!token) {
-
-                            throw new Error(
-                                'El servidor no devolvió un token.'
-                            );
-                        }
-
-
-                        // =============================================
-                        // GUARDAR TOKEN REAL
-                        // =============================================
-
-                        localStorage.setItem(
-                            'nextlevel_token',
-                            token
-                        );
-
-
-                        // =============================================
-                        // GUARDAR USUARIO
-                        // =============================================
-
-                        localStorage.setItem(
-                            'nextlevel_usuario',
-                            JSON.stringify(
-                                user || {}
-                            )
-                        );
-
-
-                        // =============================================
-                        // COMPATIBILIDAD TEMPORAL
-                        // =============================================
-                        // Si alguna parte vieja del frontend todavía
-                        // consulta nextlevel_auth, lo mantenemos por ahora.
-
-                        localStorage.setItem(
-                            'nextlevel_auth',
-                            'true'
-                        );
-
-
-                        // =============================================
-                        // CONFIGURAR AXIOS INMEDIATAMENTE
-                        // =============================================
-
-                        window.axios.defaults.headers.common[
-                            'Authorization'
-                        ] =
-                            `Bearer ${token}`;
-
-
-                        mostrarMensaje(
-                            'Acceso correcto. Ingresando al sistema...',
-                            'success'
-                        );
-
-
-                        setTimeout(
-                            () => {
-
-                                window.location.replace(
-                                    '/'
-                                );
-                            },
-                            400
-                        );
-
-
-                    } catch (error) {
-
-                        console.error(
-                            'Error en login:',
-                            error
-                        );
-
-
-                        const status =
-                            error?.response?.status;
-
+                        // =================================================
+                        // VALIDAR CAMPOS
+                        // =================================================
 
                         if (
-                            status ===
-                            422
+                            !email ||
+                            !pass
                         ) {
 
-                            const errores =
-                                error?.response?.data?.errors;
-
-
-                            const errorEmail =
-                                errores?.email?.[0];
-
-
                             mostrarMensaje(
-                                errorEmail ||
-                                'Las credenciales son incorrectas.',
+                                'Completa el correo electrónico y la contraseña.',
                                 'error'
                             );
 
-                        } else {
-
-                            mostrarMensaje(
-                                error?.response?.data?.message ||
-                                'No se pudo iniciar sesión.',
-                                'error'
-                            );
+                            return;
                         }
 
 
-                    } finally {
 
-                        if (submitButton) {
+                        const submitButton =
+                            form.querySelector(
+                                'button[type="submit"]'
+                            );
+
+
+                        const textoOriginal =
+                            submitButton
+                                ? submitButton.innerHTML
+                                : null;
+
+
+
+                        // =================================================
+                        // ESTADO CARGANDO
+                        // =================================================
+
+                        if (
+                            submitButton
+                        ) {
 
                             submitButton.disabled =
-                                false;
+                                true;
 
-                            submitButton.classList.remove(
+
+                            submitButton.classList.add(
                                 'opacity-70',
                                 'cursor-not-allowed'
                             );
 
 
-                            if (textoOriginal !== null) {
+                            submitButton.innerHTML =
+                                'Ingresando...';
+                        }
 
-                                submitButton.innerHTML =
-                                    textoOriginal;
+
+
+                        try {
+
+
+                            // =============================================
+                            // PETICIÓN REAL AL BACKEND
+                            // =============================================
+
+                            const response =
+                                await window.axios.post(
+                                    '/api/auth/login',
+                                    {
+                                        email:
+                                            email,
+
+                                        password:
+                                            pass
+                                    }
+                                );
+
+
+                            const data =
+                                response?.data?.data;
+
+
+                            const token =
+                                data?.token;
+
+
+                            const user =
+                                data?.user;
+
+
+
+                            if (
+                                !token
+                            ) {
+
+                                throw new Error(
+                                    'El servidor no devolvió un token.'
+                                );
+                            }
+
+
+
+                            // =============================================
+                            // GUARDAR TOKEN
+                            // =============================================
+
+                            localStorage.setItem(
+                                'nextlevel_token',
+                                token
+                            );
+
+
+
+                            // =============================================
+                            // GUARDAR USUARIO AUTENTICADO
+                            // =============================================
+
+                            localStorage.setItem(
+                                'nextlevel_usuario',
+                                JSON.stringify(
+                                    user || {}
+                                )
+                            );
+
+
+
+                            // =============================================
+                            // COMPATIBILIDAD TEMPORAL
+                            // =============================================
+
+                            localStorage.setItem(
+                                'nextlevel_auth',
+                                'true'
+                            );
+
+
+
+                            // =============================================
+                            // CONFIGURAR AXIOS
+                            // =============================================
+
+                            window.axios
+                                .defaults
+                                .headers
+                                .common[
+                                    'Authorization'
+                                ] =
+                                    `Bearer ${token}`;
+
+
+
+                            mostrarMensaje(
+                                'Acceso correcto. Ingresando al sistema...',
+                                'success'
+                            );
+
+
+
+                            setTimeout(
+                                () => {
+
+                                    window.location.replace(
+                                        '/'
+                                    );
+                                },
+                                400
+                            );
+
+
+                        } catch (
+                            error
+                        ) {
+
+
+                            console.error(
+                                'Error en login:',
+                                error
+                            );
+
+
+                            const status =
+                                error?.response?.status;
+
+
+
+                            if (
+                                status ===
+                                422
+                            ) {
+
+                                const errores =
+                                    error
+                                        ?.response
+                                        ?.data
+                                        ?.errors;
+
+
+                                const errorEmail =
+                                    errores
+                                        ?.email
+                                        ?.[0];
+
+
+                                mostrarMensaje(
+                                    errorEmail ||
+                                    'El correo electrónico o la contraseña son incorrectos.',
+                                    'error'
+                                );
+
+                            } else {
+
+                                mostrarMensaje(
+                                    error
+                                        ?.response
+                                        ?.data
+                                        ?.message ||
+
+                                    'No se pudo iniciar sesión.',
+                                    'error'
+                                );
+                            }
+
+
+                        } finally {
+
+
+                            if (
+                                submitButton
+                            ) {
+
+                                submitButton.disabled =
+                                    false;
+
+
+                                submitButton.classList.remove(
+                                    'opacity-70',
+                                    'cursor-not-allowed'
+                                );
+
+
+                                if (
+                                    textoOriginal !==
+                                    null
+                                ) {
+
+                                    submitButton.innerHTML =
+                                        textoOriginal;
+                                }
                             }
                         }
                     }
-                }
-            );
-        }
-    );
-
-
-    // =============================================================
-    // PROTECCIÓN ATRÁS / ADELANTE
-    // =============================================================
-
-    window.addEventListener(
-        'pageshow',
-        () => {
-
-            const token =
-                localStorage.getItem(
-                    'nextlevel_token'
-                );
-
-
-            if (token) {
-
-                window.location.replace(
-                    '/'
                 );
             }
-        }
-    );
-</script>
+        );
+
+
+
+        // =============================================================
+        // PROTECCIÓN ATRÁS / ADELANTE
+        // =============================================================
+
+        window.addEventListener(
+            'pageshow',
+            () => {
+
+                const token =
+                    localStorage.getItem(
+                        'nextlevel_token'
+                    );
+
+
+                if (
+                    token
+                ) {
+
+                    window.location.replace(
+                        '/'
+                    );
+                }
+            }
+        );
+
+    </script>
 
 </body>
 
