@@ -1,12 +1,12 @@
 <?php
-// app/Http/Requests/RegisterRequest.php
+// app/Http/Requests/ResetPasswordRequest.php
 
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
-class RegisterRequest extends FormRequest
+class ResetPasswordRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,29 +16,25 @@ class RegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email|max:150',
+            'token' => 'required|string',
+            'email' => 'required|email|exists:users,email',
             'password' => [
                 'required',
                 'confirmed',
                 Password::min(6)->letters()->numbers(),
             ],
-            'codigo_invitacion' => 'required|string',
         ];
     }
 
     public function messages(): array
     {
         return [
-            'name.required' => 'El nombre es obligatorio',
-            'name.max' => 'El nombre no puede exceder 100 caracteres',
+            'token.required' => 'El token es obligatorio',
             'email.required' => 'El email es obligatorio',
-            'email.email' => 'El email debe ser una dirección válida',
-            'email.unique' => 'Este email ya está registrado',
+            'email.exists' => 'No existe una cuenta con este email',
             'password.required' => 'La contraseña es obligatoria',
             'password.confirmed' => 'Las contraseñas no coinciden',
             'password.min' => 'La contraseña debe tener al menos 6 caracteres',
-            'codigo_invitacion.required' => 'El código de invitación es obligatorio',
         ];
     }
 }
