@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>{{ $titulo ?? 'Horario Académico' }}</title>
+
     <style>
-        /* Estilos específicos para captura de imagen */
         * {
             margin: 0;
             padding: 0;
@@ -14,231 +15,803 @@
 
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
-            background: #ffffff;
-            padding: 20px;
-            width: 1000px;
+            background: #F8FAFC;
+            padding: 24px;
+            width: 1200px;
             margin: 0 auto;
+            color: #1E293B;
         }
 
         .container {
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            padding: 30px;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+            border-radius: 18px;
+            box-shadow: 0 12px 30px rgba(15, 39, 73, 0.08);
+            padding: 32px;
         }
+
+        /* =========================================================
+           HEADER
+        ========================================================= */
 
         .header {
-            text-align: center;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 3px solid #2C3E50;
+            margin-bottom: 24px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .brand {
+            font-size: 30px;
+            font-weight: 800;
+            color: #0F2749;
+            letter-spacing: -0.5px;
+        }
+
+        .brand span {
+            color: #DB0808;
+        }
+
+        .brand-subtitle {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.9px;
+            font-weight: 700;
+        }
+
+        .generated {
+            text-align: right;
+        }
+
+        .generated-label {
+            color: #94A3B8;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+        }
+
+        .generated-date {
+            margin-top: 4px;
+            color: #0F2749;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .brand-line {
+            width: 100%;
+            height: 5px;
+            margin-top: 18px;
+            background: #0F2749;
+            border-radius: 4px;
             position: relative;
+            overflow: hidden;
         }
 
-        .header .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #2C3E50;
+        .brand-line::before {
+            content: "";
+            display: block;
+            width: 120px;
+            height: 100%;
+            background: #DB0808;
         }
 
-        .header .logo span {
-            color: #3498DB;
+        /* =========================================================
+           TITLE
+        ========================================================= */
+
+        .title-section {
+            margin-bottom: 20px;
         }
 
-        .header .subtitle {
-            font-size: 18px;
-            color: #7F8C8D;
+        .title-label {
+            color: #DB0808;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .title {
             margin-top: 5px;
+            color: #0F2749;
+            font-size: 26px;
+            line-height: 1.2;
+            font-weight: 800;
         }
 
-        .header .info {
-            font-size: 12px;
-            color: #95A5A6;
-            margin-top: 5px;
+        .description {
+            margin-top: 6px;
+            color: #64748B;
+            font-size: 13px;
         }
 
-        .header .filters {
-            background: #F8F9FA;
-            padding: 8px 15px;
-            border-radius: 6px;
-            margin-top: 10px;
-            font-size: 12px;
-            color: #555;
-            border-left: 4px solid #3498DB;
-            display: inline-block;
+        /* =========================================================
+           INFO CARD
+        ========================================================= */
+
+        .info-card {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 14px;
+            padding: 16px 18px;
+            margin-bottom: 22px;
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-left: 5px solid #1B3A6B;
+            border-radius: 12px;
+        }
+
+        .info-item {
+            min-width: 0;
+        }
+
+        .info-label {
+            color: #64748B;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            margin-top: 4px;
+            color: #0F2749;
+            font-size: 13px;
+            font-weight: 800;
+            word-break: break-word;
+        }
+
+        /* =========================================================
+           TABLE
+        ========================================================= */
+
+        .table-wrapper {
+            width: 100%;
+            overflow: hidden;
+            border: 1px solid #E2E8F0;
+            border-radius: 12px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 15px;
-            font-size: 13px;
+            table-layout: fixed;
         }
 
-        table thead th {
-            background: linear-gradient(135deg, #2C3E50, #34495E);
+        thead th {
+            background: #0F2749;
             color: #FFFFFF;
-            padding: 12px 10px;
+            padding: 11px 6px;
             text-align: center;
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-        }
-
-        table tbody td {
-            padding: 10px 8px;
-            text-align: center;
-            border-bottom: 1px solid #ECF0F1;
-        }
-
-        table tbody tr:nth-child(even) {
-            background-color: #F8F9FA;
-        }
-
-        table tbody tr:hover {
-            background-color: #EBF5FB;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 3px 12px;
-            border-radius: 20px;
             font-size: 10px;
-            font-weight: 600;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            border-right: 1px solid rgba(255,255,255,0.12);
         }
 
-        .badge-activo {
-            background: #D4EDDA;
-            color: #155724;
+        thead th:last-child {
+            border-right: none;
         }
 
-        .badge-modificado {
-            background: #FFF3CD;
-            color: #856404;
-        }
-
-        .badge-cancelado {
-            background: #F8D7DA;
-            color: #721C24;
-        }
-
-        .footer {
-            margin-top: 20px;
-            padding-top: 15px;
-            border-top: 2px solid #ECF0F1;
+        tbody td {
+            padding: 10px 6px;
             text-align: center;
-            font-size: 11px;
-            color: #95A5A6;
-        }
-
-        .footer .total {
-            font-weight: bold;
-            color: #2C3E50;
-            font-size: 14px;
-        }
-
-        .footer .copyright {
-            margin-top: 5px;
-        }
-
-        .color-box {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
-            margin-right: 5px;
             vertical-align: middle;
+            border-bottom: 1px solid #E2E8F0;
+            border-right: 1px solid #E2E8F0;
+            font-size: 11px;
+            color: #334155;
+            word-break: break-word;
         }
+
+        tbody td:last-child {
+            border-right: none;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #F8FAFC;
+        }
+
+        .col-numero {
+            width: 4%;
+        }
+
+        .col-profesor {
+            width: 15%;
+        }
+
+        .col-curso {
+            width: 15%;
+        }
+
+        .col-grado {
+            width: 13%;
+        }
+
+        .col-aula {
+            width: 10%;
+        }
+
+        .col-institucion {
+            width: 9%;
+        }
+
+        .col-dia {
+            width: 8%;
+        }
+
+        .col-hora {
+            width: 7%;
+        }
+
+        .col-turno {
+            width: 6%;
+        }
+
+        .col-estado {
+            width: 6%;
+        }
+
+        /* =========================================================
+           CONTENT
+        ========================================================= */
 
         .profesor-name {
-            font-weight: 600;
-            color: #2C3E50;
+            color: #0F2749;
+            font-weight: 800;
         }
 
         .curso-name {
-            color: #3498DB;
+            color: #1B3A6B;
+            font-weight: 800;
+        }
+
+        .aula-name {
+            color: #334155;
+            font-weight: 800;
+        }
+
+        .codigo {
+            display: block;
+            margin-top: 3px;
+            color: #94A3B8;
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .hora {
+            color: #0F2749;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        /* =========================================================
+           BADGES
+        ========================================================= */
+
+        .badge {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-activo {
+            background: #DCFCE7;
+            color: #166534;
+        }
+
+        .badge-modificado {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+
+        .badge-cancelado {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+
+        .badge-default {
+            background: #E2E8F0;
+            color: #475569;
+        }
+
+        /* =========================================================
+           EMPTY
+        ========================================================= */
+
+        .empty {
+            padding: 40px !important;
+            color: #94A3B8 !important;
+            font-size: 13px !important;
+            text-align: center !important;
+        }
+
+        /* =========================================================
+           FOOTER
+        ========================================================= */
+
+        .footer {
+            margin-top: 22px;
+            padding-top: 16px;
+            border-top: 1px solid #E2E8F0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .footer-left {
+            color: #64748B;
+            font-size: 11px;
+        }
+
+        .footer-left strong {
+            color: #0F2749;
+        }
+
+        .footer-total {
+            background: #0F2749;
+            color: #FFFFFF;
+            padding: 9px 14px;
+            border-radius: 9px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .footer-total span {
+            font-size: 16px;
         }
     </style>
 </head>
+
 <body>
-    <div class="container" id="horario-container">
-        <div class="header">
-            <div class="logo">🏫 <span>Next Level</span> School</div>
-            <div class="subtitle">{{ $titulo ?? 'Horario Académico' }}</div>
-            <div class="info">📅 Generado: {{ now()->format('d/m/Y H:i:s') }}</div>
-            @if(!empty($filtros))
-                <div class="filters">
-                    🔍 Filtros:
-                    @foreach($filtros as $key => $value)
-                        {{ ucfirst($key) }}: {{ $value }}
-                    @endforeach
+
+@php
+    $primerHorario = $horarios->first();
+
+    $institucionFiltro = $filtros['institucion'] ?? null;
+
+    $nombreInstitucion = match($institucionFiltro) {
+        'colegio' => 'Colegio',
+        'academia' => 'Academia',
+        default => $primerHorario
+            ? ucfirst($primerHorario->institucion ?? 'No especificada')
+            : 'No especificada',
+    };
+
+    $nombreProfesor =
+        $primerHorario?->profesor?->nombre_completo ?? 'No especificado';
+
+    $codigoProfesor =
+        $primerHorario?->profesor?->codigo ?? 'N/A';
+
+    $periodo =
+        $primerHorario?->periodo_academico ?? 'No especificado';
+@endphp
+
+<div
+    class="container"
+    id="horario-container"
+>
+
+    {{-- =====================================================
+         HEADER
+    ====================================================== --}}
+
+    <div class="header">
+
+        <div class="header-top">
+
+            <div>
+
+                <div class="brand">
+                    Next Level <span>School</span>
                 </div>
-            @endif
+
+                <div class="brand-subtitle">
+                    Sistema de Gestión Académica
+                </div>
+
+            </div>
+
+
+            <div class="generated">
+
+                <div class="generated-label">
+                    Documento generado
+                </div>
+
+                <div class="generated-date">
+                    {{ now()->format('d/m/Y H:i') }}
+                </div>
+
+            </div>
+
         </div>
+
+
+        <div class="brand-line"></div>
+
+    </div>
+
+
+    {{-- =====================================================
+         TITLE
+    ====================================================== --}}
+
+    <div class="title-section">
+
+        <div class="title-label">
+            Horario académico
+        </div>
+
+        <div class="title">
+            {{ $titulo ?? 'Horario Académico' }}
+        </div>
+
+        <div class="description">
+            Distribución oficial de clases registrada en el sistema Next Level.
+        </div>
+
+    </div>
+
+
+    {{-- =====================================================
+         INFO
+    ====================================================== --}}
+
+    <div class="info-card">
+
+        <div class="info-item">
+
+            <div class="info-label">
+                Profesor
+            </div>
+
+            <div class="info-value">
+                {{ $nombreProfesor }}
+            </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+            <div class="info-label">
+                Código
+            </div>
+
+            <div class="info-value">
+                {{ $codigoProfesor }}
+            </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+            <div class="info-label">
+                Institución
+            </div>
+
+            <div class="info-value">
+                {{ $nombreInstitucion }}
+            </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+            <div class="info-label">
+                Periodo académico
+            </div>
+
+            <div class="info-value">
+                {{ $periodo }}
+            </div>
+
+        </div>
+
+
+        <div class="info-item">
+
+            <div class="info-label">
+                Total de clases
+            </div>
+
+            <div class="info-value">
+                {{ $horarios->count() }}
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {{-- =====================================================
+         TABLE
+    ====================================================== --}}
+
+    <div class="table-wrapper">
 
         <table>
+
             <thead>
+
                 <tr>
-                    <th style="width: 40px;">#</th>
-                    <th style="width: 160px;">Profesor</th>
-                    <th style="width: 160px;">Curso</th>
-                    <th style="width: 120px;">Grado</th>
-                    <th style="width: 80px;">Aula</th>
-                    <th style="width: 90px;">Institución</th>
-                    <th style="width: 70px;">Día</th>
-                    <th style="width: 80px;">Hora Inicio</th>
-                    <th style="width: 80px;">Hora Fin</th>
-                    <th style="width: 60px;">Turno</th>
-                    <th style="width: 70px;">Estado</th>
+
+                    <th class="col-numero">
+                        #
+                    </th>
+
+                    <th class="col-profesor">
+                        Profesor
+                    </th>
+
+                    <th class="col-curso">
+                        Curso
+                    </th>
+
+                    <th class="col-grado">
+                        Grado
+                    </th>
+
+                    <th class="col-aula">
+                        Aula
+                    </th>
+
+                    <th class="col-institucion">
+                        Institución
+                    </th>
+
+                    <th class="col-dia">
+                        Día
+                    </th>
+
+                    <th class="col-hora">
+                        Inicio
+                    </th>
+
+                    <th class="col-hora">
+                        Fin
+                    </th>
+
+                    <th class="col-turno">
+                        Turno
+                    </th>
+
+                    <th class="col-estado">
+                        Estado
+                    </th>
+
                 </tr>
+
             </thead>
+
+
             <tbody>
-                @forelse($horarios as $index => $h)
-                    <tr>
-                        <td>{{ $index + 1 }}</td>
-                        <td>
-                            <div class="profesor-name">{{ $h->profesor->nombre_completo ?? 'N/A' }}</div>
-                        </td>
-                        <td>
-                            <div class="curso-name">{{ $h->curso->nombre ?? 'N/A' }}</div>
-                            <small style="color: #999; font-size: 10px;">{{ $h->curso->codigo ?? '' }}</small>
-                        </td>
-                        <td>{{ $h->grado->nombre_completo ?? 'N/A' }}</td>
-                        <td>
-                            <strong>{{ $h->aula->nombre ?? 'N/A' }}</strong>
-                            <br>
-                            <small style="color: #999; font-size: 10px;">Cap: {{ $h->aula->capacidad ?? 0 }}</small>
-                        </td>
-                        <td>{{ ucfirst($h->institucion ?? 'N/A') }}</td>
-                        <td>{{ ucfirst($h->dia_semana) }}</td>
-                        <td>{{ $h->hora_inicio }}</td>
-                        <td>{{ $h->hora_fin }}</td>
-                        <td>{{ ucfirst($h->turno) }}</td>
-                        <td>
-                            <span class="badge badge-{{ $h->estado }}">
-                                {{ ucfirst($h->estado) }}
+
+            @forelse($horarios as $index => $h)
+
+                @php
+                    $estado = strtolower($h->estado ?? '');
+
+                    $badgeClass = match($estado) {
+                        'activo' => 'badge-activo',
+                        'modificado' => 'badge-modificado',
+                        'cancelado' => 'badge-cancelado',
+                        default => 'badge-default',
+                    };
+
+                    try {
+                        $horaInicio = \Carbon\Carbon::parse(
+                            $h->hora_inicio
+                        )->format('H:i');
+                    } catch (\Exception $e) {
+                        $horaInicio = substr(
+                            (string) $h->hora_inicio,
+                            0,
+                            5
+                        );
+                    }
+
+                    try {
+                        $horaFin = \Carbon\Carbon::parse(
+                            $h->hora_fin
+                        )->format('H:i');
+                    } catch (\Exception $e) {
+                        $horaFin = substr(
+                            (string) $h->hora_fin,
+                            0,
+                            5
+                        );
+                    }
+                @endphp
+
+
+                <tr>
+
+                    <td>
+                        {{ $index + 1 }}
+                    </td>
+
+
+                    <td>
+
+                        <span class="profesor-name">
+                            {{ $h->profesor->nombre_completo ?? 'N/A' }}
+                        </span>
+
+                        @if(!empty($h->profesor->codigo))
+
+                            <span class="codigo">
+                                {{ $h->profesor->codigo }}
                             </span>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="11" style="text-align: center; padding: 40px; color: #999;">
-                            📭 No hay horarios disponibles para exportar
-                        </td>
-                    </tr>
-                @endforelse
+
+                        @endif
+
+                    </td>
+
+
+                    <td>
+
+                        <span class="curso-name">
+                            {{ $h->curso->nombre ?? 'N/A' }}
+                        </span>
+
+                        @if(!empty($h->curso->codigo))
+
+                            <span class="codigo">
+                                {{ $h->curso->codigo }}
+                            </span>
+
+                        @endif
+
+                    </td>
+
+
+                    <td>
+
+                        {{ $h->grado->nombre_completo ?? 'N/A' }}
+
+                        @if(!empty($h->grado->codigo))
+
+                            <span class="codigo">
+                                {{ $h->grado->codigo }}
+                            </span>
+
+                        @endif
+
+                    </td>
+
+
+                    <td>
+
+                        <span class="aula-name">
+                            {{ $h->aula->nombre ?? 'N/A' }}
+                        </span>
+
+                        @if(!empty($h->aula->codigo))
+
+                            <span class="codigo">
+                                {{ $h->aula->codigo }}
+                            </span>
+
+                        @endif
+
+                    </td>
+
+
+                    <td>
+                        {{ ucfirst($h->institucion ?? 'N/A') }}
+                    </td>
+
+
+                    <td>
+                        {{ ucfirst($h->dia_semana ?? 'N/A') }}
+                    </td>
+
+
+                    <td class="hora">
+                        {{ $horaInicio }}
+                    </td>
+
+
+                    <td class="hora">
+                        {{ $horaFin }}
+                    </td>
+
+
+                    <td>
+                        {{ ucfirst($h->turno ?? 'N/A') }}
+                    </td>
+
+
+                    <td>
+
+                        <span class="badge {{ $badgeClass }}">
+                            {{ ucfirst($h->estado ?? 'N/A') }}
+                        </span>
+
+                    </td>
+
+                </tr>
+
+
+            @empty
+
+                <tr>
+
+                    <td
+                        colspan="11"
+                        class="empty"
+                    >
+                        No existen horarios disponibles para exportar.
+                    </td>
+
+                </tr>
+
+            @endforelse
+
             </tbody>
+
         </table>
 
-        <div class="footer">
-            <div class="total">
-                📊 Total de clases: {{ $horarios->count() }}
-            </div>
-            <div class="copyright">
-                © {{ date('Y') }} Academia Next Level School - Todos los derechos reservados
-            </div>
-        </div>
     </div>
+
+
+    {{-- =====================================================
+         FOOTER
+    ====================================================== --}}
+
+    <div class="footer">
+
+        <div class="footer-left">
+
+            <strong>
+                Next Level School
+            </strong>
+
+            · Sistema de Gestión de Horarios
+
+            <br>
+
+            © {{ date('Y') }} Next Level School
+
+        </div>
+
+
+        <div class="footer-total">
+
+            Total:
+
+            <span>
+                {{ $horarios->count() }}
+            </span>
+
+            {{ $horarios->count() === 1 ? 'clase' : 'clases' }}
+
+        </div>
+
+    </div>
+
+</div>
+
 </body>
 </html>

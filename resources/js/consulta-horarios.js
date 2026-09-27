@@ -1,20 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // =============================================================
-    // STORAGE
-    // =============================================================
-
-    const KEYS = {
-        profesores: 'nextlevel_profesores',
-        horarios: 'nextlevel_horarios',
-        cursos: 'nextlevel_cursos',
-        aulas: 'nextlevel_aulas',
-        grados: 'nextlevel_grados'
-    };
-
-
-    // =============================================================
-    // ELEMENTOS
+    // ELEMENTOS PRINCIPALES
     // =============================================================
 
     const botonesInstitucion =
@@ -27,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-tipo-grado') ||
         document.querySelector('[data-tipo="grado"]');
 
-
     const selector =
         document.getElementById('consulta-selector');
 
@@ -37,10 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnConsultar =
         document.getElementById('btn-consultar-horario');
 
-
     const mensaje =
         document.getElementById('consulta-mensaje');
-
 
     const consultaInfo =
         document.getElementById('consulta-info');
@@ -56,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const consultaInstitucion =
         document.getElementById('consulta-institucion');
-
 
     const horarioContainer =
         document.getElementById('horario-container');
@@ -83,9 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const customText =
         document.getElementById('custom-select-text');
-
-    const customMenu =
-        document.getElementById('custom-select-menu');
 
     const customSearch =
         document.getElementById('custom-select-search');
@@ -126,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =============================================================
-    // GUARD
+    // VALIDACIÓN INICIAL
     // =============================================================
 
     if (
@@ -136,6 +116,50 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
         return;
     }
+
+
+    // =============================================================
+    // API PÚBLICA
+    // =============================================================
+
+    const API = {
+
+        profesores:
+            '/api/publico/profesores',
+
+        grados:
+            '/api/publico/grados',
+
+        aulas:
+            '/api/publico/aulas',
+
+        cursos:
+            '/api/publico/cursos',
+
+        horarioProfesor:
+            id =>
+                `/api/publico/horario/profesor/${id}`,
+
+        horarioProfesorPdf:
+            id =>
+                `/api/publico/horario/profesor/${id}/pdf`,
+
+        horarioProfesorImagen:
+            id =>
+                `/api/publico/horario/profesor/${id}/imagen`,
+
+        horarioGrado:
+            id =>
+                `/api/publico/horario/grado/${id}`,
+
+        horarioAula:
+            id =>
+                `/api/publico/horario/aula/${id}`,
+
+        horarioCurso:
+            id =>
+                `/api/publico/horario/curso/${id}`
+    };
 
 
     // =============================================================
@@ -154,6 +178,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let opcionesSelectorActuales = [];
 
+    let temporizadorBusqueda = null;
+
+    let consultaBusquedaActual = 0;
+
+    let cargandoOpciones = false;
+
+    let touchInicioX = null;
+
 
     // =============================================================
     // DÍAS
@@ -167,63 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'Viernes',
         'Sábado'
     ];
-
-
-    // =============================================================
-    // STORAGE
-    // =============================================================
-
-    function leerStorage(clave) {
-
-        try {
-
-            const datos =
-                JSON.parse(
-                    localStorage.getItem(clave) ||
-                    '[]'
-                );
-
-
-            return Array.isArray(datos)
-                ? datos
-                : [];
-
-        } catch (error) {
-
-            console.error(
-                `Error leyendo ${clave}:`,
-                error
-            );
-
-
-            return [];
-        }
-    }
-
-
-    function obtenerProfesores() {
-        return leerStorage(KEYS.profesores);
-    }
-
-
-    function obtenerHorarios() {
-        return leerStorage(KEYS.horarios);
-    }
-
-
-    function obtenerCursos() {
-        return leerStorage(KEYS.cursos);
-    }
-
-
-    function obtenerAulas() {
-        return leerStorage(KEYS.aulas);
-    }
-
-
-    function obtenerGrados() {
-        return leerStorage(KEYS.grados);
-    }
 
 
     // =============================================================
@@ -254,16 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function buscarPorId(lista, id) {
-
-        return lista.find(
-            item =>
-                String(item.id) ===
-                String(id)
-        ) || null;
-    }
-
-
     function limpiarNombreArchivo(texto) {
 
         return normalizarTexto(texto)
@@ -278,125 +243,221 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // =============================================================
-    // INSTITUCIÓN
-    // =============================================================
-
-    function obtenerInstitucion(objeto) {
-
-        if (!objeto) {
-            return '';
-        }
-
-
-        const valor =
-            objeto.institucion ??
-            objeto.tipo_institucion ??
-            objeto.institucion_nombre ??
-            objeto.tipoInstitucion ??
-            '';
-
-
-        return normalizarTexto(valor);
-    }
-
-
-    function perteneceInstitucion(
-        objeto,
-        institucion
-    ) {
-
-        const encontrada =
-            obtenerInstitucion(objeto);
-
-
-        /*
-         * Compatibilidad temporal con registros antiguos.
-         */
-        if (!encontrada) {
-
-            /*
-             * Para profesores sí podemos mirar instituciones.
-             */
-            if (
-                Array.isArray(
-                    objeto?.instituciones
-                ) &&
-                objeto.instituciones.length
-            ) {
-
-                return objeto.instituciones
-                    .map(normalizarTexto)
-                    .includes(
-                        normalizarTexto(
-                            institucion
-                        )
-                    );
-            }
-
-
-            return true;
-        }
-
-
-        return encontrada ===
-            normalizarTexto(
-                institucion
-            );
-    }
-
-
-    // =============================================================
-    // DÍA
-    // =============================================================
-
     function normalizarDia(dia) {
 
         const valor =
             normalizarTexto(dia);
 
-
         const mapa = {
 
-            '1': 'Lunes',
-            '2': 'Martes',
-            '3': 'Miércoles',
-            '4': 'Jueves',
-            '5': 'Viernes',
-            '6': 'Sábado',
+            '1':
+                'Lunes',
 
-            lunes: 'Lunes',
-            martes: 'Martes',
-            miercoles: 'Miércoles',
-            jueves: 'Jueves',
-            viernes: 'Viernes',
-            sabado: 'Sábado'
+            '2':
+                'Martes',
+
+            '3':
+                'Miércoles',
+
+            '4':
+                'Jueves',
+
+            '5':
+                'Viernes',
+
+            '6':
+                'Sábado',
+
+            lunes:
+                'Lunes',
+
+            martes:
+                'Martes',
+
+            miercoles:
+                'Miércoles',
+
+            jueves:
+                'Jueves',
+
+            viernes:
+                'Viernes',
+
+            sabado:
+                'Sábado'
         };
-
 
         return mapa[valor] || '';
     }
 
 
-    function aMinutos(hora) {
+    function horaCorta(hora) {
 
         if (!hora) {
+            return '';
+        }
+
+        const texto =
+            String(hora);
+
+        const coincidencia =
+            texto.match(
+                /(\d{2}):(\d{2})/
+            );
+
+        if (coincidencia) {
+
+            return `${coincidencia[1]}:${coincidencia[2]}`;
+        }
+
+        return texto;
+    }
+
+
+    function aMinutos(hora) {
+
+        const corta =
+            horaCorta(hora);
+
+        const partes =
+            corta.split(':');
+
+        if (
+            partes.length <
+            2
+        ) {
             return 0;
         }
 
-
-        const partes =
-            String(hora)
-                .split(':');
-
-
         return (
-            (Number(partes[0]) || 0) *
+            Number(partes[0]) *
             60
         ) +
-        (
-            Number(partes[1]) || 0
+        Number(partes[1]);
+    }
+
+
+    function obtenerMensajeError(
+        error,
+        fallback = 'Ocurrió un error.'
+    ) {
+
+        if (
+            typeof error ===
+            'string'
+        ) {
+            return error;
+        }
+
+        if (
+            error?.message
+        ) {
+            return error.message;
+        }
+
+        return fallback;
+    }
+
+
+    // =============================================================
+    // PETICIONES
+    // =============================================================
+
+    async function apiGet(
+        url,
+        params = {}
+    ) {
+
+        const query =
+            new URLSearchParams();
+
+        Object.entries(
+            params
+        ).forEach(
+            ([clave, valor]) => {
+
+                if (
+                    valor !== undefined &&
+                    valor !== null &&
+                    String(valor).trim() !== ''
+                ) {
+
+                    query.set(
+                        clave,
+                        valor
+                    );
+                }
+            }
         );
+
+        const ruta =
+            query.toString()
+                ? `${url}?${query.toString()}`
+                : url;
+
+
+        const respuesta =
+            await fetch(
+                ruta,
+                {
+                    method:
+                        'GET',
+
+                    headers: {
+                        Accept:
+                            'application/json'
+                    }
+                }
+            );
+
+
+        let data = {};
+
+        try {
+
+            data =
+                await respuesta.json();
+
+        } catch (error) {
+
+            data = {};
+        }
+
+
+        if (
+            !respuesta.ok
+        ) {
+
+            let mensajeError =
+                data?.message ||
+                `Error HTTP ${respuesta.status}`;
+
+            if (
+                data?.errors
+            ) {
+
+                const errores =
+                    Object.values(
+                        data.errors
+                    ).flat();
+
+                if (
+                    errores.length
+                ) {
+
+                    mensajeError =
+                        errores[0];
+                }
+            }
+
+
+            throw new Error(
+                mensajeError
+            );
+        }
+
+
+        return data;
     }
 
 
@@ -404,14 +465,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // NOMBRES
     // =============================================================
 
-    function nombreProfesor(profesor) {
+    function nombreProfesor(
+        profesor
+    ) {
 
         if (!profesor) {
             return 'Profesor';
         }
 
+        return (
+            profesor.nombre_completo ||
 
-        const completo =
             [
                 profesor.nombre,
                 profesor.apellido_paterno,
@@ -423,244 +487,208 @@ document.addEventListener('DOMContentLoaded', () => {
                     /\s+/g,
                     ' '
                 )
-                .trim();
+                .trim() ||
 
-
-        return completo ||
-            profesor.nombre_completo ||
-            profesor.nombreCompleto ||
-            `Profesor ${profesor.id}`;
+            `Profesor ${profesor.id}`
+        );
     }
 
 
-    function nombreCurso(curso) {
+    function nombreCurso(
+        curso
+    ) {
 
         if (!curso) {
             return 'Curso';
         }
 
-
-        return curso.nombre ||
+        return (
+            curso.nombre ||
             curso.nombre_curso ||
             curso.descripcion ||
-            `Curso ${curso.id}`;
+            curso.codigo ||
+            `Curso ${curso.id}`
+        );
     }
 
 
-    function nombreAula(aula) {
+    function nombreAula(
+        aula
+    ) {
 
         if (!aula) {
             return 'Aula';
         }
 
-
-        return aula.nombre ||
+        return (
+            aula.nombre ||
             aula.nombre_aula ||
             aula.codigo ||
-            `Aula ${aula.id}`;
+            `Aula ${aula.id}`
+        );
     }
 
 
-    // =============================================================
-    // NIVEL DE GRADO
-    // =============================================================
-
-    function obtenerNivelGrado(grado) {
+    function obtenerNivelGrado(
+        grado
+    ) {
 
         if (!grado) {
             return '';
         }
 
-
-        const valor =
-            grado.nivel ??
-            grado.nivel_educativo ??
-            grado.tipo_nivel ??
-            grado.nivelEducativo ??
-            '';
-
-
         const normalizado =
-            normalizarTexto(valor);
-
+            normalizarTexto(
+                grado.nivel ||
+                grado.nivel_educativo ||
+                ''
+            );
 
         if (
-            normalizado.includes(
-                'primaria'
-            )
+            normalizado ===
+            'primaria'
         ) {
             return 'Primaria';
         }
 
-
         if (
-            normalizado.includes(
-                'secundaria'
-            )
+            normalizado ===
+            'secundaria'
         ) {
             return 'Secundaria';
         }
 
+        if (
+            normalizado ===
+            'academia'
+        ) {
+            return 'Academia';
+        }
 
         return '';
     }
 
 
-    function nombreBaseGrado(grado) {
+    function nombreGrado(
+        grado
+    ) {
 
         if (!grado) {
             return 'Grado';
         }
 
-
-        const nombre =
-            grado.nombre ||
-            grado.nombre_grado ||
-            grado.grado ||
-            '';
-
-
-        const seccion =
-            grado.seccion ||
-            '';
-
-
-        if (
-            nombre &&
-            seccion &&
-            !normalizarTexto(nombre)
-                .includes(
-                    normalizarTexto(
-                        seccion
-                    )
-                )
-        ) {
-
-            return `${nombre} ${seccion}`;
-        }
-
-
-        return nombre ||
-            `Grado ${grado.id}`;
-    }
-
-
-    function nombreGrado(grado) {
-
         const base =
-            nombreBaseGrado(
-                grado
-            );
+            grado.nombre_completo ||
 
+            grado.nombre ||
+
+            [
+                grado.grado,
+                grado.seccion
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .trim() ||
+
+            `Grado ${grado.id}`;
 
         const nivel =
             obtenerNivelGrado(
                 grado
             );
 
+        if (
+            nivel &&
+            !normalizarTexto(
+                base
+            ).includes(
+                normalizarTexto(
+                    nivel
+                )
+            )
+        ) {
 
-        return nivel
-            ? `${base} · ${nivel}`
-            : base;
+            return `${base} · ${nivel}`;
+        }
+
+        return base;
     }
 
 
-    // =============================================================
-    // NOMBRE SEGÚN TIPO
-    // =============================================================
+    function codigoRegistro(
+        registro
+    ) {
+
+        return String(
+            registro?.codigo ||
+            ''
+        ).trim();
+    }
+
 
     function obtenerNombreRegistro(
         tipo,
         registro
     ) {
 
-        if (
-            tipo ===
-            'profesor'
-        ) {
+        switch (tipo) {
 
-            return nombreProfesor(
-                registro
-            );
+            case 'profesor':
+
+                return nombreProfesor(
+                    registro
+                );
+
+            case 'grado':
+
+                return nombreGrado(
+                    registro
+                );
+
+            case 'aula':
+
+                return nombreAula(
+                    registro
+                );
+
+            case 'curso':
+
+                return nombreCurso(
+                    registro
+                );
+
+            default:
+
+                return '';
         }
-
-
-        if (
-            tipo ===
-            'grado'
-        ) {
-
-            return nombreGrado(
-                registro
-            );
-        }
-
-
-        if (
-            tipo ===
-            'aula'
-        ) {
-
-            return nombreAula(
-                registro
-            );
-        }
-
-
-        if (
-            tipo ===
-            'curso'
-        ) {
-
-            return nombreCurso(
-                registro
-            );
-        }
-
-
-        return '';
     }
 
 
-    // =============================================================
-    // LISTAS
-    // =============================================================
-
-    function obtenerListaTipo(tipo) {
-
-        if (
-            tipo ===
-            'profesor'
-        ) {
-            return obtenerProfesores();
-        }
-
+    function etiquetaRegistro(
+        tipo,
+        registro
+    ) {
 
         if (
-            tipo ===
-            'grado'
+            registro?.label
         ) {
-            return obtenerGrados();
+            return registro.label;
         }
 
+        const codigo =
+            codigoRegistro(
+                registro
+            );
 
-        if (
-            tipo ===
-            'aula'
-        ) {
-            return obtenerAulas();
-        }
+        const nombre =
+            obtenerNombreRegistro(
+                tipo,
+                registro
+            );
 
-
-        if (
-            tipo ===
-            'curso'
-        ) {
-            return obtenerCursos();
-        }
-
-
-        return [];
+        return codigo
+            ? `${codigo} - ${nombre}`
+            : nombre;
     }
 
 
@@ -753,7 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =============================================================
-    // BOTONES INSTITUCIÓN
+    // BOTONES DE INSTITUCIÓN
     // =============================================================
 
     function actualizarBotonesInstitucion() {
@@ -771,30 +799,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     activo
                 );
 
-
                 boton.classList.toggle(
                     'bg-[#0F2749]',
                     activo
                 );
-
 
                 boton.classList.toggle(
                     'text-white',
                     activo
                 );
 
-
                 boton.classList.toggle(
                     'border-slate-200',
                     !activo
                 );
 
-
                 boton.classList.toggle(
                     'bg-white',
                     !activo
                 );
-
 
                 boton.classList.toggle(
                     'text-slate-700',
@@ -806,41 +829,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =============================================================
-    // DISPONIBILIDAD DE TIPO
+    // BOTONES DE TIPO
     // =============================================================
 
     function actualizarDisponibilidadTipos() {
 
-        if (!botonTipoGrado) {
-            return;
-        }
-
-
-        if (
-            institucionSeleccionada ===
-            'academia'
-        ) {
-
-            botonTipoGrado.classList.add(
-                'hidden'
-            );
-
-
-            if (
-                tipoSeleccionado ===
-                'grado'
-            ) {
-
-                tipoSeleccionado =
-                    '';
-            }
-
-        } else {
-
-            botonTipoGrado.classList.remove(
-                'hidden'
-            );
-        }
+        botonTipoGrado?.classList.remove(
+            'hidden'
+        );
     }
 
 
@@ -859,30 +855,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     activo
                 );
 
-
                 boton.classList.toggle(
                     'bg-[#0F2749]',
                     activo
                 );
-
 
                 boton.classList.toggle(
                     'text-white',
                     activo
                 );
 
-
                 boton.classList.toggle(
                     'border-slate-200',
                     !activo
                 );
 
-
                 boton.classList.toggle(
                     'bg-white',
                     !activo
                 );
-
 
                 boton.classList.toggle(
                     'text-slate-700',
@@ -894,41 +885,136 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =============================================================
-    // LIMPIAR RESULTADO
+    // RESULTADOS
     // =============================================================
 
     function limpiarResultado() {
 
-        mensaje.classList.add(
+        mensaje?.classList.add(
             'hidden'
         );
 
-
-        consultaInfo.classList.add(
+        consultaInfo?.classList.add(
             'hidden'
         );
 
-
-        horarioContainer.classList.add(
+        horarioContainer?.classList.add(
             'hidden'
         );
-
 
         horarioRender.innerHTML =
             '';
-
 
         accionesDescarga?.classList.remove(
             'visible'
         );
 
-
         registroSeleccionadoActual =
             null;
 
-
         horariosSeleccionadosActuales =
             [];
+    }
+
+
+    function mostrarMensaje(
+        texto,
+        tipo = 'error'
+    ) {
+
+        if (!mensaje) {
+            return;
+        }
+
+
+        mensaje.className =
+            'mb-6 rounded-xl border px-4 py-3 text-sm';
+
+
+        if (
+            tipo ===
+            'error'
+        ) {
+
+            mensaje.classList.add(
+                'border-red-200',
+                'bg-red-50',
+                'text-red-700'
+            );
+
+        } else {
+
+            mensaje.classList.add(
+                'border-blue-200',
+                'bg-blue-50',
+                'text-blue-700'
+            );
+        }
+
+
+        mensaje.textContent =
+            texto;
+
+        mensaje.classList.remove(
+            'hidden'
+        );
+    }
+
+
+    // =============================================================
+    // ENDPOINTS SEGÚN TIPO
+    // =============================================================
+
+    function endpointListado(
+        tipo
+    ) {
+
+        const mapa = {
+
+            profesor:
+                API.profesores,
+
+            grado:
+                API.grados,
+
+            aula:
+                API.aulas,
+
+            curso:
+                API.cursos
+        };
+
+        return mapa[tipo] || null;
+    }
+
+
+    function endpointHorario(
+        tipo,
+        id
+    ) {
+
+        const mapa = {
+
+            profesor:
+                API.horarioProfesor,
+
+            grado:
+                API.horarioGrado,
+
+            aula:
+                API.horarioAula,
+
+            curso:
+                API.horarioCurso
+        };
+
+
+        const funcion =
+            mapa[tipo];
+
+        return funcion
+            ? funcion(id)
+            : null;
     }
 
 
@@ -942,7 +1028,6 @@ document.addEventListener('DOMContentLoaded', () => {
             'open'
         );
 
-
         customButton?.setAttribute(
             'aria-expanded',
             'false'
@@ -953,16 +1038,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function abrirCustomSelect() {
 
         if (
+            !customButton ||
             customButton.disabled
         ) {
             return;
         }
 
 
-        customSelect.classList.add(
+        customSelect?.classList.add(
             'open'
         );
-
 
         customButton.setAttribute(
             'aria-expanded',
@@ -970,16 +1055,25 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        customSearch.value =
-            '';
+        if (
+            customSearch
+        ) {
+
+            customSearch.value =
+                '';
+
+            customSearch.placeholder =
+                'Buscar por nombre o código...';
+        }
 
 
         renderOpcionesCustom();
 
 
         setTimeout(
-            () =>
-                customSearch.focus(),
+            () => {
+                customSearch?.focus();
+            },
             30
         );
     }
@@ -987,20 +1081,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function actualizarCustomSelectVisual() {
 
+        if (
+            !customButton
+        ) {
+            return;
+        }
+
+
         customButton.disabled =
             selector.disabled;
 
 
-        customSmall.textContent =
-            selectorLabel.textContent ||
-            'Seleccionar';
+        if (
+            customSmall
+        ) {
+
+            customSmall.textContent =
+                selectorLabel?.textContent ||
+                'Seleccionar';
+        }
 
 
-        customIcon.innerHTML =
-            iconoTipo(
-                tipoSeleccionado ||
-                'curso'
-            );
+        if (
+            customIcon
+        ) {
+
+            customIcon.innerHTML =
+                iconoTipo(
+                    tipoSeleccionado ||
+                    'curso'
+                );
+        }
 
 
         const opcion =
@@ -1009,20 +1120,38 @@ document.addEventListener('DOMContentLoaded', () => {
             ];
 
 
-        customText.textContent =
-            opcion?.textContent ||
-            'Seleccionar';
+        if (
+            customText
+        ) {
+
+            customText.textContent =
+                opcion?.textContent ||
+                'Seleccionar';
+        }
     }
 
 
-    function renderOpcionesCustom(
-        busqueda = ''
-    ) {
+    function renderOpcionesCustom() {
 
-        const query =
-            normalizarTexto(
-                busqueda
-            );
+        if (
+            !customOptions
+        ) {
+            return;
+        }
+
+
+        if (
+            cargandoOpciones
+        ) {
+
+            customOptions.innerHTML = `
+                <div class="custom-select-empty">
+                    Buscando...
+                </div>
+            `;
+
+            return;
+        }
 
 
         if (
@@ -1031,39 +1160,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             customOptions.innerHTML = `
                 <div class="custom-select-empty">
-                    No hay opciones disponibles
+                    No hay resultados disponibles
                 </div>
             `;
-
-
-            return;
-        }
-
-
-        const filtradas =
-            opcionesSelectorActuales.filter(
-                item =>
-                    normalizarTexto(
-                        item.texto
-                    ).includes(
-                        query
-                    ) ||
-                    normalizarTexto(
-                        item.nivel
-                    ).includes(
-                        query
-                    )
-            );
-
-
-        if (!filtradas.length) {
-
-            customOptions.innerHTML = `
-                <div class="custom-select-empty">
-                    No se encontraron resultados
-                </div>
-            `;
-
 
             return;
         }
@@ -1072,12 +1171,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let html =
             '';
 
-
         let ultimoNivel =
             null;
 
 
-        filtradas.forEach(
+        opcionesSelectorActuales.forEach(
             item => {
 
                 if (
@@ -1137,11 +1235,45 @@ document.addEventListener('DOMContentLoaded', () => {
                         </span>
 
 
-                        <span class="custom-option-text">
+                        <span
+                            class="custom-option-text"
+                            style="
+                                display:flex;
+                                flex-direction:column;
+                                gap:2px;
+                            "
+                        >
 
-                            ${escaparHTML(
-                                item.texto
-                            )}
+                            <span>
+
+                                ${escaparHTML(
+                                    item.nombre
+                                )}
+
+                            </span>
+
+
+                            ${
+                                item.codigo
+
+                                    ? `
+                                        <span
+                                            style="
+                                                font-size:9px;
+                                                color:#94A3B8;
+                                                font-weight:800;
+                                                letter-spacing:.04em;
+                                            "
+                                        >
+                                            CÓDIGO:
+                                            ${escaparHTML(
+                                                item.codigo
+                                            )}
+                                        </span>
+                                    `
+
+                                    : ''
+                            }
 
                         </span>
 
@@ -1194,7 +1326,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             actualizarCustomSelectVisual();
 
-
                             cerrarCustomSelect();
                         }
                     );
@@ -1203,69 +1334,262 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    customButton?.addEventListener(
-        'click',
-        () => {
+    // =============================================================
+    // CARGAR OPCIONES REALES
+    // =============================================================
 
-            if (
-                customSelect.classList.contains(
-                    'open'
-                )
-            ) {
+    async function cargarOpciones(
+        busqueda = ''
+    ) {
 
-                cerrarCustomSelect();
-
-            } else {
-
-                abrirCustomSelect();
-            }
+        if (
+            !institucionSeleccionada ||
+            !tipoSeleccionado
+        ) {
+            return;
         }
-    );
 
 
-    customSearch?.addEventListener(
-        'input',
-        () => {
-
-            renderOpcionesCustom(
-                customSearch.value
+        const endpoint =
+            endpointListado(
+                tipoSeleccionado
             );
+
+
+        if (!endpoint) {
+            return;
         }
-    );
 
 
-    document.addEventListener(
-        'click',
-        event => {
+        const numeroConsulta =
+            ++consultaBusquedaActual;
+
+
+        cargandoOpciones =
+            true;
+
+
+        renderOpcionesCustom();
+
+
+        try {
+
+            const respuesta =
+                await apiGet(
+                    endpoint,
+                    {
+                        institucion:
+                            institucionSeleccionada,
+
+                        search:
+                            busqueda.trim()
+                    }
+                );
+
 
             if (
-                !event.target.closest(
-                    '#custom-select'
+                numeroConsulta !==
+                consultaBusquedaActual
+            ) {
+                return;
+            }
+
+
+            const lista =
+                Array.isArray(
+                    respuesta?.data
                 )
+                    ? respuesta.data
+                    : [];
+
+
+            opcionesSelectorActuales =
+                lista.map(
+                    registro => {
+
+                        const nivel =
+                            tipoSeleccionado ===
+                            'grado'
+                                ? obtenerNivelGrado(
+                                    registro
+                                )
+                                : '';
+
+
+                        return {
+
+                            id:
+                                String(
+                                    registro.id
+                                ),
+
+                            registro,
+
+                            codigo:
+                                codigoRegistro(
+                                    registro
+                                ),
+
+                            nombre:
+                                etiquetaRegistro(
+                                    tipoSeleccionado,
+                                    registro
+                                ),
+
+                            nivel:
+                                nivel
+                        };
+                    }
+                );
+
+
+            actualizarSelectNativo();
+
+        } catch (error) {
+
+            console.error(
+                'Error cargando opciones:',
+                error
+            );
+
+
+            opcionesSelectorActuales =
+                [];
+
+
+            mostrarMensaje(
+                obtenerMensajeError(
+                    error,
+                    'No se pudieron cargar las opciones.'
+                )
+            );
+
+        } finally {
+
+            if (
+                numeroConsulta ===
+                consultaBusquedaActual
             ) {
 
-                cerrarCustomSelect();
+                cargandoOpciones =
+                    false;
+
+                renderOpcionesCustom();
             }
         }
-    );
+    }
 
 
-    // =============================================================
-    // ACTUALIZAR SELECTOR
-    // =============================================================
+    function actualizarSelectNativo() {
 
-    function actualizarSelector() {
-
-        limpiarResultado();
+        const valorActual =
+            selector.value;
 
 
         selector.innerHTML =
             '';
 
 
+        const etiquetas = {
+
+            profesor:
+                'profesor',
+
+            grado:
+                'grado',
+
+            aula:
+                'aula',
+
+            curso:
+                'curso'
+        };
+
+
+        const placeholder =
+            document.createElement(
+                'option'
+            );
+
+
+        placeholder.value =
+            '';
+
+        placeholder.textContent =
+            `Seleccione ${
+                etiquetas[
+                    tipoSeleccionado
+                ] ||
+                'opción'
+            }`;
+
+
+        selector.appendChild(
+            placeholder
+        );
+
+
+        opcionesSelectorActuales.forEach(
+            item => {
+
+                const option =
+                    document.createElement(
+                        'option'
+                    );
+
+
+                option.value =
+                    item.id;
+
+                option.textContent =
+                    item.nombre;
+
+
+                selector.appendChild(
+                    option
+                );
+            }
+        );
+
+
+        const existeValor =
+            opcionesSelectorActuales.some(
+                item =>
+                    String(item.id) ===
+                    String(valorActual)
+            );
+
+
+        selector.value =
+            existeValor
+                ? valorActual
+                : '';
+
+
+        selector.disabled =
+            false;
+
+
+        actualizarCustomSelectVisual();
+    }
+
+
+    // =============================================================
+    // ACTUALIZAR SELECTOR
+    // =============================================================
+
+    async function actualizarSelector() {
+
+        limpiarResultado();
+
+        cerrarCustomSelect();
+
+
+        selector.innerHTML =
+            '';
+
         selector.disabled =
             true;
-
 
         opcionesSelectorActuales =
             [];
@@ -1275,8 +1599,13 @@ document.addEventListener('DOMContentLoaded', () => {
             !institucionSeleccionada
         ) {
 
-            selectorLabel.textContent =
-                'Seleccionar';
+            if (
+                selectorLabel
+            ) {
+
+                selectorLabel.textContent =
+                    'Seleccionar';
+            }
 
 
             selector.innerHTML = `
@@ -1288,7 +1617,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             actualizarCustomSelectVisual();
 
-
             return;
         }
 
@@ -1297,8 +1625,13 @@ document.addEventListener('DOMContentLoaded', () => {
             !tipoSeleccionado
         ) {
 
-            selectorLabel.textContent =
-                'Seleccionar';
+            if (
+                selectorLabel
+            ) {
+
+                selectorLabel.textContent =
+                    'Seleccionar';
+            }
 
 
             selector.innerHTML = `
@@ -1309,28 +1642,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             actualizarCustomSelectVisual();
-
-
-            return;
-        }
-
-
-        if (
-            institucionSeleccionada ===
-            'academia' &&
-            tipoSeleccionado ===
-            'grado'
-        ) {
-
-            tipoSeleccionado =
-                '';
-
-
-            actualizarBotonesTipo();
-
-
-            actualizarSelector();
-
 
             return;
         }
@@ -1352,335 +1663,33 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
 
-        selectorLabel.textContent =
-            etiquetas[
-                tipoSeleccionado
-            ];
-
-
-        let lista =
-            obtenerListaTipo(
-                tipoSeleccionado
-            );
-
-
-        /*
-         * Filtrado por institución.
-         */
-        lista =
-            lista.filter(
-                item =>
-                    perteneceInstitucion(
-                        item,
-                        institucionSeleccionada
-                    )
-            );
-
-
-        /*
-         * En Colegio se muestran Primaria y Secundaria.
-         */
         if (
-            tipoSeleccionado ===
-            'grado'
+            selectorLabel
         ) {
 
-            lista =
-                lista.filter(
-                    grado => {
-
-                        const nivel =
-                            obtenerNivelGrado(
-                                grado
-                            );
-
-
-                        return (
-                            nivel ===
-                            'Primaria' ||
-                            nivel ===
-                            'Secundaria' ||
-                            nivel ===
-                            ''
-                        );
-                    }
-                );
+            selectorLabel.textContent =
+                etiquetas[
+                    tipoSeleccionado
+                ];
         }
-
-
-        lista.sort(
-            (a,b) => {
-
-                const nivelA =
-                    obtenerNivelGrado(
-                        a
-                    );
-
-
-                const nivelB =
-                    obtenerNivelGrado(
-                        b
-                    );
-
-
-                if (
-                    tipoSeleccionado ===
-                    'grado' &&
-                    nivelA !==
-                    nivelB
-                ) {
-
-                    const orden = {
-                        Primaria: 1,
-                        Secundaria: 2,
-                        '': 3
-                    };
-
-
-                    return (
-                        (orden[nivelA] || 9) -
-                        (orden[nivelB] || 9)
-                    );
-                }
-
-
-                return obtenerNombreRegistro(
-                    tipoSeleccionado,
-                    a
-                )
-                    .localeCompare(
-                        obtenerNombreRegistro(
-                            tipoSeleccionado,
-                            b
-                        ),
-                        'es',
-                        {
-                            numeric: true
-                        }
-                    );
-            }
-        );
 
 
         selector.innerHTML = `
             <option value="">
-                Seleccione ${
-                    etiquetas[
-                        tipoSeleccionado
-                    ].toLowerCase()
-                }
+                Cargando datos...
             </option>
         `;
-
-
-        lista.forEach(
-            registro => {
-
-                const option =
-                    document.createElement(
-                        'option'
-                    );
-
-
-                option.value =
-                    registro.id;
-
-
-                option.textContent =
-                    obtenerNombreRegistro(
-                        tipoSeleccionado,
-                        registro
-                    );
-
-
-                selector.appendChild(
-                    option
-                );
-
-
-                opcionesSelectorActuales.push({
-
-                    id:
-                        String(
-                            registro.id
-                        ),
-
-                    registro,
-
-                    texto:
-                        obtenerNombreRegistro(
-                            tipoSeleccionado,
-                            registro
-                        ),
-
-                    nivel:
-                        tipoSeleccionado ===
-                        'grado'
-
-                            ? (
-                                obtenerNivelGrado(
-                                    registro
-                                ) ||
-                                'Sin nivel'
-                            )
-
-                            : ''
-                });
-            }
-        );
-
-
-        selector.disabled =
-            false;
 
 
         actualizarCustomSelectVisual();
 
 
-        renderOpcionesCustom();
+        await cargarOpciones();
     }
 
 
     // =============================================================
-    // MENSAJE
-    // =============================================================
-
-    function mostrarMensaje(
-        texto,
-        tipo = 'error'
-    ) {
-
-        mensaje.className =
-            'mb-6 rounded-xl border px-4 py-3 text-sm';
-
-
-        if (
-            tipo ===
-            'error'
-        ) {
-
-            mensaje.classList.add(
-                'border-red-200',
-                'bg-red-50',
-                'text-red-700'
-            );
-
-        } else {
-
-            mensaje.classList.add(
-                'border-blue-200',
-                'bg-blue-50',
-                'text-blue-700'
-            );
-        }
-
-
-        mensaje.textContent =
-            texto;
-
-
-        mensaje.classList.remove(
-            'hidden'
-        );
-    }
-
-
-    // =============================================================
-    // HORARIOS POR INSTITUCIÓN
-    // =============================================================
-
-    function horariosPorInstitucion() {
-
-        return obtenerHorarios()
-            .filter(
-                horario =>
-                    perteneceInstitucion(
-                        horario,
-                        institucionSeleccionada
-                    )
-            );
-    }
-
-
-    // =============================================================
-    // FILTRAR
-    // =============================================================
-
-    function filtrarHorarios(
-        tipo,
-        id
-    ) {
-
-        const horarios =
-            horariosPorInstitucion();
-
-
-        if (
-            tipo ===
-            'profesor'
-        ) {
-
-            return horarios.filter(
-                horario =>
-                    String(
-                        horario.profesor_id
-                    ) ===
-                    String(id)
-            );
-        }
-
-
-        if (
-            tipo ===
-            'grado'
-        ) {
-
-            return horarios.filter(
-                horario =>
-                    String(
-                        horario.grado_id
-                    ) ===
-                    String(id)
-            );
-        }
-
-
-        if (
-            tipo ===
-            'aula'
-        ) {
-
-            return horarios.filter(
-                horario =>
-                    String(
-                        horario.aula_id
-                    ) ===
-                    String(id)
-            );
-        }
-
-
-        if (
-            tipo ===
-            'curso'
-        ) {
-
-            return horarios.filter(
-                horario =>
-                    String(
-                        horario.curso_id
-                    ) ===
-                    String(id)
-            );
-        }
-
-
-        return [];
-    }
-
-
-    // =============================================================
-    // INFORMACIÓN
+    // INFORMACIÓN DEL RESULTADO
     // =============================================================
 
     function mostrarInformacion(
@@ -1704,52 +1713,70 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
 
-        consultaTipoInfo.textContent =
-            etiquetas[
-                tipoSeleccionado
-            ];
+        if (
+            consultaTipoInfo
+        ) {
+
+            consultaTipoInfo.textContent =
+                etiquetas[
+                    tipoSeleccionado
+                ] ||
+                'Resultado';
+        }
 
 
-        consultaNombre.textContent =
-            obtenerNombreRegistro(
-                tipoSeleccionado,
-                registro
-            );
+        if (
+            consultaNombre
+        ) {
+
+            consultaNombre.textContent =
+                etiquetaRegistro(
+                    tipoSeleccionado,
+                    registro
+                );
+        }
 
 
-        consultaDetalle.textContent =
-            `${cantidadClases} ${
-                cantidadClases === 1
-                    ? 'clase programada'
-                    : 'clases programadas'
-            }`;
+        if (
+            consultaDetalle
+        ) {
+
+            consultaDetalle.textContent =
+                `${cantidadClases} ${
+                    cantidadClases ===
+                    1
+                        ? 'clase programada'
+                        : 'clases programadas'
+                }`;
+        }
 
 
         const institucionTexto =
             institucionSeleccionada ===
             'colegio'
-
                 ? 'Colegio'
                 : 'Academia';
 
 
-        consultaInstitucion.textContent =
-            institucionTexto;
+        if (
+            consultaInstitucion
+        ) {
+
+            consultaInstitucion.textContent =
+                institucionTexto;
 
 
-        consultaInstitucion.className =
+            consultaInstitucion.className =
 
-            institucionSeleccionada ===
-            'colegio'
+                institucionSeleccionada ===
+                'colegio'
 
-                ? 'inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#1B3A6B]'
+                    ? 'inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#1B3A6B]'
 
-                : 'inline-flex w-fit items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-[#DB0808]';
+                    : 'inline-flex w-fit items-center rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-[#DB0808]';
+        }
 
 
-        /*
-         * Descarga exclusivamente por profesor.
-         */
         accionesDescarga?.classList.toggle(
             'visible',
             tipoSeleccionado ===
@@ -1759,58 +1786,117 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        consultaInfo.classList.remove(
+        consultaInfo?.classList.remove(
             'hidden'
         );
     }
 
 
     // =============================================================
-    // CONTENIDO CLASE
+    // CONVERTIR HORARIOS
+    // =============================================================
+
+    function aListaHorarios(
+        horariosOrganizados
+    ) {
+
+        if (
+            Array.isArray(
+                horariosOrganizados
+            )
+        ) {
+
+            return horariosOrganizados;
+        }
+
+
+        if (
+            !horariosOrganizados ||
+            typeof horariosOrganizados !==
+            'object'
+        ) {
+
+            return [];
+        }
+
+
+        return Object.values(
+            horariosOrganizados
+        )
+            .filter(
+                Array.isArray
+            )
+            .flat();
+    }
+
+
+    function filtrarInstitucionHorario(
+        horario
+    ) {
+
+        const institucion =
+            normalizarTexto(
+                horario?.institucion
+            );
+
+
+        if (!institucion) {
+            return true;
+        }
+
+
+        return institucion ===
+            normalizarTexto(
+                institucionSeleccionada
+            );
+    }
+
+
+    // =============================================================
+    // CONTENIDO DE CLASE
     // =============================================================
 
     function crearContenidoClase(
         horario
     ) {
 
-        const profesores =
-            obtenerProfesores();
-
-        const cursos =
-            obtenerCursos();
-
-        const aulas =
-            obtenerAulas();
-
-        const grados =
-            obtenerGrados();
-
-
         const profesor =
-            buscarPorId(
-                profesores,
-                horario.profesor_id
+            horario.profesor ||
+            (
+                tipoSeleccionado ===
+                'profesor'
+                    ? registroSeleccionadoActual
+                    : null
             );
 
 
         const curso =
-            buscarPorId(
-                cursos,
-                horario.curso_id
+            horario.curso ||
+            (
+                tipoSeleccionado ===
+                'curso'
+                    ? registroSeleccionadoActual
+                    : null
             );
 
 
         const aula =
-            buscarPorId(
-                aulas,
-                horario.aula_id
+            horario.aula ||
+            (
+                tipoSeleccionado ===
+                'aula'
+                    ? registroSeleccionadoActual
+                    : null
             );
 
 
         const grado =
-            buscarPorId(
-                grados,
-                horario.grado_id
+            horario.grado ||
+            (
+                tipoSeleccionado ===
+                'grado'
+                    ? registroSeleccionadoActual
+                    : null
             );
 
 
@@ -1851,10 +1937,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <div class="horario-datos">
 
-
                     ${
-                        institucionSeleccionada ===
-                        'colegio'
+                        grado
 
                             ? `
                                 <p>
@@ -1884,15 +1968,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="horario-hora">
 
                         ${escaparHTML(
-                            horario.hora_inicio ||
-                            ''
+                            horaCorta(
+                                horario.hora_inicio
+                            )
                         )}
 
                         -
 
                         ${escaparHTML(
-                            horario.hora_fin ||
-                            ''
+                            horaCorta(
+                                horario.hora_fin
+                            )
                         )}
 
                     </p>
@@ -1905,7 +1991,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =============================================================
-    // RENDER HORARIO
+    // RENDERIZAR HORARIO
     // =============================================================
 
     function renderizarHorario(
@@ -1919,7 +2005,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const ordenados =
             [...horarios]
                 .sort(
-                    (a,b) => {
+                    (a, b) => {
 
                         const diaA =
                             DIAS.indexOf(
@@ -1970,7 +2056,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         DIAS.forEach(
-            (dia,index) => {
+            (dia, index) => {
 
                 const horariosDia =
                     ordenados.filter(
@@ -2005,9 +2091,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="horario-dia-header">
 
                         <h4 class="horario-dia-titulo">
-
                             ${dia}
-
                         </h4>
 
                     </div>
@@ -2073,7 +2157,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         columnas.forEach(
-            (columna,index) => {
+            (columna, index) => {
 
                 columna.classList.toggle(
                     'dia-activo',
@@ -2084,25 +2168,36 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        if (horarioDiaActual) {
+        if (
+            horarioDiaActual
+        ) {
 
-            horarioDiaActual.childNodes[0]
-                .textContent =
-                    DIAS[
-                        diaMovilActual
-                    ] +
-                    ' ';
+            const nodoTexto =
+                horarioDiaActual.childNodes[0];
+
+
+            if (
+                nodoTexto
+            ) {
+
+                nodoTexto.textContent =
+                    `${DIAS[diaMovilActual]} `;
+            }
         }
 
 
-        if (horarioDiaContador) {
+        if (
+            horarioDiaContador
+        ) {
 
             horarioDiaContador.textContent =
                 `${diaMovilActual + 1} de ${DIAS.length}`;
         }
 
 
-        if (btnDiaAnterior) {
+        if (
+            btnDiaAnterior
+        ) {
 
             btnDiaAnterior.disabled =
                 diaMovilActual ===
@@ -2110,7 +2205,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        if (btnDiaSiguiente) {
+        if (
+            btnDiaSiguiente
+        ) {
 
             btnDiaSiguiente.disabled =
                 diaMovilActual ===
@@ -2131,7 +2228,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 diaMovilActual--;
 
-
                 actualizarDiaMovil();
             }
         }
@@ -2150,7 +2246,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 diaMovilActual++;
 
-
                 actualizarDiaMovil();
             }
         }
@@ -2158,12 +2253,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =============================================================
-    // CONSULTAR
+    // CONSULTAR HORARIO REAL
     // =============================================================
 
-    function consultarHorario() {
+    async function consultarHorario() {
 
-        mensaje.classList.add(
+        mensaje?.classList.add(
             'hidden'
         );
 
@@ -2176,7 +2271,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Selecciona primero una institución.'
             );
 
-
             return;
         }
 
@@ -2188,7 +2282,6 @@ document.addEventListener('DOMContentLoaded', () => {
             mostrarMensaje(
                 'Selecciona cómo deseas consultar el horario.'
             );
-
 
             return;
         }
@@ -2204,86 +2297,153 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Selecciona una opción antes de consultar.'
             );
 
-
             return;
         }
 
 
-        const lista =
-            obtenerListaTipo(
-                tipoSeleccionado
+        const opcion =
+            opcionesSelectorActuales.find(
+                item =>
+                    String(item.id) ===
+                    String(id)
             );
 
 
-        const registro =
-            buscarPorId(
-                lista,
-                id
-            );
-
-
-        if (!registro) {
+        if (!opcion) {
 
             mostrarMensaje(
                 'No se encontró el registro seleccionado.'
             );
 
-
             return;
         }
 
 
-        const horarios =
-            filtrarHorarios(
+        const endpoint =
+            endpointHorario(
                 tipoSeleccionado,
                 id
             );
 
 
-        registroSeleccionadoActual =
-            registro;
-
-
-        horariosSeleccionadosActuales =
-            horarios;
-
-
-        mostrarInformacion(
-            registro,
-            horarios.length
-        );
-
-
-        if (!horarios.length) {
+        if (!endpoint) {
 
             mostrarMensaje(
-                'No existen clases programadas para esta consulta.',
-                'info'
+                'No existe una ruta para esta consulta.'
             );
-
-
-            horarioContainer.classList.add(
-                'hidden'
-            );
-
 
             return;
         }
 
 
-        renderizarHorario(
-            horarios
-        );
+        const textoBotonOriginal =
+            btnConsultar.innerHTML;
+
+
+        btnConsultar.disabled =
+            true;
+
+        btnConsultar.innerHTML =
+            'Consultando...';
+
+
+        try {
+
+            const respuesta =
+                await apiGet(
+                    endpoint
+                );
+
+
+            const resultado =
+                respuesta?.data ||
+                {};
+
+
+            const registro =
+                resultado.info ||
+                opcion.registro;
+
+
+            const horarios =
+                aListaHorarios(
+                    resultado.horarios
+                )
+                    .filter(
+                        filtrarInstitucionHorario
+                    );
+
+
+            registroSeleccionadoActual =
+                registro;
+
+
+            horariosSeleccionadosActuales =
+                horarios;
+
+
+            mostrarInformacion(
+                registro,
+                horarios.length
+            );
+
+
+            if (
+                !horarios.length
+            ) {
+
+                mostrarMensaje(
+                    'No existen clases programadas para esta consulta en la institución seleccionada.',
+                    'info'
+                );
+
+
+                horarioContainer.classList.add(
+                    'hidden'
+                );
+
+
+                return;
+            }
+
+
+            renderizarHorario(
+                horarios
+            );
+
+        } catch (error) {
+
+            console.error(
+                'Error consultando horario:',
+                error
+            );
+
+
+            mostrarMensaje(
+                obtenerMensajeError(
+                    error,
+                    'No se pudo consultar el horario.'
+                )
+            );
+
+        } finally {
+
+            btnConsultar.disabled =
+                false;
+
+            btnConsultar.innerHTML =
+                textoBotonOriginal;
+        }
     }
 
 
     // =============================================================
-    // DESCARGAR PDF
+    // DESCARGAR PDF REAL
     // =============================================================
 
     btnDescargarPdf?.addEventListener(
         'click',
-        () => {
+        async () => {
 
             if (
                 tipoSeleccionado !==
@@ -2296,26 +2456,163 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Primero consulta el horario de un profesor.'
                 );
 
-
                 return;
             }
 
 
-            /*
-             * Por ahora usa el diálogo de impresión del navegador.
-             * Desde ahí se puede elegir "Guardar como PDF".
-             *
-             * Cuando el backend entregue el endpoint PDF,
-             * este evento se cambia por una llamada a esa ruta.
-             */
+            const profesorId =
+                registroSeleccionadoActual.id;
 
-            window.print();
+
+            const textoOriginal =
+                btnDescargarPdf.innerHTML;
+
+
+            btnDescargarPdf.disabled =
+                true;
+
+            btnDescargarPdf.innerHTML =
+                'Descargando PDF...';
+
+
+            try {
+
+                const url =
+                    `${API.horarioProfesorPdf(
+                        profesorId
+                    )}?institucion=${encodeURIComponent(
+                        institucionSeleccionada
+                    )}`;
+
+
+                const respuesta =
+                    await fetch(
+                        url,
+                        {
+                            method:
+                                'GET',
+
+                            headers: {
+                                Accept:
+                                    'application/pdf, application/json'
+                            }
+                        }
+                    );
+
+
+                if (
+                    !respuesta.ok
+                ) {
+
+                    let mensajeError =
+                        'No se pudo descargar el PDF.';
+
+
+                    try {
+
+                        const data =
+                            await respuesta.json();
+
+
+                        mensajeError =
+                            data?.message ||
+                            mensajeError;
+
+                    } catch (error) {
+                        // La respuesta no fue JSON.
+                    }
+
+
+                    throw new Error(
+                        mensajeError
+                    );
+                }
+
+
+                const blob =
+                    await respuesta.blob();
+
+
+                const urlTemporal =
+                    URL.createObjectURL(
+                        blob
+                    );
+
+
+                const enlace =
+                    document.createElement(
+                        'a'
+                    );
+
+
+                const codigo =
+                    codigoRegistro(
+                        registroSeleccionadoActual
+                    ) ||
+                    registroSeleccionadoActual.id;
+
+
+                enlace.href =
+                    urlTemporal;
+
+
+                enlace.download =
+                    `Horario_${limpiarNombreArchivo(
+                        codigo
+                    )}_${institucionSeleccionada}.pdf`;
+
+
+                document.body.appendChild(
+                    enlace
+                );
+
+
+                enlace.click();
+
+
+                enlace.remove();
+
+
+                setTimeout(
+                    () => {
+
+                        URL.revokeObjectURL(
+                            urlTemporal
+                        );
+                    },
+                    1000
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Error descargando PDF:',
+                    error
+                );
+
+
+                mostrarMensaje(
+                    obtenerMensajeError(
+                        error,
+                        'No se pudo descargar el PDF.'
+                    )
+                );
+
+            } finally {
+
+                btnDescargarPdf.disabled =
+                    false;
+
+
+                btnDescargarPdf.innerHTML =
+                    textoOriginal;
+            }
         }
     );
 
 
     // =============================================================
-    // DESCARGAR IMAGEN
+    // DESCARGAR IMAGEN REAL
     // =============================================================
 
     btnDescargarImagen?.addEventListener(
@@ -2333,7 +2630,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Primero consulta el horario de un profesor.'
                 );
 
-
                 return;
             }
 
@@ -2347,15 +2643,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     'No se pudo cargar el generador de imagen.'
                 );
 
-
                 return;
             }
 
 
-            const nombre =
-                nombreProfesor(
-                    registroSeleccionadoActual
-                );
+            const profesorId =
+                registroSeleccionadoActual.id;
 
 
             const textoOriginal =
@@ -2365,26 +2658,182 @@ document.addEventListener('DOMContentLoaded', () => {
             btnDescargarImagen.disabled =
                 true;
 
+            btnDescargarImagen.innerHTML =
+                'Generando imagen...';
 
-            btnDescargarImagen.innerHTML = `
-                Generando imagen...
-            `;
+
+            let iframe =
+                null;
 
 
             try {
 
-                /*
-                 * Hacemos visibles todos los días
-                 * aunque estemos en móvil.
-                 */
-                horarioContainer.classList.add(
-                    'exportando-horario'
+                // =================================================
+                // PEDIR AL BACKEND EL HTML PROFESIONAL
+                // =================================================
+
+                const respuesta =
+                    await apiGet(
+                        API.horarioProfesorImagen(
+                            profesorId
+                        ),
+                        {
+                            institucion:
+                                institucionSeleccionada
+                        }
+                    );
+
+
+                const html =
+                    respuesta?.data?.html;
+
+
+                if (!html) {
+
+                    throw new Error(
+                        'El servidor no devolvió el contenido para generar la imagen.'
+                    );
+                }
+
+
+                // =================================================
+                // CREAR IFRAME FUERA DE LA PANTALLA
+                // =================================================
+
+                iframe =
+                    document.createElement(
+                        'iframe'
+                    );
+
+
+                iframe.setAttribute(
+                    'aria-hidden',
+                    'true'
                 );
 
 
+                Object.assign(
+                    iframe.style,
+                    {
+                        position:
+                            'fixed',
+
+                        left:
+                            '-10000px',
+
+                        top:
+                            '0',
+
+                        width:
+                            '1250px',
+
+                        height:
+                            '2200px',
+
+                        border:
+                            '0',
+
+                        opacity:
+                            '0',
+
+                        pointerEvents:
+                            'none',
+
+                        background:
+                            '#FFFFFF'
+                    }
+                );
+
+
+                document.body.appendChild(
+                    iframe
+                );
+
+
+                const documentoIframe =
+                    iframe.contentDocument ||
+                    iframe.contentWindow?.document;
+
+
+                if (
+                    !documentoIframe
+                ) {
+
+                    throw new Error(
+                        'No se pudo preparar la vista de la imagen.'
+                    );
+                }
+
+
+                // =================================================
+                // CARGAR EL HTML
+                // =================================================
+
+                documentoIframe.open();
+
+                documentoIframe.write(
+                    html
+                );
+
+                documentoIframe.close();
+
+
+                await new Promise(
+                    resolve => {
+
+                        setTimeout(
+                            resolve,
+                            200
+                        );
+                    }
+                );
+
+
+                if (
+                    documentoIframe.fonts?.ready
+                ) {
+
+                    try {
+
+                        await documentoIframe.fonts.ready;
+
+                    } catch (error) {
+
+                        console.warn(
+                            'No se pudo esperar la carga de fuentes.',
+                            error
+                        );
+                    }
+                }
+
+
+                // =================================================
+                // OBTENER CONTENEDOR DE EXPORTACIÓN
+                // =================================================
+
+                const contenedor =
+                    documentoIframe.getElementById(
+                        'horario-container'
+                    );
+
+
+                if (
+                    !contenedor
+                ) {
+
+                    throw new Error(
+                        'No se encontró el horario preparado para exportar.'
+                    );
+                }
+
+
+                // =================================================
+                // GENERAR PNG
+                // =================================================
+
                 const canvas =
                     await html2canvas(
-                        horarioContainer,
+                        contenedor,
                         {
                             scale:
                                 2,
@@ -2396,7 +2845,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                 true,
 
                             logging:
-                                false
+                                false,
+
+                            scrollX:
+                                0,
+
+                            scrollY:
+                                0,
+
+                            windowWidth:
+                                1250
                         }
                     );
 
@@ -2408,8 +2866,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 enlace.download =
+                    respuesta?.data?.nombre_archivo ||
                     `Horario_${limpiarNombreArchivo(
-                        nombre
+                        nombreProfesor(
+                            registroSeleccionadoActual
+                        )
                     )}.png`;
 
 
@@ -2439,14 +2900,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 mostrarMensaje(
-                    'No se pudo generar la imagen del horario.'
+                    obtenerMensajeError(
+                        error,
+                        'No se pudo generar la imagen del horario.'
+                    )
                 );
 
             } finally {
 
-                horarioContainer.classList.remove(
-                    'exportando-horario'
-                );
+                iframe?.remove();
 
 
                 btnDescargarImagen.disabled =
@@ -2455,9 +2917,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 btnDescargarImagen.innerHTML =
                     textoOriginal;
-
-
-                actualizarDiaMovil();
             }
         }
     );
@@ -2472,22 +2931,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
             boton.addEventListener(
                 'click',
-                () => {
+                async () => {
 
                     institucionSeleccionada =
                         boton.dataset.institucion;
 
 
+                    tipoSeleccionado =
+                        '';
+
+
+                    selector.value =
+                        '';
+
+
+                    if (
+                        customSearch
+                    ) {
+
+                        customSearch.value =
+                            '';
+                    }
+
+
                     actualizarBotonesInstitucion();
 
-
                     actualizarDisponibilidadTipos();
-
 
                     actualizarBotonesTipo();
 
 
-                    actualizarSelector();
+                    await actualizarSelector();
                 }
             );
         }
@@ -2503,14 +2977,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             boton.addEventListener(
                 'click',
-                () => {
+                async () => {
 
                     if (
-                        institucionSeleccionada ===
-                        'academia' &&
-                        boton.dataset.tipo ===
-                        'grado'
+                        !institucionSeleccionada
                     ) {
+
+                        mostrarMensaje(
+                            'Selecciona primero Colegio o Academia.'
+                        );
 
                         return;
                     }
@@ -2520,10 +2995,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         boton.dataset.tipo;
 
 
+                    if (
+                        customSearch
+                    ) {
+
+                        customSearch.value =
+                            '';
+                    }
+
+
                     actualizarBotonesTipo();
 
 
-                    actualizarSelector();
+                    await actualizarSelector();
                 }
             );
         }
@@ -2540,19 +3024,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
             actualizarCustomSelectVisual();
 
-
             limpiarResultado();
         }
     );
 
 
     // =============================================================
-    // CONSULTAR
+    // CUSTOM SELECT
     // =============================================================
 
-    btnConsultar.addEventListener(
+    customButton?.addEventListener(
         'click',
-        consultarHorario
+        () => {
+
+            if (
+                customSelect?.classList.contains(
+                    'open'
+                )
+            ) {
+
+                cerrarCustomSelect();
+
+            } else {
+
+                abrirCustomSelect();
+            }
+        }
+    );
+
+
+    customSearch?.addEventListener(
+        'input',
+        () => {
+
+            clearTimeout(
+                temporizadorBusqueda
+            );
+
+
+            const termino =
+                customSearch.value.trim();
+
+
+            temporizadorBusqueda =
+                setTimeout(
+                    () => {
+
+                        cargarOpciones(
+                            termino
+                        );
+                    },
+                    300
+                );
+        }
     );
 
 
@@ -2569,7 +3093,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 const primera =
-                    customOptions.querySelector(
+                    customOptions?.querySelector(
                         '.custom-select-option'
                     );
 
@@ -2589,13 +3113,35 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
 
+    document.addEventListener(
+        'click',
+        event => {
+
+            if (
+                !event.target.closest(
+                    '#custom-select'
+                )
+            ) {
+
+                cerrarCustomSelect();
+            }
+        }
+    );
+
+
+    // =============================================================
+    // CONSULTAR
+    // =============================================================
+
+    btnConsultar.addEventListener(
+        'click',
+        consultarHorario
+    );
+
+
     // =============================================================
     // SWIPE MÓVIL
     // =============================================================
-
-    let touchInicioX =
-        null;
-
 
     horarioRender.addEventListener(
         'touchstart',
@@ -2648,7 +3194,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 touchInicioX =
                     null;
-
 
                 return;
             }
