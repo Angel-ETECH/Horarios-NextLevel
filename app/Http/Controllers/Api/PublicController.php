@@ -9,475 +9,1402 @@ use App\Models\Profesor;
 use App\Models\Grado;
 use App\Models\Aula;
 use App\Models\Curso;
+use App\Services\ExportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PublicController extends Controller
 {
     /**
-     * Días de la semana para organizar horarios
+     * Servicio de exportación.
      */
-    protected array $dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    protected ExportService $exportService;
+
 
     /**
-     * ========================================
-     * DATOS PARA LOS DROPDOWNS
-     * ========================================
+     * Días de la semana.
      */
+    protected array $dias = [
+        'lunes',
+        'martes',
+        'miércoles',
+        'jueves',
+        'viernes',
+        'sábado',
+    ];
+
+
+    /**
+     * Constructor.
+     */
+    public function __construct(
+        ExportService $exportService
+    ) {
+        $this->exportService = $exportService;
+    }
+
+
+    // =========================================================
+    // INSTITUCIONES
+    // =========================================================
 
     /**
      * GET /api/publico/instituciones
-     * Listar instituciones disponibles
      */
     public function instituciones(): JsonResponse
     {
-        // Detectar qué instituciones tienen datos activos
         $instituciones = [];
 
-        // Colegio (si hay grados de primaria/secundaria)
-        $tieneColegio = Grado::where('activo', true)
-            ->whereIn('nivel', ['primaria', 'secundaria'])
-            ->exists();
+
+        // =====================================================
+        // COLEGIO
+        // =====================================================
+
+        $tieneColegio =
+            Grado::where('activo', true)
+                ->whereIn(
+                    'nivel',
+                    [
+                        'primaria',
+                        'secundaria',
+                    ]
+                )
+                ->exists();
+
 
         if ($tieneColegio) {
+
             $instituciones[] = [
-                'value' => 'colegio',
-                'label' => 'Colegio',
-                'descripcion' => 'Primaria y Secundaria',
+                'value' =>
+                    'colegio',
+
+                'label' =>
+                    'Colegio',
+
+                'descripcion' =>
+                    'Primaria y Secundaria',
             ];
         }
 
-        // Academia (si hay grados de academia)
-        $tieneAcademia = Grado::where('activo', true)
-            ->where('nivel', 'academia')
-            ->exists();
+
+        // =====================================================
+        // ACADEMIA
+        // =====================================================
+
+        $tieneAcademia =
+            Grado::where('activo', true)
+                ->where(
+                    'nivel',
+                    'academia'
+                )
+                ->exists();
+
 
         if ($tieneAcademia) {
+
             $instituciones[] = [
-                'value' => 'academia',
-                'label' => 'Academia',
-                'descripcion' => 'Cursos de Academia',
+                'value' =>
+                    'academia',
+
+                'label' =>
+                    'Academia',
+
+                'descripcion' =>
+                    'Cursos de Academia',
             ];
         }
 
+
         return response()->json([
-            'success' => true,
-            'data' => $instituciones,
+            'success' =>
+                true,
+
+            'data' =>
+                $instituciones,
         ]);
     }
 
+
+    // =========================================================
+    // PROFESORES
+    // =========================================================
+
     /**
-     * GET /api/publico/profesores?institucion=colegio&search=xxx
-     * Listar profesores filtrados por institución
-     * Búsqueda por nombre o código único
+     * GET /api/publico/profesores
+     *
+     * Ejemplo:
+     * ?institucion=colegio
+     * ?search=DOC-002
      */
-    public function listarProfesores(Request $request): JsonResponse
-    {
+    public function listarProfesores(
+        Request $request
+    ): JsonResponse {
+
         $request->validate([
-            'institucion' => 'required|in:colegio,academia',
-            'search' => 'nullable|string|max:100',
+            'institucion' =>
+                'required|in:colegio,academia',
+
+            'search' =>
+                'nullable|string|max:100',
         ]);
 
-        $query = Profesor::where('estado', 'activo')
-            ->where(function ($q) use ($request) {
-                // Filtrar por institución (colegio/academia/ambos)
-                $q->where('institucion', $request->institucion)
-                  ->orWhere('institucion', 'ambos');
-            });
 
-        // Búsqueda por nombre o código
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo', 'LIKE', "%{$search}%")
-                  ->orWhere('nombre', 'LIKE', "%{$search}%")
-                  ->orWhere('apellido_paterno', 'LIKE', "%{$search}%")
-                  ->orWhere('apellido_materno', 'LIKE', "%{$search}%");
-            });
+        $query =
+            Profesor::where(
+                'estado',
+                'activo'
+            )
+                ->where(
+                    function ($q) use ($request) {
+
+                        $q->where(
+                            'institucion',
+                            $request->institucion
+                        )
+                            ->orWhere(
+                                'institucion',
+                                'ambos'
+                            );
+                    }
+                );
+
+
+        // =====================================================
+        // BÚSQUEDA POR CÓDIGO O NOMBRE
+        // =====================================================
+
+        if (
+            $request->filled(
+                'search'
+            )
+        ) {
+
+            $search =
+                $request->search;
+
+
+            $query->where(
+                function ($q) use ($search) {
+
+                    $q->where(
+                        'codigo',
+                        'LIKE',
+                        "%{$search}%"
+                    )
+                        ->orWhere(
+                            'nombre',
+                            'LIKE',
+                            "%{$search}%"
+                        )
+                        ->orWhere(
+                            'apellido_paterno',
+                            'LIKE',
+                            "%{$search}%"
+                        )
+                        ->orWhere(
+                            'apellido_materno',
+                            'LIKE',
+                            "%{$search}%"
+                        );
+                }
+            );
         }
 
-        $profesores = $query->orderBy('apellido_paterno')
-            ->orderBy('nombre')
-            ->limit(50)
-            ->get()
-            ->map(function ($profesor) {
-                return [
-                    'id' => $profesor->id,
-                    'codigo' => $profesor->codigo,
-                    'nombre_completo' => $profesor->nombre_completo,
-                    'especialidad' => $profesor->especialidad,
-                    'institucion' => $profesor->institucion,
-                    'label' => "{$profesor->codigo} - {$profesor->nombre_completo}",
-                ];
-            });
+
+        $profesores =
+            $query
+                ->orderBy(
+                    'apellido_paterno'
+                )
+                ->orderBy(
+                    'nombre'
+                )
+                ->limit(50)
+                ->get()
+                ->map(
+                    function ($profesor) {
+
+                        return [
+                            'id' =>
+                                $profesor->id,
+
+                            'codigo' =>
+                                $profesor->codigo,
+
+                            'nombre_completo' =>
+                                $profesor->nombre_completo,
+
+                            'especialidad' =>
+                                $profesor->especialidad,
+
+                            'institucion' =>
+                                $profesor->institucion,
+
+                            'label' =>
+                                "{$profesor->codigo} - {$profesor->nombre_completo}",
+                        ];
+                    }
+                );
+
 
         return response()->json([
-            'success' => true,
-            'data' => $profesores,
+            'success' =>
+                true,
+
+            'data' =>
+                $profesores,
         ]);
     }
 
+
+    // =========================================================
+    // GRADOS
+    // =========================================================
+
     /**
-     * GET /api/publico/grados?institucion=colegio&search=xxx
-     * Listar grados filtrados por institución
+     * GET /api/publico/grados
      */
-    public function listarGrados(Request $request): JsonResponse
-    {
+    public function listarGrados(
+        Request $request
+    ): JsonResponse {
+
         $request->validate([
-            'institucion' => 'required|in:colegio,academia',
-            'search' => 'nullable|string|max:100',
+            'institucion' =>
+                'required|in:colegio,academia',
+
+            'search' =>
+                'nullable|string|max:100',
         ]);
 
-        $query = Grado::where('activo', true);
 
-        // Filtrar por institución
-        if ($request->institucion === 'colegio') {
-            $query->whereIn('nivel', ['primaria', 'secundaria']);
+        $query =
+            Grado::where(
+                'activo',
+                true
+            );
+
+
+        // =====================================================
+        // INSTITUCIÓN
+        // =====================================================
+
+        if (
+            $request->institucion ===
+            'colegio'
+        ) {
+
+            $query->whereIn(
+                'nivel',
+                [
+                    'primaria',
+                    'secundaria',
+                ]
+            );
+
         } else {
-            $query->where('nivel', 'academia');
+
+            $query->where(
+                'nivel',
+                'academia'
+            );
         }
 
-        // Búsqueda
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo', 'LIKE', "%{$search}%")
-                  ->orWhere('nombre_completo', 'LIKE', "%{$search}%")
-                  ->orWhere('grado', 'LIKE', "%{$search}%")
-                  ->orWhere('seccion', 'LIKE', "%{$search}%");
-            });
+
+        // =====================================================
+        // BÚSQUEDA
+        // =====================================================
+
+        if (
+            $request->filled(
+                'search'
+            )
+        ) {
+
+            $search =
+                $request->search;
+
+
+            $query->where(
+                function ($q) use ($search) {
+
+                    $q->where(
+                        'codigo',
+                        'LIKE',
+                        "%{$search}%"
+                    )
+                        ->orWhere(
+                            'nombre_completo',
+                            'LIKE',
+                            "%{$search}%"
+                        )
+                        ->orWhere(
+                            'grado',
+                            'LIKE',
+                            "%{$search}%"
+                        )
+                        ->orWhere(
+                            'seccion',
+                            'LIKE',
+                            "%{$search}%"
+                        );
+                }
+            );
         }
 
-        $grados = $query->orderBy('nivel')
-            ->orderBy('grado')
-            ->orderBy('seccion')
-            ->limit(50)
-            ->get()
-            ->map(function ($grado) {
-                return [
-                    'id' => $grado->id,
-                    'codigo' => $grado->codigo,
-                    'nombre_completo' => $grado->nombre_completo,
-                    'nivel' => $grado->nivel,
-                    'turno' => $grado->turno,
-                    'label' => "{$grado->codigo} - {$grado->nombre_completo}",
-                ];
-            });
+
+        $grados =
+            $query
+                ->orderBy(
+                    'nivel'
+                )
+                ->orderBy(
+                    'grado'
+                )
+                ->orderBy(
+                    'seccion'
+                )
+                ->limit(50)
+                ->get()
+                ->map(
+                    function ($grado) {
+
+                        return [
+                            'id' =>
+                                $grado->id,
+
+                            'codigo' =>
+                                $grado->codigo,
+
+                            'nombre_completo' =>
+                                $grado->nombre_completo,
+
+                            'nivel' =>
+                                $grado->nivel,
+
+                            'turno' =>
+                                $grado->turno,
+
+                            'label' =>
+                                "{$grado->codigo} - {$grado->nombre_completo}",
+                        ];
+                    }
+                );
+
 
         return response()->json([
-            'success' => true,
-            'data' => $grados,
+            'success' =>
+                true,
+
+            'data' =>
+                $grados,
         ]);
     }
 
+
+    // =========================================================
+    // AULAS
+    // =========================================================
+
     /**
-     * GET /api/publico/aulas?institucion=colegio&search=xxx
-     * Listar aulas filtradas por institución
+     * GET /api/publico/aulas
      */
-    public function listarAulas(Request $request): JsonResponse
-    {
+    public function listarAulas(
+        Request $request
+    ): JsonResponse {
+
         $request->validate([
-            'institucion' => 'required|in:colegio,academia',
-            'search' => 'nullable|string|max:100',
+            'institucion' =>
+                'required|in:colegio,academia',
+
+            'search' =>
+                'nullable|string|max:100',
         ]);
 
-        $query = Aula::where('activo', true);
 
-        // Filtrar por institución a través del nivel
-        if ($request->institucion === 'colegio') {
-            $query->where(function ($q) {
-                $q->whereIn('nivel', ['primaria', 'secundaria'])
-                  ->orWhere('nivel', 'todos');
-            });
+        $query =
+            Aula::where(
+                'activo',
+                true
+            );
+
+
+        // =====================================================
+        // INSTITUCIÓN
+        // =====================================================
+
+        if (
+            $request->institucion ===
+            'colegio'
+        ) {
+
+            $query->where(
+                function ($q) {
+
+                    $q->whereIn(
+                        'nivel',
+                        [
+                            'primaria',
+                            'secundaria',
+                        ]
+                    )
+                        ->orWhere(
+                            'nivel',
+                            'todos'
+                        );
+                }
+            );
+
         } else {
-            $query->where(function ($q) {
-                $q->where('nivel', 'academia')
-                  ->orWhere('nivel', 'todos');
-            });
+
+            $query->where(
+                function ($q) {
+
+                    $q->where(
+                        'nivel',
+                        'academia'
+                    )
+                        ->orWhere(
+                            'nivel',
+                            'todos'
+                        );
+                }
+            );
         }
 
-        // Búsqueda
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo', 'LIKE', "%{$search}%")
-                  ->orWhere('nombre', 'LIKE', "%{$search}%")
-                  ->orWhere('edificio', 'LIKE', "%{$search}%");
-            });
+
+        // =====================================================
+        // BÚSQUEDA
+        // =====================================================
+
+        if (
+            $request->filled(
+                'search'
+            )
+        ) {
+
+            $search =
+                $request->search;
+
+
+            $query->where(
+                function ($q) use ($search) {
+
+                    $q->where(
+                        'codigo',
+                        'LIKE',
+                        "%{$search}%"
+                    )
+                        ->orWhere(
+                            'nombre',
+                            'LIKE',
+                            "%{$search}%"
+                        )
+                        ->orWhere(
+                            'edificio',
+                            'LIKE',
+                            "%{$search}%"
+                        );
+                }
+            );
         }
 
-        $aulas = $query->orderBy('nombre')
-            ->limit(50)
-            ->get()
-            ->map(function ($aula) {
-                return [
-                    'id' => $aula->id,
-                    'codigo' => $aula->codigo,
-                    'nombre' => $aula->nombre,
-                    'tipo' => $aula->tipo,
-                    'capacidad' => $aula->capacidad,
-                    'label' => "{$aula->codigo} - {$aula->nombre}",
-                ];
-            });
+
+        $aulas =
+            $query
+                ->orderBy(
+                    'nombre'
+                )
+                ->limit(50)
+                ->get()
+                ->map(
+                    function ($aula) {
+
+                        return [
+                            'id' =>
+                                $aula->id,
+
+                            'codigo' =>
+                                $aula->codigo,
+
+                            'nombre' =>
+                                $aula->nombre,
+
+                            'tipo' =>
+                                $aula->tipo,
+
+                            'capacidad' =>
+                                $aula->capacidad,
+
+                            'label' =>
+                                "{$aula->codigo} - {$aula->nombre}",
+                        ];
+                    }
+                );
+
 
         return response()->json([
-            'success' => true,
-            'data' => $aulas,
+            'success' =>
+                true,
+
+            'data' =>
+                $aulas,
         ]);
     }
 
+
+    // =========================================================
+    // CURSOS
+    // =========================================================
+
     /**
-     * GET /api/publico/cursos?institucion=colegio&search=xxx
-     * Listar cursos filtrados por institución
+     * GET /api/publico/cursos
      */
-    public function listarCursos(Request $request): JsonResponse
-    {
+    public function listarCursos(
+        Request $request
+    ): JsonResponse {
+
         $request->validate([
-            'institucion' => 'required|in:colegio,academia',
-            'search' => 'nullable|string|max:100',
+            'institucion' =>
+                'required|in:colegio,academia',
+
+            'search' =>
+                'nullable|string|max:100',
         ]);
 
-        $query = Curso::where('activo', true);
 
-        // Filtrar por nivel según institución
-        if ($request->institucion === 'colegio') {
-            $query->where(function ($q) {
-                $q->whereIn('nivel', ['primaria', 'secundaria'])
-                  ->orWhere('nivel', 'todos');
-            });
+        $query =
+            Curso::where(
+                'activo',
+                true
+            );
+
+
+        // =====================================================
+        // INSTITUCIÓN
+        // =====================================================
+
+        if (
+            $request->institucion ===
+            'colegio'
+        ) {
+
+            $query->where(
+                function ($q) {
+
+                    $q->whereIn(
+                        'nivel',
+                        [
+                            'primaria',
+                            'secundaria',
+                        ]
+                    )
+                        ->orWhere(
+                            'nivel',
+                            'todos'
+                        );
+                }
+            );
+
         } else {
-            $query->where(function ($q) {
-                $q->where('nivel', 'academia')
-                  ->orWhere('nivel', 'todos');
-            });
+
+            $query->where(
+                function ($q) {
+
+                    $q->where(
+                        'nivel',
+                        'academia'
+                    )
+                        ->orWhere(
+                            'nivel',
+                            'todos'
+                        );
+                }
+            );
         }
 
-        // Búsqueda
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo', 'LIKE', "%{$search}%")
-                  ->orWhere('nombre', 'LIKE', "%{$search}%");
-            });
+
+        // =====================================================
+        // BÚSQUEDA
+        // =====================================================
+
+        if (
+            $request->filled(
+                'search'
+            )
+        ) {
+
+            $search =
+                $request->search;
+
+
+            $query->where(
+                function ($q) use ($search) {
+
+                    $q->where(
+                        'codigo',
+                        'LIKE',
+                        "%{$search}%"
+                    )
+                        ->orWhere(
+                            'nombre',
+                            'LIKE',
+                            "%{$search}%"
+                        );
+                }
+            );
         }
 
-        $cursos = $query->orderBy('nombre')
-            ->limit(50)
-            ->get()
-            ->map(function ($curso) {
-                return [
-                    'id' => $curso->id,
-                    'codigo' => $curso->codigo,
-                    'nombre' => $curso->nombre,
-                    'nivel' => $curso->nivel,
-                    'tipo' => $curso->tipo,
-                    'label' => "{$curso->codigo} - {$curso->nombre}",
-                ];
-            });
+
+        $cursos =
+            $query
+                ->orderBy(
+                    'nombre'
+                )
+                ->limit(50)
+                ->get()
+                ->map(
+                    function ($curso) {
+
+                        return [
+                            'id' =>
+                                $curso->id,
+
+                            'codigo' =>
+                                $curso->codigo,
+
+                            'nombre' =>
+                                $curso->nombre,
+
+                            'nivel' =>
+                                $curso->nivel,
+
+                            'tipo' =>
+                                $curso->tipo,
+
+                            'label' =>
+                                "{$curso->codigo} - {$curso->nombre}",
+                        ];
+                    }
+                );
+
 
         return response()->json([
-            'success' => true,
-            'data' => $cursos,
+            'success' =>
+                true,
+
+            'data' =>
+                $cursos,
         ]);
     }
 
-    /**
-     * ========================================
-     * CONSULTAS DE HORARIOS
-     * ========================================
-     */
+
+    // =========================================================
+    // HORARIO POR PROFESOR
+    // =========================================================
 
     /**
      * GET /api/publico/horario/profesor/{id}
-     * Ver horario público de un profesor
      */
-    public function horarioProfesor(int $id): JsonResponse
-    {
-        $profesor = Profesor::where('estado', 'activo')->find($id);
+    public function horarioProfesor(
+        int $id
+    ): JsonResponse {
+
+        $profesor =
+            Profesor::where(
+                'estado',
+                'activo'
+            )
+                ->find(
+                    $id
+                );
+
 
         if (!$profesor) {
+
             return response()->json([
-                'success' => false,
-                'message' => 'Profesor no encontrado o inactivo',
+                'success' =>
+                    false,
+
+                'message' =>
+                    'Profesor no encontrado o inactivo',
             ], 404);
         }
 
-        $horarios = Horario::with(['curso', 'aula', 'grado'])
-            ->where('profesor_id', $id)
-            ->where('estado', 'activo')
-            ->orderBy('dia_semana')
-            ->orderBy('hora_inicio')
-            ->get();
+
+        $horarios =
+            Horario::with([
+                'curso',
+                'aula',
+                'grado',
+            ])
+                ->where(
+                    'profesor_id',
+                    $id
+                )
+                ->where(
+                    'estado',
+                    'activo'
+                )
+                ->orderBy(
+                    'dia_semana'
+                )
+                ->orderBy(
+                    'hora_inicio'
+                )
+                ->get();
+
 
         return response()->json([
-            'success' => true,
+            'success' =>
+                true,
+
             'data' => [
-                'tipo' => 'profesor',
+
+                'tipo' =>
+                    'profesor',
+
                 'info' => [
-                    'id' => $profesor->id,
-                    'codigo' => $profesor->codigo,
-                    'nombre_completo' => $profesor->nombre_completo,
-                    'especialidad' => $profesor->especialidad,
-                    'institucion' => $profesor->institucion,
+
+                    'id' =>
+                        $profesor->id,
+
+                    'codigo' =>
+                        $profesor->codigo,
+
+                    'nombre_completo' =>
+                        $profesor->nombre_completo,
+
+                    'especialidad' =>
+                        $profesor->especialidad,
+
+                    'institucion' =>
+                        $profesor->institucion,
                 ],
-                'carga_horaria_total' => $this->calcularCargaHoraria($horarios),
-                'total_clases' => $horarios->count(),
-                'horarios' => $this->organizarPorDia($horarios),
+
+                'carga_horaria_total' =>
+                    $this->calcularCargaHoraria(
+                        $horarios
+                    ),
+
+                'total_clases' =>
+                    $horarios->count(),
+
+                'horarios' =>
+                    $this->organizarPorDia(
+                        $horarios
+                    ),
             ],
         ]);
     }
+
+
+    // =========================================================
+    // PDF PÚBLICO DE PROFESOR
+    // =========================================================
+
+    /**
+     * GET
+     * /api/publico/horario/profesor/{id}/pdf
+     *
+     * Ejemplo:
+     * ?institucion=colegio
+     */
+    public function descargarPdfProfesor(
+        Request $request,
+        int $id
+    ) {
+
+        $request->validate([
+            'institucion' =>
+                'required|in:colegio,academia',
+        ]);
+
+
+        $profesor =
+            Profesor::where(
+                'estado',
+                'activo'
+            )
+                ->find(
+                    $id
+                );
+
+
+        if (!$profesor) {
+
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    'Profesor no encontrado o inactivo',
+            ], 404);
+        }
+
+
+        $filtros = [
+
+            'profesor_id' =>
+                $profesor->id,
+
+            'institucion' =>
+                $request->institucion,
+        ];
+
+
+        $horarios =
+            $this
+                ->exportService
+                ->prepareData(
+                    $filtros
+                );
+
+
+        if (
+            $horarios->isEmpty()
+        ) {
+
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    'El profesor no tiene horarios disponibles para esta institución.',
+            ], 404);
+        }
+
+
+        $institucion =
+            $request->institucion ===
+            'colegio'
+                ? 'Colegio'
+                : 'Academia';
+
+
+        $titulo =
+            'Horario de ' .
+            $profesor->nombre_completo .
+            ' - ' .
+            $institucion;
+
+
+        return $this
+            ->exportService
+            ->downloadPdf(
+                $horarios,
+                $titulo,
+                $filtros
+            );
+    }
+
+
+    // =========================================================
+    // HTML PÚBLICO PARA IMAGEN DE PROFESOR
+    // =========================================================
+
+    /**
+     * GET
+     * /api/publico/horario/profesor/{id}/imagen
+     *
+     * Este endpoint NO genera todavía el PNG.
+     * Devuelve el HTML preparado para que el frontend
+     * lo capture usando html2canvas.
+     */
+    public function imagenProfesor(
+        Request $request,
+        int $id
+    ): JsonResponse {
+
+        $request->validate([
+            'institucion' =>
+                'required|in:colegio,academia',
+        ]);
+
+
+        $profesor =
+            Profesor::where(
+                'estado',
+                'activo'
+            )
+                ->find(
+                    $id
+                );
+
+
+        if (!$profesor) {
+
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    'Profesor no encontrado o inactivo',
+            ], 404);
+        }
+
+
+        $filtros = [
+
+            'profesor_id' =>
+                $profesor->id,
+
+            'institucion' =>
+                $request->institucion,
+        ];
+
+
+        $horarios =
+            $this
+                ->exportService
+                ->prepareData(
+                    $filtros
+                );
+
+
+        if (
+            $horarios->isEmpty()
+        ) {
+
+            return response()->json([
+                'success' =>
+                    false,
+
+                'message' =>
+                    'El profesor no tiene horarios disponibles para esta institución.',
+            ], 404);
+        }
+
+
+        $institucion =
+            $request->institucion ===
+            'colegio'
+                ? 'Colegio'
+                : 'Academia';
+
+
+        $titulo =
+            'Horario de ' .
+            $profesor->nombre_completo .
+            ' - ' .
+            $institucion;
+
+
+        $html =
+            $this
+                ->exportService
+                ->getHtmlForImage(
+                    $horarios,
+                    $titulo,
+                    $filtros
+                );
+
+
+        $nombreArchivo =
+            'Horario_' .
+            $profesor->codigo .
+            '_' .
+            $request->institucion .
+            '.png';
+
+
+        return response()->json([
+            'success' =>
+                true,
+
+            'message' =>
+                'HTML para imagen generado correctamente',
+
+            'data' => [
+
+                'html' =>
+                    $html,
+
+                'nombre_archivo' =>
+                    $nombreArchivo,
+
+                'total_registros' =>
+                    $horarios->count(),
+
+                'profesor' => [
+
+                    'id' =>
+                        $profesor->id,
+
+                    'codigo' =>
+                        $profesor->codigo,
+
+                    'nombre_completo' =>
+                        $profesor->nombre_completo,
+                ],
+
+                'institucion' =>
+                    $request->institucion,
+            ],
+        ]);
+    }
+
+
+    // =========================================================
+    // HORARIO POR GRADO
+    // =========================================================
 
     /**
      * GET /api/publico/horario/grado/{id}
-     * Ver horario público de un grado
      */
-    public function horarioGrado(int $id): JsonResponse
-    {
-        $grado = Grado::where('activo', true)->find($id);
+    public function horarioGrado(
+        int $id
+    ): JsonResponse {
+
+        $grado =
+            Grado::where(
+                'activo',
+                true
+            )
+                ->find(
+                    $id
+                );
+
 
         if (!$grado) {
+
             return response()->json([
-                'success' => false,
-                'message' => 'Grado no encontrado o inactivo',
+                'success' =>
+                    false,
+
+                'message' =>
+                    'Grado no encontrado o inactivo',
             ], 404);
         }
 
-        $horarios = Horario::with(['profesor', 'curso', 'aula'])
-            ->where('grado_id', $id)
-            ->where('estado', 'activo')
-            ->orderBy('dia_semana')
-            ->orderBy('hora_inicio')
-            ->get();
+
+        $horarios =
+            Horario::with([
+                'profesor',
+                'curso',
+                'aula',
+            ])
+                ->where(
+                    'grado_id',
+                    $id
+                )
+                ->where(
+                    'estado',
+                    'activo'
+                )
+                ->orderBy(
+                    'dia_semana'
+                )
+                ->orderBy(
+                    'hora_inicio'
+                )
+                ->get();
+
 
         return response()->json([
-            'success' => true,
+            'success' =>
+                true,
+
             'data' => [
-                'tipo' => 'grado',
+
+                'tipo' =>
+                    'grado',
+
                 'info' => [
-                    'id' => $grado->id,
-                    'codigo' => $grado->codigo,
-                    'nombre_completo' => $grado->nombre_completo,
-                    'nivel' => $grado->nivel,
-                    'turno' => $grado->turno,
-                    'numero_estudiantes' => $grado->numero_estudiantes,
+
+                    'id' =>
+                        $grado->id,
+
+                    'codigo' =>
+                        $grado->codigo,
+
+                    'nombre_completo' =>
+                        $grado->nombre_completo,
+
+                    'nivel' =>
+                        $grado->nivel,
+
+                    'turno' =>
+                        $grado->turno,
+
+                    'numero_estudiantes' =>
+                        $grado->numero_estudiantes,
                 ],
-                'total_clases' => $horarios->count(),
-                'horarios' => $this->organizarPorDia($horarios),
+
+                'total_clases' =>
+                    $horarios->count(),
+
+                'horarios' =>
+                    $this->organizarPorDia(
+                        $horarios
+                    ),
             ],
         ]);
     }
+
+
+    // =========================================================
+    // HORARIO POR AULA
+    // =========================================================
 
     /**
      * GET /api/publico/horario/aula/{id}
-     * Ver horario público de un aula
      */
-    public function horarioAula(int $id): JsonResponse
-    {
-        $aula = Aula::where('activo', true)->find($id);
+    public function horarioAula(
+        int $id
+    ): JsonResponse {
+
+        $aula =
+            Aula::where(
+                'activo',
+                true
+            )
+                ->find(
+                    $id
+                );
+
 
         if (!$aula) {
+
             return response()->json([
-                'success' => false,
-                'message' => 'Aula no encontrada o inactiva',
+                'success' =>
+                    false,
+
+                'message' =>
+                    'Aula no encontrada o inactiva',
             ], 404);
         }
 
-        $horarios = Horario::with(['profesor', 'curso', 'grado'])
-            ->where('aula_id', $id)
-            ->where('estado', 'activo')
-            ->orderBy('dia_semana')
-            ->orderBy('hora_inicio')
-            ->get();
+
+        $horarios =
+            Horario::with([
+                'profesor',
+                'curso',
+                'grado',
+            ])
+                ->where(
+                    'aula_id',
+                    $id
+                )
+                ->where(
+                    'estado',
+                    'activo'
+                )
+                ->orderBy(
+                    'dia_semana'
+                )
+                ->orderBy(
+                    'hora_inicio'
+                )
+                ->get();
+
 
         return response()->json([
-            'success' => true,
+            'success' =>
+                true,
+
             'data' => [
-                'tipo' => 'aula',
+
+                'tipo' =>
+                    'aula',
+
                 'info' => [
-                    'id' => $aula->id,
-                    'codigo' => $aula->codigo,
-                    'nombre' => $aula->nombre,
-                    'tipo' => $aula->tipo,
-                    'capacidad' => $aula->capacidad,
-                    'edificio' => $aula->edificio,
-                    'piso' => $aula->piso,
+
+                    'id' =>
+                        $aula->id,
+
+                    'codigo' =>
+                        $aula->codigo,
+
+                    'nombre' =>
+                        $aula->nombre,
+
+                    'tipo' =>
+                        $aula->tipo,
+
+                    'capacidad' =>
+                        $aula->capacidad,
+
+                    'edificio' =>
+                        $aula->edificio,
+
+                    'piso' =>
+                        $aula->piso,
                 ],
-                'total_clases' => $horarios->count(),
-                'horarios' => $this->organizarPorDia($horarios),
+
+                'total_clases' =>
+                    $horarios->count(),
+
+                'horarios' =>
+                    $this->organizarPorDia(
+                        $horarios
+                    ),
             ],
         ]);
     }
+
+
+    // =========================================================
+    // HORARIO POR CURSO
+    // =========================================================
 
     /**
      * GET /api/publico/horario/curso/{id}
-     * Ver horario público de un curso
      */
-    public function horarioCurso(int $id): JsonResponse
-    {
-        $curso = Curso::where('activo', true)->find($id);
+    public function horarioCurso(
+        int $id
+    ): JsonResponse {
+
+        $curso =
+            Curso::where(
+                'activo',
+                true
+            )
+                ->find(
+                    $id
+                );
+
 
         if (!$curso) {
+
             return response()->json([
-                'success' => false,
-                'message' => 'Curso no encontrado o inactivo',
+                'success' =>
+                    false,
+
+                'message' =>
+                    'Curso no encontrado o inactivo',
             ], 404);
         }
 
-        $horarios = Horario::with(['profesor', 'aula', 'grado'])
-            ->where('curso_id', $id)
-            ->where('estado', 'activo')
-            ->orderBy('dia_semana')
-            ->orderBy('hora_inicio')
-            ->get();
+
+        $horarios =
+            Horario::with([
+                'profesor',
+                'aula',
+                'grado',
+            ])
+                ->where(
+                    'curso_id',
+                    $id
+                )
+                ->where(
+                    'estado',
+                    'activo'
+                )
+                ->orderBy(
+                    'dia_semana'
+                )
+                ->orderBy(
+                    'hora_inicio'
+                )
+                ->get();
+
 
         return response()->json([
-            'success' => true,
+            'success' =>
+                true,
+
             'data' => [
-                'tipo' => 'curso',
+
+                'tipo' =>
+                    'curso',
+
                 'info' => [
-                    'id' => $curso->id,
-                    'codigo' => $curso->codigo,
-                    'nombre' => $curso->nombre,
-                    'nivel' => $curso->nivel,
-                    'tipo' => $curso->tipo,
+
+                    'id' =>
+                        $curso->id,
+
+                    'codigo' =>
+                        $curso->codigo,
+
+                    'nombre' =>
+                        $curso->nombre,
+
+                    'nivel' =>
+                        $curso->nivel,
+
+                    'tipo' =>
+                        $curso->tipo,
                 ],
-                'total_clases' => $horarios->count(),
-                'horarios' => $this->organizarPorDia($horarios),
+
+                'total_clases' =>
+                    $horarios->count(),
+
+                'horarios' =>
+                    $this->organizarPorDia(
+                        $horarios
+                    ),
             ],
         ]);
     }
 
-    /**
-     * ========================================
-     * MÉTODOS AUXILIARES
-     * ========================================
-     */
+
+    // =========================================================
+    // ORGANIZAR POR DÍA
+    // =========================================================
 
     /**
-     * Organizar horarios por día de la semana
+     * Organizar colección de horarios
+     * por día de la semana.
      */
-    protected function organizarPorDia($horarios): array
-    {
-        $resultado = [];
+    protected function organizarPorDia(
+        $horarios
+    ): array {
 
-        foreach ($this->dias as $dia) {
-            $resultado[$dia] = $horarios->where('dia_semana', $dia)->values();
+        $resultado =
+            [];
+
+
+        foreach (
+            $this->dias as $dia
+        ) {
+
+            $resultado[
+                $dia
+            ] =
+                $horarios
+                    ->where(
+                        'dia_semana',
+                        $dia
+                    )
+                    ->values();
         }
+
 
         return $resultado;
     }
 
-    /**
-     * Calcular carga horaria total
-     */
-    protected function calcularCargaHoraria($horarios): float
-    {
-        $minutos = $horarios->sum(function ($h) {
-            return \Carbon\Carbon::parse($h->hora_inicio)
-                ->diffInMinutes(\Carbon\Carbon::parse($h->hora_fin));
-        });
 
-        return round($minutos / 60, 2);
+    // =========================================================
+    // CALCULAR CARGA HORARIA
+    // =========================================================
+
+    /**
+     * Calcular horas totales.
+     */
+    protected function calcularCargaHoraria(
+        $horarios
+    ): float {
+
+        $minutos =
+            $horarios->sum(
+                function ($horario) {
+
+                    return \Carbon\Carbon::parse(
+                        $horario->hora_inicio
+                    )
+                        ->diffInMinutes(
+                            \Carbon\Carbon::parse(
+                                $horario->hora_fin
+                            )
+                        );
+                }
+            );
+
+
+        return round(
+            $minutos /
+            60,
+            2
+        );
     }
 }
