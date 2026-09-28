@@ -235,5 +235,5 @@ return [
         'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
     ],
 
-    'frontend_url' => env('FRONTEND_URL', 'http://localhost:5173'),
+    'frontend_url' => env('FRONTEND_URL', 'http://localhost:8000'),
 ];
