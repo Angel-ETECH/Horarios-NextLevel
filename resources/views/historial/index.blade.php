@@ -33,6 +33,231 @@
         min-height: 44px;
     }
 
+    .historial-native-select {
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
+    }
+
+    .historial-filter-select {
+        position: relative;
+    }
+
+    .historial-filter-trigger {
+        position: relative;
+        display: flex;
+        min-height: 54px;
+        width: 100%;
+        align-items: center;
+        gap: .75rem;
+        border: 1px solid #dbe5f0;
+        border-radius: 1rem;
+        background: #fff;
+        padding: .55rem 2.75rem .55rem .6rem;
+        text-align: left;
+        color: #0F2749;
+        box-shadow: 0 8px 24px rgba(15, 39, 73, .04);
+        transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .historial-filter-trigger:hover {
+        border-color: rgba(27, 58, 107, .28);
+        box-shadow: 0 12px 28px rgba(15, 39, 73, .07);
+    }
+
+    .historial-filter-select.open .historial-filter-trigger,
+    .historial-filter-trigger:focus-visible {
+        border-color: #1B3A6B;
+        box-shadow: 0 0 0 3px rgba(27, 58, 107, .10), 0 14px 34px rgba(15, 39, 73, .10);
+        outline: none;
+    }
+
+    .historial-filter-icon {
+        display: inline-flex;
+        height: 38px;
+        width: 38px;
+        flex: 0 0 38px;
+        align-items: center;
+        justify-content: center;
+        border-radius: .85rem;
+        background: #eef4fb;
+        color: #1B3A6B;
+    }
+
+    .historial-filter-label {
+        display: block;
+        font-size: .62rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: #8da0ba;
+    }
+
+    .historial-filter-value {
+        display: block;
+        overflow: hidden;
+        color: #172b49;
+        font-size: .9rem;
+        font-weight: 800;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .historial-filter-chevron {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        height: 1rem;
+        width: 1rem;
+        transform: translateY(-50%);
+        color: #64748b;
+        transition: transform .2s ease;
+    }
+
+    .historial-filter-select.open .historial-filter-chevron {
+        transform: translateY(-50%) rotate(180deg);
+    }
+
+    .historial-filter-panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + .5rem);
+        z-index: 90;
+        display: none;
+        overflow: hidden;
+        border: 1px solid #dbe5f0;
+        border-radius: 1rem;
+        background: #fff;
+        padding: .45rem;
+        box-shadow: 0 22px 50px rgba(15, 39, 73, .16);
+    }
+
+    .historial-filter-select.open .historial-filter-panel {
+        display: block;
+    }
+
+    .historial-filter-option {
+        display: flex;
+        min-height: 44px;
+        width: 100%;
+        align-items: center;
+        gap: .7rem;
+        border: 0;
+        border-radius: .75rem;
+        background: transparent;
+        padding: .55rem .75rem;
+        color: #172b49;
+        cursor: pointer;
+        font-size: .9rem;
+        font-weight: 750;
+        text-align: left;
+        transition: background .15s ease, color .15s ease;
+    }
+
+    .historial-filter-option:hover,
+    .historial-filter-option.selected {
+        background: #eef4fb;
+        color: #0F2749;
+    }
+
+    .historial-filter-option-icon {
+        display: inline-flex;
+        height: 30px;
+        width: 30px;
+        flex: 0 0 30px;
+        align-items: center;
+        justify-content: center;
+        border-radius: .65rem;
+        background: #f0f5fb;
+        color: #1B3A6B;
+    }
+
+    .historial-filter-check {
+        margin-left: auto;
+        height: 1rem;
+        width: 1rem;
+        color: #1B3A6B;
+        opacity: 0;
+    }
+
+    .historial-filter-option.selected .historial-filter-check {
+        opacity: 1;
+    }
+
+    .historial-date-field {
+        position: relative;
+        display: flex;
+        min-height: 54px;
+        width: 100%;
+        align-items: center;
+        gap: .75rem;
+        border: 1px solid #dbe5f0;
+        border-radius: 1rem;
+        background: #fff;
+        padding: .55rem .9rem .55rem .6rem;
+        box-shadow: 0 8px 24px rgba(15, 39, 73, .04);
+        transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .historial-date-field:focus-within {
+        border-color: #1B3A6B;
+        box-shadow: 0 0 0 3px rgba(27, 58, 107, .10), 0 14px 34px rgba(15, 39, 73, .10);
+    }
+
+    .historial-date-field:hover {
+        border-color: rgba(27, 58, 107, .28);
+        box-shadow: 0 12px 28px rgba(15, 39, 73, .07);
+    }
+
+    .historial-date-icon {
+        display: inline-flex;
+        height: 38px;
+        width: 38px;
+        flex: 0 0 38px;
+        align-items: center;
+        justify-content: center;
+        border-radius: .85rem;
+        background: #eef4fb;
+        color: #1B3A6B;
+    }
+
+    .historial-date-label {
+        display: block;
+        font-size: .62rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: #8da0ba;
+    }
+
+    .historial-date-input {
+        min-height: 21px;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: #172b49;
+        font-size: .9rem;
+        font-weight: 800;
+        line-height: 1.2;
+        outline: none;
+    }
+
+    .historial-date-input::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        opacity: .72;
+    }
+
+    .historial-filter-action {
+        min-height: 54px;
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(27, 58, 107, .14);
+    }
+
     .historial-modal-backdrop {
         background: rgba(15, 23, 42, .62);
         backdrop-filter: blur(4px);
@@ -348,7 +573,7 @@
 
                 <select
                     id="historial-filtro-accion"
-                    class="historial-select w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                    class="historial-native-select"
                 >
                     <option value="">Todas</option>
                     <option value="crear">Creación</option>
@@ -357,6 +582,74 @@
                     <option value="restaurar">Restauración</option>
                     <option value="revertir">Reversión</option>
                 </select>
+
+                <div class="historial-filter-select" data-historial-select="historial-filtro-accion">
+                    <button type="button" class="historial-filter-trigger" aria-expanded="false">
+                        <span class="historial-filter-icon">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 6h16"/>
+                                <path d="M7 12h10"/>
+                                <path d="M10 18h4"/>
+                            </svg>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="historial-filter-label">Acción</span>
+                            <span class="historial-filter-value">Todas</span>
+                        </span>
+                        <svg class="historial-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                    </button>
+
+                    <div class="historial-filter-panel">
+                        <button type="button" class="historial-filter-option selected" data-value="">
+                            <span class="historial-filter-option-icon">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </span>
+                            <span>Todas</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="historial-filter-option" data-value="crear">
+                            <span class="historial-filter-option-icon">C</span>
+                            <span>Creación</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="historial-filter-option" data-value="actualizar">
+                            <span class="historial-filter-option-icon">A</span>
+                            <span>Actualización</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="historial-filter-option" data-value="eliminar">
+                            <span class="historial-filter-option-icon">E</span>
+                            <span>Eliminación</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="historial-filter-option" data-value="restaurar">
+                            <span class="historial-filter-option-icon">R</span>
+                            <span>Restauración</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="historial-filter-option" data-value="revertir">
+                            <span class="historial-filter-option-icon">V</span>
+                            <span>Reversión</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
             </div>
 
@@ -372,12 +665,59 @@
 
                 <select
                     id="historial-filtro-institucion"
-                    class="historial-select w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                    class="historial-native-select"
                 >
                     <option value="">Todas</option>
                     <option value="colegio">Colegio</option>
                     <option value="academia">Academia</option>
                 </select>
+
+                <div class="historial-filter-select" data-historial-select="historial-filtro-institucion">
+                    <button type="button" class="historial-filter-trigger" aria-expanded="false">
+                        <span class="historial-filter-icon">
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 21h18"/>
+                                <path d="M5 21V7l7-4 7 4v14"/>
+                                <path d="M9 21v-6h6v6"/>
+                            </svg>
+                        </span>
+                        <span class="min-w-0">
+                            <span class="historial-filter-label">Institución</span>
+                            <span class="historial-filter-value">Todas</span>
+                        </span>
+                        <svg class="historial-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                    </button>
+
+                    <div class="historial-filter-panel">
+                        <button type="button" class="historial-filter-option selected" data-value="">
+                            <span class="historial-filter-option-icon">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </span>
+                            <span>Todas</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="historial-filter-option" data-value="colegio">
+                            <span class="historial-filter-option-icon">C</span>
+                            <span>Colegio</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="historial-filter-option" data-value="academia">
+                            <span class="historial-filter-option-icon">A</span>
+                            <span>Academia</span>
+                            <svg class="historial-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
 
             </div>
 
@@ -391,11 +731,24 @@
                     Desde
                 </label>
 
-                <input
-                    type="date"
-                    id="historial-fecha-inicio"
-                    class="historial-input w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                >
+                <label class="historial-date-field" for="historial-fecha-inicio">
+                    <span class="historial-date-icon">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 2v4"/>
+                            <path d="M16 2v4"/>
+                            <rect x="3" y="4" width="18" height="18" rx="3"/>
+                            <path d="M3 10h18"/>
+                        </svg>
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="historial-date-label">Desde</span>
+                        <input
+                            type="date"
+                            id="historial-fecha-inicio"
+                            class="historial-date-input"
+                        >
+                    </span>
+                </label>
 
             </div>
 
@@ -409,11 +762,24 @@
                     Hasta
                 </label>
 
-                <input
-                    type="date"
-                    id="historial-fecha-fin"
-                    class="historial-input w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-                >
+                <label class="historial-date-field" for="historial-fecha-fin">
+                    <span class="historial-date-icon">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 2v4"/>
+                            <path d="M16 2v4"/>
+                            <rect x="3" y="4" width="18" height="18" rx="3"/>
+                            <path d="M3 10h18"/>
+                        </svg>
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="historial-date-label">Hasta</span>
+                        <input
+                            type="date"
+                            id="historial-fecha-fin"
+                            class="historial-date-input"
+                        >
+                    </span>
+                </label>
 
             </div>
 
@@ -423,7 +789,7 @@
                 <button
                     type="button"
                     id="historial-btn-filtrar"
-                    class="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-white transition hover:opacity-90"
+                    class="historial-filter-action inline-flex flex-1 items-center justify-center gap-2 px-4 text-sm font-bold text-white transition hover:opacity-90"
                     style="background:#1B3A6B;"
                 >
                     <svg
@@ -442,7 +808,7 @@
                 <button
                     type="button"
                     id="historial-btn-limpiar"
-                    class="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                    class="historial-filter-action inline-flex items-center justify-center border border-slate-200 px-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
                     title="Limpiar filtros"
                 >
                     <svg

@@ -1078,7 +1078,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cursoSelect,
             gradoSelect,
             rolSelect,
-            estadoSelect
+            estadoSelect,
+            filtroInstitucion
         ].forEach(
             actualizarCustomSelect
         );

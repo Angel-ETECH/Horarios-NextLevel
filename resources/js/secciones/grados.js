@@ -471,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         limpiarErroresFormulario();
+        sincronizarFiltrosVisuales();
 
         abrirModal();
 
@@ -537,6 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         limpiarErroresFormulario();
+        sincronizarFiltrosVisuales();
 
         abrirModal();
     }

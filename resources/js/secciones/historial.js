@@ -313,6 +313,118 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // =========================================================
+    // SELECTS VISUALES
+    // =========================================================
+
+    function cerrarSelectsVisuales(excepto = null) {
+
+        document
+            .querySelectorAll('.historial-filter-select.open')
+            .forEach(wrapper => {
+
+                if (wrapper === excepto) {
+                    return;
+                }
+
+                wrapper.classList.remove('open');
+
+                wrapper
+                    .querySelector('.historial-filter-trigger')
+                    ?.setAttribute('aria-expanded', 'false');
+            });
+    }
+
+
+    function sincronizarSelectVisual(wrapper) {
+
+        const select = document.getElementById(wrapper.dataset.historialSelect);
+        const texto = wrapper.querySelector('.historial-filter-value');
+        const opciones = wrapper.querySelectorAll('.historial-filter-option');
+
+        if (!select || !texto) {
+            return;
+        }
+
+        let opcionActiva = null;
+
+        opciones.forEach(opcion => {
+
+            const seleccionada = opcion.dataset.value === select.value;
+
+            opcion.classList.toggle('selected', seleccionada);
+
+            if (seleccionada) {
+                opcionActiva = opcion;
+            }
+        });
+
+        texto.textContent =
+            opcionActiva?.querySelector('span:nth-child(2)')?.textContent?.trim()
+            || select.selectedOptions?.[0]?.textContent?.trim()
+            || 'Todas';
+    }
+
+
+    function sincronizarSelectsVisuales() {
+
+        document
+            .querySelectorAll('.historial-filter-select')
+            .forEach(sincronizarSelectVisual);
+    }
+
+
+    document
+        .querySelectorAll('.historial-filter-select')
+        .forEach(wrapper => {
+
+            const select = document.getElementById(wrapper.dataset.historialSelect);
+            const trigger = wrapper.querySelector('.historial-filter-trigger');
+            const opciones = wrapper.querySelectorAll('.historial-filter-option');
+
+            if (!select || !trigger) {
+                return;
+            }
+
+            trigger.addEventListener('click', () => {
+
+                const abrir = !wrapper.classList.contains('open');
+
+                cerrarSelectsVisuales(wrapper);
+                wrapper.classList.toggle('open', abrir);
+                trigger.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+            });
+
+            opciones.forEach(opcion => {
+
+                opcion.addEventListener('click', () => {
+
+                    select.value = opcion.dataset.value ?? '';
+                    sincronizarSelectVisual(wrapper);
+                    cerrarSelectsVisuales();
+
+                    select.dispatchEvent(new Event('change', {
+                        bubbles: true,
+                    }));
+                });
+            });
+
+            select.addEventListener('change', () => sincronizarSelectVisual(wrapper));
+
+            sincronizarSelectVisual(wrapper);
+        });
+
+
+    document.addEventListener('click', evento => {
+
+        if (evento.target.closest('.historial-filter-select')) {
+            return;
+        }
+
+        cerrarSelectsVisuales();
+    });
+
+
+    // =========================================================
     // CARGA
     // =========================================================
 
@@ -1124,6 +1236,8 @@ document.addEventListener('DOMContentLoaded', () => {
         filtroInstitucion.value = '';
         fechaInicio.value = '';
         fechaFin.value = '';
+
+        sincronizarSelectsVisuales();
 
         cargarHistorial();
     });

@@ -1285,16 +1285,7 @@
 
                 <select
                     id="filtro-institucion-asignaciones"
-                    class="
-                        asignaciones-input
-                        rounded-xl
-                        border border-slate-200
-                        bg-white
-                        px-3 py-2.5
-                        text-sm
-                        text-slate-600
-                        outline-none
-                    "
+                    class="nl-native-select"
                 >
                     <option value="">
                         Todas las instituciones
@@ -1309,6 +1300,14 @@
                     </option>
                 </select>
 
+                <div
+                    class="nl-select w-full md:w-72"
+                    data-custom-select="filtro-institucion-asignaciones"
+                    data-label="Institución"
+                    data-search="false"
+                    data-placeholder="Todas las instituciones"
+                    data-icon="institucion"
+                ></div>
 
                 <div class="relative w-full md:w-72">
 

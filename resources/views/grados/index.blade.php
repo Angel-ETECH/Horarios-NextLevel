@@ -43,7 +43,12 @@
     }
 
     .grado-native-select {
-        display: none;
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        overflow: hidden !important;
     }
 
     .grado-filter-select {
@@ -1143,13 +1148,62 @@
                         id="grado-nivel"
                         name="nivel"
                         required
-                        class="grado-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                        class="grado-native-select"
                     >
                         <option value="">Seleccionar nivel</option>
                         <option value="primaria">Primaria</option>
                         <option value="secundaria">Secundaria</option>
                         <option value="academia">Academia</option>
                     </select>
+
+                    <div class="grado-filter-select" data-filter-select="grado-nivel">
+                        <button type="button" class="grado-filter-trigger" aria-expanded="false">
+                            <span class="grado-filter-icon">
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="m4 19 8-14 8 14"/>
+                                    <path d="M8.5 13h7"/>
+                                </svg>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="grado-filter-label">Nivel</span>
+                                <span class="grado-filter-value">Seleccionar nivel</span>
+                            </span>
+                            <svg class="grado-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </button>
+
+                        <div class="grado-filter-panel">
+                            <button type="button" class="grado-filter-option selected" data-value="">
+                                <span class="grado-filter-option-icon">?</span>
+                                <span>Seleccionar nivel</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="primaria">
+                                <span class="grado-filter-option-icon">P</span>
+                                <span>Primaria</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="secundaria">
+                                <span class="grado-filter-option-icon">S</span>
+                                <span>Secundaria</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="academia">
+                                <span class="grado-filter-option-icon">A</span>
+                                <span>Academia</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
                 </div>
 
@@ -1292,7 +1346,7 @@
                         id="grado-turno"
                         name="turno"
                         required
-                        class="grado-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                        class="grado-native-select"
                     >
                         <option value="">Seleccionar turno</option>
                         <option value="mañana">Mañana</option>
@@ -1300,6 +1354,62 @@
                         <option value="noche">Noche</option>
                         <option value="completo">Completo</option>
                     </select>
+
+                    <div class="grado-filter-select" data-filter-select="grado-turno">
+                        <button type="button" class="grado-filter-trigger" aria-expanded="false">
+                            <span class="grado-filter-icon">
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="8"/>
+                                    <path d="M12 8v4l3 2"/>
+                                </svg>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="grado-filter-label">Turno</span>
+                                <span class="grado-filter-value">Seleccionar turno</span>
+                            </span>
+                            <svg class="grado-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </button>
+
+                        <div class="grado-filter-panel">
+                            <button type="button" class="grado-filter-option selected" data-value="">
+                                <span class="grado-filter-option-icon">?</span>
+                                <span>Seleccionar turno</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="mañana">
+                                <span class="grado-filter-option-icon">M</span>
+                                <span>Mañana</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="tarde">
+                                <span class="grado-filter-option-icon">T</span>
+                                <span>Tarde</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="noche">
+                                <span class="grado-filter-option-icon">N</span>
+                                <span>Noche</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="completo">
+                                <span class="grado-filter-option-icon">C</span>
+                                <span>Completo</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
                 </div>
 
@@ -1317,11 +1427,46 @@
                     <select
                         id="grado-estado"
                         name="activo"
-                        class="grado-input w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none"
+                        class="grado-native-select"
                     >
                         <option value="1">Activo</option>
                         <option value="0">Inactivo</option>
                     </select>
+
+                    <div class="grado-filter-select" data-filter-select="grado-estado">
+                        <button type="button" class="grado-filter-trigger" aria-expanded="false">
+                            <span class="grado-filter-icon">
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 13c0 5-3.5 7-8 8-4.5-1-8-3-8-8V5l8-3 8 3v8Z"/>
+                                    <path d="m9 12 2 2 4-4"/>
+                                </svg>
+                            </span>
+                            <span class="min-w-0">
+                                <span class="grado-filter-label">Estado</span>
+                                <span class="grado-filter-value">Activo</span>
+                            </span>
+                            <svg class="grado-filter-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </button>
+
+                        <div class="grado-filter-panel">
+                            <button type="button" class="grado-filter-option selected" data-value="1">
+                                <span class="grado-filter-option-icon">A</span>
+                                <span>Activo</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                            <button type="button" class="grado-filter-option" data-value="0">
+                                <span class="grado-filter-option-icon">I</span>
+                                <span>Inactivo</span>
+                                <svg class="grado-filter-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6 9 17l-5-5"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
 
                 </div>
 
