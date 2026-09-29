@@ -11,7 +11,6 @@ use App\Models\ConfiguracionHorario;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class HorarioGeneratorService
 {
@@ -30,8 +29,6 @@ class HorarioGeneratorService
      */
     public function generarHorarios(array $opciones = []): array
     {
-        Log::info('Iniciando generación de horarios...', $opciones);
-
         DB::beginTransaction();
 
         try {
@@ -100,11 +97,7 @@ class HorarioGeneratorService
      */
     protected function cargarHorariosExistentes(array $opciones): void
     {
-        $query = Horario::withTrashed();
-
-        if (!empty($opciones['institucion'])) {
-            $query->where('institucion', $opciones['institucion']);
-        }
+        $query = Horario::where('estado', 'activo');
 
         if (!empty($opciones['periodo_academico'])) {
             $query->where('periodo_academico', $opciones['periodo_academico']);
@@ -207,16 +200,23 @@ class HorarioGeneratorService
         // 4. Asignar bloques. Se intenta primero el turno exacto y luego
         // alternativas del mismo nivel cuando la disponibilidad no coincide.
         $bloquesAsignados = [];
+        $horasPendientes = $horasNecesarias;
 
         foreach ($configuraciones as $config) {
-            $bloquesAsignados = $this->asignarBloquesConConfiguracion(
+            $bloquesConfig = $this->asignarBloquesConConfiguracion(
                 $asignacion,
                 $config,
                 $disponibilidades,
-                $aulas
+                $aulas,
+                $horasPendientes
             );
 
-            if (!empty($bloquesAsignados)) {
+            if (!empty($bloquesConfig)) {
+                $bloquesAsignados = array_merge($bloquesAsignados, $bloquesConfig);
+                $horasPendientes -= count($bloquesConfig);
+            }
+
+            if ($horasPendientes <= 0) {
                 break;
             }
         }
@@ -287,10 +287,11 @@ class HorarioGeneratorService
         $asignacion,
         ConfiguracionHorario $config,
         Collection $disponibilidades,
-        Collection $aulas
+        Collection $aulas,
+        int $horasObjetivo
     ): array {
         $bloquesAsignados = [];
-        $horasRestantes = $asignacion->horas_asignadas;
+        $horasRestantes = $horasObjetivo;
         $profesorId = $asignacion->profesor_id;
         $gradoId = $asignacion->grado_id;
 

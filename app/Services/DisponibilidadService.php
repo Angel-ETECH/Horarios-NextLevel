@@ -358,15 +358,6 @@ class DisponibilidadService
             $excludeId
         );
 
-        $this->verificarSolapamientos(
-            $profesorId,
-            $dia,
-            $horaInicio,
-            $horaFin,
-            $institucion,
-            $excludeId
-        );
-
         return true;
     }
 

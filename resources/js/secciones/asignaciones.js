@@ -1134,7 +1134,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function mostrarEstado(
         valido,
-        mensaje
+        mensaje,
+        tipo = null
     ) {
 
         if (!estadoAsignacion) {
@@ -1146,6 +1147,28 @@ document.addEventListener('DOMContentLoaded', () => {
             'border-t border-slate-200 px-5 py-4';
 
 
+        const estilo =
+            tipo === 'warning'
+                ? `
+                    border-amber-200
+                    bg-amber-50
+                    text-amber-800
+                `
+                : (
+                    valido
+                        ? `
+                            border-emerald-200
+                            bg-emerald-50
+                            text-emerald-700
+                        `
+                        : `
+                            border-red-200
+                            bg-red-50
+                            text-red-700
+                        `
+                );
+
+
         estadoAsignacion.innerHTML = `
 
             <div
@@ -1154,24 +1177,67 @@ document.addEventListener('DOMContentLoaded', () => {
                     border
                     px-4 py-3
                     text-sm font-medium
-                    ${
-                        valido
-                            ? `
-                                border-emerald-200
-                                bg-emerald-50
-                                text-emerald-700
-                            `
-                            : `
-                                border-red-200
-                                bg-red-50
-                                text-red-700
-                            `
-                    }
+                    ${estilo}
                 "
             >
                 ${escaparHTML(mensaje)}
             </div>
         `;
+    }
+
+
+    function obtenerAvisoGeneracion(response) {
+
+        const generacion =
+            response?.data?.generacion_horarios;
+
+
+        if (
+            !generacion ||
+            generacion.success === false
+        ) {
+            return null;
+        }
+
+
+        const incompletas =
+            Array.isArray(
+                generacion.asignaciones_incompletas
+            )
+                ? generacion.asignaciones_incompletas
+                : [];
+
+
+        if (incompletas.length === 0) {
+            return null;
+        }
+
+
+        const actual =
+            incompletas.find(
+                item =>
+                    String(item.asignacion_id) ===
+                    String(
+                        response?.data?.data?.id
+                    )
+            ) ||
+            incompletas[0];
+
+
+        const pendientes =
+            Number(
+                actual?.horas_pendientes
+            ) || 0;
+
+
+        const motivo =
+            actual?.motivo ||
+            'No se encontraron bloques disponibles.';
+
+
+        return pendientes > 0
+            ? `Asignación guardada, pero faltan ${pendientes} hora(s) por programar. ${motivo} Revisa la disponibilidad del profesor, conflictos de aula/grado o aumenta su rango horario.`
+            : null;
     }
 
 
@@ -2648,9 +2714,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
 
 
+            const avisoGeneracion =
+                obtenerAvisoGeneracion(
+                    response
+                );
+
+
             mostrarEstado(
-                true,
-                mensaje
+                !avisoGeneracion,
+                avisoGeneracion || mensaje,
+                avisoGeneracion
+                    ? 'warning'
+                    : null
             );
 
 
@@ -2669,8 +2744,11 @@ document.addEventListener('DOMContentLoaded', () => {
              */
 
             mostrarEstado(
-                true,
-                mensaje
+                !avisoGeneracion,
+                avisoGeneracion || mensaje,
+                avisoGeneracion
+                    ? 'warning'
+                    : null
             );
 
 
@@ -2678,9 +2756,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             alert(
-                eraEdicion
-                    ? 'Asignación actualizada correctamente.'
-                    : 'Asignación creada correctamente.'
+                avisoGeneracion ||
+                (
+                    eraEdicion
+                        ? 'Asignación actualizada correctamente.'
+                        : 'Asignación creada correctamente.'
+                )
             );
 
 

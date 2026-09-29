@@ -668,7 +668,7 @@
     ========================================================== --}}
 
     <section
-        class="grid grid-cols-1 gap-5 xl:grid-cols-3"
+        class="grid grid-cols-1 items-start gap-5 xl:grid-cols-3"
     >
 
 
@@ -800,7 +800,7 @@
         ====================================================== --}}
 
         <div
-            class="dashboard-card rounded-2xl bg-white p-5"
+            class="dashboard-card self-start rounded-2xl bg-white p-5 xl:sticky xl:top-6"
         >
 
             <div>

@@ -7,6 +7,7 @@ use App\Models\ProfesorCurso;
 use App\Models\Profesor;
 use App\Models\Curso;
 use App\Models\Grado;
+use App\Models\Horario;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -403,6 +404,40 @@ class AsignacionService
             // 4. Actualizar la asignación
             $asignacion->update($data);
 
+            $cambioIdentidad =
+                $nuevoProfesorId != $profesorIdActual ||
+                $nuevoCursoId != $cursoIdActual ||
+                $nuevoGradoId != $gradoIdActual ||
+                $nuevaInstitucion != $institucionActual;
+
+            $quedaActiva = array_key_exists('activo', $data)
+                ? (bool) $data['activo']
+                : (bool) $asignacion->activo;
+
+            if (!$quedaActiva) {
+                $this->eliminarHorariosDeAsignacion(
+                    $nuevoProfesorId,
+                    $nuevoCursoId,
+                    $nuevoGradoId,
+                    $nuevaInstitucion
+                );
+            } elseif ($cambioIdentidad) {
+                $this->eliminarHorariosDeAsignacion(
+                    $profesorIdActual,
+                    $cursoIdActual,
+                    $gradoIdActual,
+                    $institucionActual
+                );
+            } elseif ($nuevasHoras < $horasActuales) {
+                $this->ajustarHorariosAhorasAsignadas(
+                    $nuevoProfesorId,
+                    $nuevoCursoId,
+                    $nuevoGradoId,
+                    $nuevaInstitucion,
+                    $nuevasHoras
+                );
+            }
+
             // 5. Actualizar carga horaria de ambos profesores (si cambió)
             if ($nuevoProfesorId != $profesorIdActual) {
                 $this->actualizarCargaHorariaProfesor($profesorIdActual);
@@ -428,6 +463,13 @@ class AsignacionService
 
             // En lugar de eliminar, desactivar
             $asignacion->update(['activo' => false]);
+
+            $this->eliminarHorariosDeAsignacion(
+                $asignacion->profesor_id,
+                $asignacion->curso_id,
+                $asignacion->grado_id,
+                $asignacion->institucion ?? 'colegio'
+            );
 
             // Actualizar carga horaria del profesor
             $this->actualizarCargaHorariaProfesor($asignacion->profesor_id);
@@ -491,11 +533,62 @@ class AsignacionService
                 ->where('activo', true)
                 ->update(['activo' => false]);
 
+            Horario::where('profesor_id', $profesorId)
+                ->where('estado', 'activo')
+                ->forceDelete();
+
             // Actualizar carga horaria del profesor
             $this->actualizarCargaHorariaProfesor($profesorId);
 
             return $count;
         });
+    }
+
+    /**
+     * Quitar del horario las clases que pertenecen a una asignación.
+     */
+    private function eliminarHorariosDeAsignacion(
+        int $profesorId,
+        int $cursoId,
+        int $gradoId,
+        string $institucion
+    ): int {
+        return Horario::where('profesor_id', $profesorId)
+            ->where('curso_id', $cursoId)
+            ->where('grado_id', $gradoId)
+            ->where('institucion', $institucion)
+            ->where('estado', 'activo')
+            ->forceDelete();
+    }
+
+    /**
+     * Si se reducen horas, elimina las clases sobrantes para que el horario
+     * refleje exactamente la asignación actual.
+     */
+    private function ajustarHorariosAhorasAsignadas(
+        int $profesorId,
+        int $cursoId,
+        int $gradoId,
+        string $institucion,
+        int $horasAsignadas
+    ): void {
+        $horarios = Horario::where('profesor_id', $profesorId)
+            ->where('curso_id', $cursoId)
+            ->where('grado_id', $gradoId)
+            ->where('institucion', $institucion)
+            ->where('estado', 'activo')
+            ->orderBy('dia_semana')
+            ->orderBy('hora_inicio')
+            ->get();
+
+        if ($horarios->count() <= $horasAsignadas) {
+            return;
+        }
+
+        $horarios
+            ->slice($horasAsignadas)
+            ->each
+            ->forceDelete();
     }
 
     /**

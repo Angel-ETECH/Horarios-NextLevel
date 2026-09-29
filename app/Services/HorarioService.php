@@ -283,12 +283,12 @@ class HorarioService
     }
 
     /**
-     * Eliminar (soft delete) un horario
+     * Eliminar un horario y liberar su bloque
      */
     public function delete(int $id): bool
     {
         $horario = Horario::findOrFail($id);
-        return $horario->delete();
+        return (bool) $horario->forceDelete();
     }
 
     /**

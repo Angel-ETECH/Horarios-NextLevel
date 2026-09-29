@@ -6,16 +6,22 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Horario;
 use App\Services\HistorialService;
+use App\Services\HorarioService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class HorarioController extends Controller
 {
     protected HistorialService $historialService;
+    protected HorarioService $horarioService;
 
-    public function __construct(HistorialService $historialService)
+    public function __construct(
+        HistorialService $historialService,
+        HorarioService $horarioService
+    )
     {
         $this->historialService = $historialService;
+        $this->horarioService = $horarioService;
     }
 
     /**
@@ -224,20 +230,19 @@ class HorarioController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         try {
-            $horario = Horario::findOrFail($id);
+            $horario = Horario::with(['profesor', 'curso', 'grado', 'aula'])->findOrFail($id);
 
             // Guardar estado anterior
-            $datosAnteriores = $horario->toArray();
+            $datosAnteriores = $this->crearSnapshotHistorial($horario);
 
-            // Actualizar
-            $horario->update($request->all());
+            $horarioActualizado = $this->horarioService->update($id, $request->except('motivo'));
 
             // Registrar cambio
             $this->historialService->registrarCambio(
-                $horario->id,
+                $horarioActualizado->id,
                 'actualizar',
                 $datosAnteriores,
-                $horario->toArray(),
+                $this->crearSnapshotHistorial($horarioActualizado),
                 $request->motivo ?? 'Actualización manual',
                 auth()->id()
             );
@@ -245,7 +250,7 @@ class HorarioController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Horario actualizado exitosamente',
-                'data' => $horario->load(['profesor', 'curso', 'aula', 'grado'])
+                'data' => $horarioActualizado
             ]);
 
         } catch (\Exception $e) {
@@ -259,17 +264,15 @@ class HorarioController extends Controller
 
     /**
      * DELETE /api/horarios/{id}
-     * Eliminar un horario (soft delete con historial)
+     * Eliminar un horario y liberar su bloque
      */
     public function destroy(int $id, Request $request): JsonResponse
     {
         try {
-            $horario = Horario::findOrFail($id);
+            $horario = Horario::with(['profesor', 'curso', 'grado', 'aula'])->findOrFail($id);
 
             // Guardar datos antes de eliminar
-            $datos = $horario->toArray();
-
-            $horario->delete();
+            $datos = $this->crearSnapshotHistorial($horario);
 
             // Registrar cambio
             $this->historialService->registrarCambio(
@@ -280,6 +283,8 @@ class HorarioController extends Controller
                 $request->motivo ?? 'Eliminación manual',
                 auth()->id()
             );
+
+            $horario->forceDelete();
 
             return response()->json([
                 'success' => true,
@@ -293,5 +298,26 @@ class HorarioController extends Controller
                 'error' => $e->getMessage()
             ], 422);
         }
+    }
+
+    private function crearSnapshotHistorial(Horario $horario): array
+    {
+        $datos = $horario->toArray();
+
+        $profesor = $horario->profesor;
+
+        $datos['profesor_nombre'] = $profesor
+            ? trim(implode(' ', array_filter([
+                $profesor->nombre ?? null,
+                $profesor->apellido_paterno ?? null,
+                $profesor->apellido_materno ?? null,
+            ])))
+            : null;
+
+        $datos['curso_nombre'] = $horario->curso?->nombre;
+        $datos['grado_nombre'] = $horario->grado?->nombre_completo;
+        $datos['aula_nombre'] = $horario->aula?->nombre;
+
+        return $datos;
     }
 }

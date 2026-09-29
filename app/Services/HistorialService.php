@@ -81,6 +81,10 @@ class HistorialService
             $query->porGrado($filtros['grado_id']);
         }
 
+        if (!empty($filtros['curso_id'])) {
+            $query->porCurso($filtros['curso_id']);
+        }
+
         if (!empty($filtros['aula_id'])) {
             $query->porAula($filtros['aula_id']);
         }
@@ -158,10 +162,8 @@ class HistorialService
                 return $horario->fresh();
             }
 
-            // Si es una creación, eliminar (soft delete)
+            // Si es una creación, eliminar y liberar el bloque horario
             if ($registro->accion === HistorialCambio::ACCION_CREAR) {
-                $horario->delete();
-
                 $this->registrarCambio(
                     $horario->id,
                     HistorialCambio::ACCION_ELIMINAR,
@@ -169,6 +171,8 @@ class HistorialService
                     null,
                     $motivo ?? 'Revertido desde historial (creación)'
                 );
+
+                $horario->forceDelete();
 
                 return $horario;
             }
