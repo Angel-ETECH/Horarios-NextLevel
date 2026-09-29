@@ -183,7 +183,7 @@ class AsignacionService
     /**
      * Validar que el curso y grado existan y estén activos
      */
-    private function validateCursoYGrado(int $cursoId, int $gradoId): void
+    private function validateCursoYGrado(int $cursoId, int $gradoId, ?string $institucion = null): void
     {
         // Validar curso
         $curso = Curso::find($cursoId);
@@ -218,6 +218,46 @@ class AsignacionService
             throw ValidationException::withMessages([
                 'curso_id' => "El curso es de nivel '{$curso->nivel}' pero el grado es de nivel '{$grado->nivel}'"
             ]);
+        }
+
+        if ($institucion) {
+            $this->validateInstitucionAcademica($institucion, $curso, $grado);
+        }
+    }
+
+    private function validateInstitucionAcademica(string $institucion, Curso $curso, Grado $grado): void
+    {
+        $cursoNivel = strtolower((string) ($curso->nivel ?? ''));
+        $gradoNivel = strtolower((string) ($grado->nivel ?? ''));
+
+        if ($institucion === 'academia') {
+            if ($gradoNivel !== 'academia') {
+                throw ValidationException::withMessages([
+                    'grado_id' => 'Para Academia solo puedes seleccionar grados de Academia.'
+                ]);
+            }
+
+            if (!in_array($cursoNivel, ['academia', 'todos'], true)) {
+                throw ValidationException::withMessages([
+                    'curso_id' => 'Para Academia solo puedes seleccionar cursos de Academia.'
+                ]);
+            }
+
+            return;
+        }
+
+        if ($institucion === 'colegio') {
+            if (!in_array($gradoNivel, ['primaria', 'secundaria'], true)) {
+                throw ValidationException::withMessages([
+                    'grado_id' => 'Para Colegio solo puedes seleccionar grados de Primaria o Secundaria.'
+                ]);
+            }
+
+            if (!in_array($cursoNivel, ['primaria', 'secundaria', 'todos'], true)) {
+                throw ValidationException::withMessages([
+                    'curso_id' => 'Para Colegio solo puedes seleccionar cursos de Primaria o Secundaria.'
+                ]);
+            }
         }
     }
 
@@ -273,7 +313,11 @@ class AsignacionService
             $this->validateProfesorCurso($data);
 
             // 2. Validar compatibilidad curso-grado
-            $this->validateCursoYGrado($data['curso_id'], $data['grado_id']);
+            $this->validateCursoYGrado(
+                $data['curso_id'],
+                $data['grado_id'],
+                $data['institucion'] ?? 'colegio'
+            );
 
             // 3. Validar que no exista duplicado
             $this->validateUnique($data);
@@ -324,7 +368,14 @@ class AsignacionService
             if (isset($data['curso_id']) || isset($data['grado_id'])) {
                 $this->validateCursoYGrado(
                     $data['curso_id'] ?? $cursoIdActual,
-                    $data['grado_id'] ?? $gradoIdActual
+                    $data['grado_id'] ?? $gradoIdActual,
+                    $nuevaInstitucion
+                );
+            } elseif (isset($data['institucion'])) {
+                $this->validateCursoYGrado(
+                    $nuevoCursoId,
+                    $nuevoGradoId,
+                    $nuevaInstitucion
                 );
             }
 

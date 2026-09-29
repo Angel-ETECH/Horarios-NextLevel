@@ -182,17 +182,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         /*
          * Todo horario muestra como mínimo
-         * hasta las 18:00.
+         * hasta las 20:00.
          */
         finMinimo:
-            1080,
+            1200,
 
         /*
-         * Si existen clases posteriores,
-         * podemos ampliar hasta las 23:00.
+         * Límite máximo permitido: 20:00.
          */
         finMaximo:
-            1380,
+            1200,
 
         /*
          * Retícula cada 15 minutos.
@@ -230,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         /*
          * Espacio superior e inferior
-         * para no cortar 07:00 ni 18:00.
+         * para no cortar 07:00 ni 20:00.
          */
         paddingSuperior:
             24,
@@ -1770,11 +1769,19 @@ document.addEventListener('DOMContentLoaded', () => {
             ] =
                 await Promise.all([
                     cargarTodasLasPaginas(
-                        API.horarios
+                        API.horarios,
+                        {
+                            institucion:
+                                institucionActiva,
+                        }
                     ),
 
                     cargarTodasLasPaginas(
-                        API.disponibilidades
+                        API.disponibilidades,
+                        {
+                            institucion:
+                                institucionActiva,
+                        }
                     )
                         .catch(
                             () => []
@@ -2313,7 +2320,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     false,
 
                 mensaje:
-                    'La clase debe mantenerse entre las 07:00 y las 23:00.',
+                    'La clase debe mantenerse entre las 07:00 y las 20:00.',
             };
         }
 
@@ -3425,7 +3432,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
         /*
-         * Si hay una clase después de las 18:00,
+         * Si hay una clase después del mínimo visible,
          * dejamos media hora adicional.
          */
         if (
@@ -6163,7 +6170,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     cerrarTodosFiltros();
 
-                    render();
+                    cargarDatos();
                 }
             )
     );

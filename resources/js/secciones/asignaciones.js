@@ -2962,10 +2962,6 @@ document.addEventListener('DOMContentLoaded', () => {
         'change',
         () => {
 
-            profesorSelect.value =
-                '';
-
-
             cursoSelect.value =
                 '';
 

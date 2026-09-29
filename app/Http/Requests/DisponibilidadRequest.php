@@ -43,12 +43,15 @@ class DisponibilidadRequest extends FormRequest
             'hora_inicio' => [
                 'required',
                 'date_format:H:i',
+                'after_or_equal:07:00',
+                'before:20:00',
             ],
 
             'hora_fin' => [
                 'required',
                 'date_format:H:i',
                 'after:hora_inicio',
+                'before_or_equal:20:00',
             ],
 
             'tipo' => [
@@ -128,6 +131,12 @@ class DisponibilidadRequest extends FormRequest
             'hora_inicio.date_format' =>
                 'La hora de inicio debe tener formato HH:MM.',
 
+            'hora_inicio.after_or_equal' =>
+                'La hora de inicio no puede ser antes de las 07:00.',
+
+            'hora_inicio.before' =>
+                'La hora de inicio debe ser antes de las 20:00.',
+
             'hora_fin.required' =>
                 'La hora de fin es obligatoria.',
 
@@ -136,6 +145,9 @@ class DisponibilidadRequest extends FormRequest
 
             'hora_fin.after' =>
                 'La hora de fin debe ser después de la hora de inicio.',
+
+            'hora_fin.before_or_equal' =>
+                'La hora de fin no puede pasar de las 20:00.',
 
             'tipo.required' =>
                 'El tipo de disponibilidad es obligatorio.',

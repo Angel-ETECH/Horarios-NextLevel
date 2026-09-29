@@ -88,6 +88,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const DURACION_BLOQUE_GRID_MIN =
         60;
 
+    const HORA_MINIMA_PERMITIDA =
+        '07:00';
+
+    const HORA_MAXIMA_PERMITIDA =
+        '20:00';
+
 
     // =========================================================
     // DÍAS
@@ -1948,11 +1954,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 institucionSelect
             );
 
-
-            profesorSelect.value =
-                '';
-
-
             limpiarGrid();
 
 
@@ -2729,6 +2730,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 alert(
                     'La hora de fin debe ser posterior a la hora de inicio.'
+                );
+
+                return;
+            }
+
+
+            if (
+                horaInicio <
+                HORA_MINIMA_PERMITIDA
+                ||
+                horaFin >
+                HORA_MAXIMA_PERMITIDA
+            ) {
+
+                alert(
+                    'La disponibilidad debe estar entre las 07:00 y las 20:00.'
                 );
 
                 return;

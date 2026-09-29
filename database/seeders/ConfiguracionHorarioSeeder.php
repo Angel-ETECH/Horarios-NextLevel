@@ -68,6 +68,60 @@ class ConfiguracionHorarioSeeder extends Seeder
         ]);
 
         // ==========================================
+        // COLEGIO - PRIMARIA (Turno Tarde)
+        // ==========================================
+        $primariaTarde = ConfiguracionHorario::create([
+            'institucion' => 'colegio',
+            'nivel' => 'primaria',
+            'turno' => 'tarde',
+            'nombre' => 'Primaria Tarde ' . $añoActual,
+            'hora_inicio' => '13:00',
+            'hora_fin' => '18:55',
+            'duracion_bloque_minutos' => 45,
+            'año_academico' => $añoActual,
+            'activo' => true,
+        ]);
+
+        $this->crearBloques($primariaTarde, [
+            ['orden' => 1, 'inicio' => '13:00', 'fin' => '13:45', 'tipo' => 'clase', 'numero' => 1],
+            ['orden' => 2, 'inicio' => '13:45', 'fin' => '14:30', 'tipo' => 'clase', 'numero' => 2],
+            ['orden' => 3, 'inicio' => '14:30', 'fin' => '14:50', 'tipo' => 'receso', 'nombre' => 'Recreo 1'],
+            ['orden' => 4, 'inicio' => '14:50', 'fin' => '15:35', 'tipo' => 'clase', 'numero' => 3],
+            ['orden' => 5, 'inicio' => '15:35', 'fin' => '16:20', 'tipo' => 'clase', 'numero' => 4],
+            ['orden' => 6, 'inicio' => '16:20', 'fin' => '16:35', 'tipo' => 'receso', 'nombre' => 'Recreo 2'],
+            ['orden' => 7, 'inicio' => '16:35', 'fin' => '17:20', 'tipo' => 'clase', 'numero' => 5],
+            ['orden' => 8, 'inicio' => '17:20', 'fin' => '18:10', 'tipo' => 'clase', 'numero' => 6],
+            ['orden' => 9, 'inicio' => '18:10', 'fin' => '18:55', 'tipo' => 'clase', 'numero' => 7],
+        ]);
+
+        // ==========================================
+        // COLEGIO - SECUNDARIA (Turno Tarde)
+        // ==========================================
+        $secundariaTarde = ConfiguracionHorario::create([
+            'institucion' => 'colegio',
+            'nivel' => 'secundaria',
+            'turno' => 'tarde',
+            'nombre' => 'Secundaria Tarde ' . $añoActual,
+            'hora_inicio' => '13:00',
+            'hora_fin' => '19:00',
+            'duracion_bloque_minutos' => 45,
+            'año_academico' => $añoActual,
+            'activo' => true,
+        ]);
+
+        $this->crearBloques($secundariaTarde, [
+            ['orden' => 1, 'inicio' => '13:00', 'fin' => '13:45', 'tipo' => 'clase', 'numero' => 1],
+            ['orden' => 2, 'inicio' => '13:45', 'fin' => '14:30', 'tipo' => 'clase', 'numero' => 2],
+            ['orden' => 3, 'inicio' => '14:30', 'fin' => '15:15', 'tipo' => 'clase', 'numero' => 3],
+            ['orden' => 4, 'inicio' => '15:15', 'fin' => '15:35', 'tipo' => 'receso', 'nombre' => 'Receso 1'],
+            ['orden' => 5, 'inicio' => '15:35', 'fin' => '16:25', 'tipo' => 'clase', 'numero' => 4],
+            ['orden' => 6, 'inicio' => '16:25', 'fin' => '17:10', 'tipo' => 'clase', 'numero' => 5],
+            ['orden' => 7, 'inicio' => '17:10', 'fin' => '17:25', 'tipo' => 'receso', 'nombre' => 'Receso 2'],
+            ['orden' => 8, 'inicio' => '17:25', 'fin' => '18:15', 'tipo' => 'clase', 'numero' => 6],
+            ['orden' => 9, 'inicio' => '18:15', 'fin' => '19:00', 'tipo' => 'clase', 'numero' => 7],
+        ]);
+
+        // ==========================================
         // ACADEMIA - Turno Mañana
         // ==========================================
         $academiaMañana = ConfiguracionHorario::create([

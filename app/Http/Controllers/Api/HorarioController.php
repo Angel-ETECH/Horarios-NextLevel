@@ -52,6 +52,10 @@ class HorarioController extends Controller
             $query->where('turno', $request->turno);
         }
 
+        if ($request->has('institucion')) {
+            $query->where('institucion', $request->institucion);
+        }
+
         // Búsqueda por texto
         if ($request->has('search')) {
             $search = $request->search;

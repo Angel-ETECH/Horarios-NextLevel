@@ -15,7 +15,6 @@
 
     @vite([
         'resources/css/app.css',
-        'resources/js/schedule-engine.js',
         'resources/js/app.js'
     ])
 

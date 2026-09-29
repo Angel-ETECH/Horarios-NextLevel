@@ -185,14 +185,14 @@ class HorarioRequest extends FormRequest
             );
         }
 
-        // 3. Validar que esté dentro del horario permitido (6:00 - 23:00)
-        $minHora = Carbon::parse('06:00');
-        $maxHora = Carbon::parse('23:00');
+        // 3. Validar que esté dentro del horario permitido (07:00 - 20:00)
+        $minHora = Carbon::parse('07:00');
+        $maxHora = Carbon::parse('20:00');
 
         if ($inicio < $minHora || $fin > $maxHora) {
             $validator->errors()->add(
                 'hora_inicio',
-                'El horario debe estar entre las 06:00 y las 23:00'
+                'El horario debe estar entre las 07:00 y las 20:00'
             );
         }
 
@@ -252,7 +252,7 @@ class HorarioRequest extends FormRequest
         // 2. Validar rangos de turnos
         $turnos = [
             'mañana' => ['min' => 6, 'max' => 14],   // 6:00 - 13:59
-            'tarde'  => ['min' => 14, 'max' => 23]   // 14:00 - 22:59
+            'tarde'  => ['min' => 14, 'max' => 20]   // 14:00 - 19:59
         ];
 
         $rango = $turnos[$turno] ?? null;

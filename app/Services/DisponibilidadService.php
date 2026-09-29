@@ -400,12 +400,12 @@ class DisponibilidadService
 
         $minHora =
             Carbon::parse(
-                '06:00'
+                '07:00'
             );
 
         $maxHora =
             Carbon::parse(
-                '23:00'
+                '20:00'
             );
 
         if (
@@ -417,7 +417,7 @@ class DisponibilidadService
 
             throw ValidationException::withMessages([
                 'hora_inicio' =>
-                    'El rango horario debe estar entre 06:00 y 23:00',
+                    'El rango horario debe estar entre 07:00 y 20:00',
             ]);
         }
 
@@ -429,12 +429,12 @@ class DisponibilidadService
 
         if (
             $horas >
-            12
+            13
         ) {
 
             throw ValidationException::withMessages([
                 'hora_fin' =>
-                    'El bloque de disponibilidad no puede exceder las 12 horas continuas',
+                    'El bloque de disponibilidad no puede exceder las 13 horas continuas',
             ]);
         }
 
