@@ -16,6 +16,7 @@ class ProfesorCurso extends Model
         'profesor_id',
         'curso_id',
         'grado_id',
+        'aula_id',
         'horas_asignadas',
         'rol',
         'institucion',
@@ -42,6 +43,11 @@ class ProfesorCurso extends Model
     public function grado()
     {
         return $this->belongsTo(Grado::class);
+    }
+
+    public function aula()
+    {
+        return $this->belongsTo(Aula::class);
     }
 
     // ============ SCOPES ============

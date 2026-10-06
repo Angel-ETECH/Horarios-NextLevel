@@ -20,6 +20,17 @@ class AulaController extends Controller
         $this->aulaService = $aulaService;
     }
 
+    private function normalizarDia(string $dia): string
+    {
+        $dia = strtolower(trim($dia));
+
+        return match ($dia) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => $dia,
+        };
+    }
+
     /**
      * ========================================
      * CONSULTAS
@@ -158,7 +169,7 @@ class AulaController extends Controller
     {
         try {
             $request->validate([
-                'dia' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado',
+                'dia' => 'required|in:lunes,martes,miércoles,miercoles,jueves,viernes,sábado,sabado',
                 'hora_inicio' => 'required|date_format:H:i',
                 'hora_fin' => 'required|date_format:H:i|after:hora_inicio',
                 'nivel' => 'nullable|in:primaria,secundaria,academia,todos',
@@ -166,8 +177,10 @@ class AulaController extends Controller
                 'exclude_horario_id' => 'nullable|integer|exists:horarios,id'
             ]);
 
+            $dia = $this->normalizarDia($request->dia);
+
             $aulas = $this->aulaService->getAulasDisponibles(
-                $request->dia,
+                $dia,
                 $request->hora_inicio,
                 $request->hora_fin,
                 $request->nivel,
@@ -178,7 +191,7 @@ class AulaController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $aulas,
-                'dia' => $request->dia,
+                'dia' => $dia,
                 'hora_inicio' => $request->hora_inicio,
                 'hora_fin' => $request->hora_fin,
                 'nivel' => $request->nivel,
@@ -229,16 +242,18 @@ class AulaController extends Controller
         try {
             $request->validate([
                 'aula_id' => 'required|exists:aulas,id',
-                'dia' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado',
+                'dia' => 'required|in:lunes,martes,miércoles,miercoles,jueves,viernes,sábado,sabado',
                 'hora_inicio' => 'required|date_format:H:i',
                 'hora_fin' => 'required|date_format:H:i|after:hora_inicio',
                 'institucion' => 'nullable|in:colegio,academia',
                 'exclude_horario_id' => 'nullable|integer|exists:horarios,id'
             ]);
 
+            $dia = $this->normalizarDia($request->dia);
+
             $disponible = $this->aulaService->verificarDisponibilidadAula(
                 $request->aula_id,
-                $request->dia,
+                $dia,
                 $request->hora_inicio,
                 $request->hora_fin,
                 $request->institucion,

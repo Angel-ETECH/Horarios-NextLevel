@@ -1007,96 +1007,6 @@
         </div>
 
 
-        <div class="flex flex-wrap gap-2">
-
-            <button
-                type="button"
-                id="btn-excel"
-                class="
-                    inline-flex
-                    items-center
-                    gap-2
-                    rounded-xl
-                    border
-                    bg-white
-                    px-4
-                    py-2.5
-                    text-sm
-                    font-semibold
-                    transition
-                    hover:-translate-y-0.5
-                "
-                style="
-                    border-color:rgba(27,58,107,.18);
-                    color:#1B3A6B;
-                "
-            >
-
-                <svg
-                    class="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                >
-                    <path d="M6 3h9l4 4v14H6z"/>
-                    <path d="M15 3v5h5"/>
-                    <path d="M9 12l4 5"/>
-                    <path d="M13 12l-4 5"/>
-                </svg>
-
-                Exportar Excel
-
-            </button>
-
-
-            <button
-                type="button"
-                id="btn-pdf"
-                class="
-                    inline-flex
-                    items-center
-                    gap-2
-                    rounded-xl
-                    px-4
-                    py-2.5
-                    text-sm
-                    font-semibold
-                    text-white
-                    shadow-lg
-                    transition
-                    hover:-translate-y-0.5
-                "
-                style="
-                    background:
-                        linear-gradient(
-                            135deg,
-                            #db0808,
-                            #8d0707
-                        );
-                "
-            >
-
-                <svg
-                    class="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                >
-                    <path d="M6 3h9l4 4v14H6z"/>
-                    <path d="M15 3v5h5"/>
-                    <path d="M9 16v-4h1.4a1.5 1.5 0 0 1 0 3H9"/>
-                    <path d="M14 12v4"/>
-                    <path d="M14 12h1.2c1.2 0 1.8.8 1.8 2s-.6 2-1.8 2H14"/>
-                </svg>
-
-                Exportar PDF
-
-            </button>
-
-        </div>
-
     </div>
 
 
@@ -1410,6 +1320,167 @@
 
             </div>
 
+        </div>
+
+    </div>
+
+
+    {{-- =========================================================
+         CONFIGURACIÓN DE BLOQUES Y RECESOS
+    ========================================================== --}}
+
+    <div class="horarios-card rounded-2xl bg-white p-5">
+
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+
+            <div class="flex items-start gap-3">
+
+                <div
+                    class="
+                        flex
+                        h-12
+                        w-12
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-2xl
+                        bg-slate-100
+                    "
+                    style="color:#1B3A6B;"
+                >
+
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M12 8v5l3 2"/>
+                        <circle cx="12" cy="12" r="9"/>
+                        <path d="M5 3 2 6"/>
+                        <path d="m22 6-3-3"/>
+                    </svg>
+
+                </div>
+
+                <div>
+
+                    <h2
+                        class="font-bold"
+                        style="color:#0F2749;"
+                    >
+                        Recesos del horario
+                    </h2>
+
+                    <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                        Los recesos se mantienen definidos antes de asignar clases.
+                        El sistema evita programar disponibilidad y horarios dentro
+                        de esas franjas.
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div
+                id="config-horario-status"
+                class="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600"
+            >
+                Cargando configuración...
+            </div>
+
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-6">
+
+            <label class="block">
+                <span class="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Nivel
+                </span>
+
+                <select
+                    id="config-horario-nivel"
+                    class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#1B3A6B] focus:ring-4 focus:ring-blue-100"
+                >
+                    <option value="primaria">Primaria</option>
+                    <option value="secundaria">Secundaria</option>
+                    <option value="academia">Academia</option>
+                </select>
+            </label>
+
+            <label class="block">
+                <span class="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Turno
+                </span>
+
+                <select
+                    id="config-horario-turno"
+                    class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#1B3A6B] focus:ring-4 focus:ring-blue-100"
+                >
+                    <option value="mañana">Mañana</option>
+                    <option value="tarde">Tarde</option>
+                    <option value="completo">Completo</option>
+                </select>
+            </label>
+
+            <label class="block">
+                <span class="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Primer receso
+                </span>
+
+                <input
+                    id="config-receso-inicio"
+                    type="time"
+                    value="09:00"
+                    readonly
+                    min="07:00"
+                    max="20:00"
+                    class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#1B3A6B] focus:ring-4 focus:ring-blue-100"
+                >
+            </label>
+
+            <label class="block">
+                <span class="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Minutos por receso
+                </span>
+
+                <input
+                    id="config-receso-minutos"
+                    type="number"
+                    value="30"
+                    min="5"
+                    max="60"
+                    step="5"
+                    readonly
+                    class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#1B3A6B] focus:ring-4 focus:ring-blue-100"
+                    placeholder="Ej. 15"
+                >
+            </label>
+
+            <label class="block lg:col-span-2">
+                <span class="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Nombre de configuración
+                </span>
+
+                <input
+                    id="config-horario-nombre"
+                    type="text"
+                    class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#1B3A6B] focus:ring-4 focus:ring-blue-100"
+                    placeholder="Ej. Colegio primaria - mañana"
+                >
+            </label>
+
+        </div>
+
+        <div
+            id="config-bloques-lista"
+            class="mt-5 grid grid-cols-1 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4"
+        ></div>
+
+        <div class="mt-5 flex justify-end">
+            <button
+                id="btn-guardar-config-horario"
+                type="button"
+                class="inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5"
+                style="background:linear-gradient(135deg,#1B3A6B,#0F2749);"
+            >
+                Guardar configuración
+            </button>
         </div>
 
     </div>

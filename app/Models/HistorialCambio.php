@@ -75,7 +75,11 @@ class HistorialCambio extends Model
      */
     public function scopePorHorario(Builder $query, int $horarioId): Builder
     {
-        return $query->where('horario_id', $horarioId);
+        return $query->where(function (Builder $q) use ($horarioId) {
+            $q->where('horario_id', $horarioId)
+              ->orWhere('datos_anteriores->id', $horarioId)
+              ->orWhere('datos_nuevos->id', $horarioId);
+        });
     }
 
     /**

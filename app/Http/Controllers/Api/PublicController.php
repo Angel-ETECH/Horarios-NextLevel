@@ -706,8 +706,13 @@ class PublicController extends Controller
      * GET /api/publico/horario/profesor/{id}
      */
     public function horarioProfesor(
+        Request $request,
         int $id
     ): JsonResponse {
+        $request->validate([
+            'institucion' =>
+                'nullable|in:colegio,academia',
+        ]);
 
         $profesor =
             Profesor::where(
@@ -744,7 +749,17 @@ class PublicController extends Controller
                 ->where(
                     'estado',
                     'activo'
-                )
+                );
+
+        if ($request->filled('institucion')) {
+            $horarios->where(
+                'institucion',
+                $request->institucion
+            );
+        }
+
+        $horarios =
+            $horarios
                 ->orderBy(
                     'dia_semana'
                 )
@@ -1052,8 +1067,13 @@ class PublicController extends Controller
      * GET /api/publico/horario/grado/{id}
      */
     public function horarioGrado(
+        Request $request,
         int $id
     ): JsonResponse {
+        $request->validate([
+            'institucion' =>
+                'nullable|in:colegio,academia',
+        ]);
 
         $grado =
             Grado::where(
@@ -1090,7 +1110,17 @@ class PublicController extends Controller
                 ->where(
                     'estado',
                     'activo'
-                )
+                );
+
+        if ($request->filled('institucion')) {
+            $horarios->where(
+                'institucion',
+                $request->institucion
+            );
+        }
+
+        $horarios =
+            $horarios
                 ->orderBy(
                     'dia_semana'
                 )
@@ -1150,8 +1180,13 @@ class PublicController extends Controller
      * GET /api/publico/horario/aula/{id}
      */
     public function horarioAula(
+        Request $request,
         int $id
     ): JsonResponse {
+        $request->validate([
+            'institucion' =>
+                'nullable|in:colegio,academia',
+        ]);
 
         $aula =
             Aula::where(
@@ -1188,7 +1223,17 @@ class PublicController extends Controller
                 ->where(
                     'estado',
                     'activo'
-                )
+                );
+
+        if ($request->filled('institucion')) {
+            $horarios->where(
+                'institucion',
+                $request->institucion
+            );
+        }
+
+        $horarios =
+            $horarios
                 ->orderBy(
                     'dia_semana'
                 )
@@ -1251,8 +1296,13 @@ class PublicController extends Controller
      * GET /api/publico/horario/curso/{id}
      */
     public function horarioCurso(
+        Request $request,
         int $id
     ): JsonResponse {
+        $request->validate([
+            'institucion' =>
+                'nullable|in:colegio,academia',
+        ]);
 
         $curso =
             Curso::where(
@@ -1289,7 +1339,17 @@ class PublicController extends Controller
                 ->where(
                     'estado',
                     'activo'
-                )
+                );
+
+        if ($request->filled('institucion')) {
+            $horarios->where(
+                'institucion',
+                $request->institucion
+            );
+        }
+
+        $horarios =
+            $horarios
                 ->orderBy(
                     'dia_semana'
                 )

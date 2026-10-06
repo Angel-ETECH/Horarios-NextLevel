@@ -9,6 +9,7 @@ use App\Services\AsignacionService;
 use App\Services\HorarioGeneratorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AsignacionController extends Controller
 {
@@ -46,7 +47,7 @@ class AsignacionController extends Controller
         $filtros = $request->only(['profesor_id', 'curso_id', 'grado_id', 'institucion']);
 
         if (!empty($filtros)) {
-            $query = \App\Models\ProfesorCurso::with(['profesor', 'curso', 'grado']);
+            $query = \App\Models\ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula']);
 
             foreach ($filtros as $campo => $valor) {
                 if ($valor !== null && $valor !== '') {
@@ -144,7 +145,7 @@ class AsignacionController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $asignacion = \App\Models\ProfesorCurso::with(['profesor', 'curso', 'grado'])
+        $asignacion = \App\Models\ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
             ->findOrFail($id);
 
         return response()->json([
@@ -169,6 +170,12 @@ class AsignacionController extends Controller
                 'data' => $asignacion,
                 'generacion_horarios' => $generacion,
             ], 201);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -194,6 +201,12 @@ class AsignacionController extends Controller
                 'data' => $asignacion,
                 'generacion_horarios' => $generacion,
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -205,7 +218,7 @@ class AsignacionController extends Controller
 
     /**
      * DELETE /api/asignaciones/{id}
-     * Eliminar una asignación
+     * Desactivar una asignación por compatibilidad
      */
     public function destroy(int $id): JsonResponse
     {
@@ -214,12 +227,34 @@ class AsignacionController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Asignación eliminada exitosamente'
+                'message' => 'Asignación desactivada exitosamente'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar la asignación',
+                'error' => $e->getMessage()
+            ], 404);
+        }
+    }
+
+    /**
+     * DELETE /api/asignaciones/{id}/permanente
+     * Eliminar definitivamente una asignación
+     */
+    public function destroyPermanent(int $id): JsonResponse
+    {
+        try {
+            $this->asignacionService->deletePermanent($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Asignación eliminada definitivamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar definitivamente la asignación',
                 'error' => $e->getMessage()
             ], 404);
         }
@@ -239,6 +274,12 @@ class AsignacionController extends Controller
                 'message' => 'Asignación desactivada exitosamente',
                 'data' => $asignacion
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -264,6 +305,12 @@ class AsignacionController extends Controller
                 'data' => $asignacion,
                 'generacion_horarios' => $generacion,
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

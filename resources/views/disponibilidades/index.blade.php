@@ -1162,6 +1162,24 @@
     </div>
 
 
+    <div
+        id="availability-detail"
+        class="
+            rounded-2xl
+            border
+            border-slate-200
+            bg-white
+            px-5
+            py-4
+            text-sm
+            leading-6
+            text-slate-600
+        "
+    >
+        Selecciona un profesor para ver la disponibilidad guardada.
+    </div>
+
+
     {{-- =========================================================
          ACLARACIÓN
     ========================================================== --}}

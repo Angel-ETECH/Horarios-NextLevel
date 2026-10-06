@@ -208,6 +208,8 @@ class ConfiguracionHorarioSeeder extends Seeder
 
     private function crearBloques(ConfiguracionHorario $config, array $bloques): void
     {
+        $bloques = $this->generarBloquesNormalizados($config);
+
         foreach ($bloques as $bloque) {
             BloqueHorario::create([
                 'configuracion_horario_id' => $config->id,
@@ -219,5 +221,120 @@ class ConfiguracionHorarioSeeder extends Seeder
                 'numero_bloque' => $bloque['numero'] ?? null,
             ]);
         }
+    }
+
+    private function generarBloquesNormalizados(ConfiguracionHorario $config): array
+    {
+        $limites = match ($config->turno) {
+            'mañana' => ['inicio' => '07:00', 'fin' => '12:00'],
+            'tarde' => ['inicio' => '13:00', 'fin' => '20:00'],
+            default => ['inicio' => '07:00', 'fin' => '20:00'],
+        };
+
+        $config->update([
+            'hora_inicio' => $limites['inicio'],
+            'hora_fin' => $limites['fin'],
+        ]);
+
+        $recesosBase = [
+            ['nombre' => 'Receso mañana 1', 'inicio' => '09:00', 'fin' => '09:30'],
+            ['nombre' => 'Receso mañana 2', 'inicio' => '11:00', 'fin' => '11:30'],
+            ['nombre' => 'Receso tarde 1', 'inicio' => '15:00', 'fin' => '15:30'],
+            ['nombre' => 'Receso tarde 2', 'inicio' => '17:00', 'fin' => '17:30'],
+        ];
+
+        $recesos = match ($config->turno) {
+            'mañana' => array_slice($recesosBase, 0, 2),
+            'tarde' => array_slice($recesosBase, 2, 2),
+            default => $recesosBase,
+        };
+
+        $resultado = [];
+        $cursor = $this->minutos($limites['inicio']);
+        $finTurno = $this->minutos($limites['fin']);
+        $duracionClase = max(30, (int) ($config->duracion_bloque_minutos ?: 45));
+        $numeroClase = 1;
+
+        while ($cursor < $finTurno) {
+            $recesoActual = $this->recesoEnCursor($cursor, $recesos);
+
+            if ($recesoActual) {
+                $resultado[] = [
+                    'orden' => count($resultado) + 1,
+                    'inicio' => $recesoActual['inicio'],
+                    'fin' => $recesoActual['fin'],
+                    'tipo' => 'receso',
+                    'nombre' => $recesoActual['nombre'],
+                    'numero' => null,
+                ];
+
+                $cursor = $this->minutos($recesoActual['fin']);
+                continue;
+            }
+
+            $siguienteReceso = $this->siguienteReceso($cursor, $recesos);
+            $finClase = min($cursor + $duracionClase, $finTurno);
+
+            if ($siguienteReceso && $finClase > $this->minutos($siguienteReceso['inicio'])) {
+                // Completar el intervalo hasta el receso aunque sea menor
+                // que la duración nominal del bloque.
+                $finClase = $this->minutos($siguienteReceso['inicio']);
+            }
+
+            if ($finClase <= $cursor) {
+                $cursor = $siguienteReceso
+                    ? $this->minutos($siguienteReceso['inicio'])
+                    : $finTurno;
+                continue;
+            }
+
+            $resultado[] = [
+                'orden' => count($resultado) + 1,
+                'inicio' => $this->hora($cursor),
+                'fin' => $this->hora($finClase),
+                'tipo' => 'clase',
+                'nombre' => 'Clase ' . $numeroClase,
+                'numero' => $numeroClase,
+            ];
+
+            $numeroClase++;
+            $cursor = $finClase;
+        }
+
+        return $resultado;
+    }
+
+    private function recesoEnCursor(int $cursor, array $recesos): ?array
+    {
+        foreach ($recesos as $receso) {
+            if ($cursor === $this->minutos($receso['inicio'])) {
+                return $receso;
+            }
+        }
+
+        return null;
+    }
+
+    private function siguienteReceso(int $cursor, array $recesos): ?array
+    {
+        foreach ($recesos as $receso) {
+            if ($this->minutos($receso['inicio']) > $cursor) {
+                return $receso;
+            }
+        }
+
+        return null;
+    }
+
+    private function minutos(string $hora): int
+    {
+        [$horas, $minutos] = array_map('intval', explode(':', substr($hora, 0, 5)));
+
+        return $horas * 60 + $minutos;
+    }
+
+    private function hora(int $minutos): string
+    {
+        return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
     }
 }

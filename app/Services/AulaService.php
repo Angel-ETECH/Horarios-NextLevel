@@ -112,21 +112,12 @@ class AulaService
     ): Collection {
         $query = Aula::where('activo', true);
 
-        // Filtrar por nivel
-        if ($nivel) {
-            $query->where(function ($q) use ($nivel) {
-                $q->where('nivel', $nivel)
-                  ->orWhere('nivel', 'todos');
-            });
-        }
+        // Las aulas son espacios físicos compartidos entre niveles e institución.
+        // La disponibilidad se decide por choque horario real, no por el nivel.
 
         // Subconsulta: aulas ocupadas en ese horario
         $ocupadas = \App\Models\Horario::where('dia_semana', $dia)
             ->where('estado', 'activo');
-
-        if ($institucion) {
-            $ocupadas->where('institucion', $institucion);
-        }
 
         if ($excludeHorarioId) {
             $ocupadas->where('id', '!=', $excludeHorarioId);
@@ -167,10 +158,6 @@ class AulaService
         $query = \App\Models\Horario::where('aula_id', $aulaId)
             ->where('dia_semana', $dia)
             ->where('estado', 'activo');
-
-        if ($institucion) {
-            $query->where('institucion', $institucion);
-        }
 
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);

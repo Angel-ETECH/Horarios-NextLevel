@@ -151,14 +151,19 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('disponibilidades')->group(function () {
         Route::get('/', [DisponibilidadController::class, 'index']);
+        Route::get('/estadisticas', [DisponibilidadController::class, 'getEstadisticas']);
+        Route::get('/agrupadas/{profesorId}', [DisponibilidadController::class, 'getAgrupadasPorDia']);
         Route::get('/profesor/{profesorId}', [DisponibilidadController::class, 'getByProfesor']);
+        Route::get('/profesor/{profesorId}/institucion/{institucion}', [DisponibilidadController::class, 'getByProfesorEInstitucion']);
         Route::get('/bloques/{profesorId}/{dia}', [DisponibilidadController::class, 'getBloquesDisponibles']);
-        Route::get('/{id}', [DisponibilidadController::class, 'show']);
         Route::post('/', [DisponibilidadController::class, 'store']);
         Route::post('/verificar', [DisponibilidadController::class, 'verificarDisponibilidad']);
+        Route::post('/verificar-rango', [DisponibilidadController::class, 'verificarRango']);
         Route::put('/{id}', [DisponibilidadController::class, 'update']);
-        Route::delete('/{id}', [DisponibilidadController::class, 'destroy']);
+        Route::delete('/profesor/{profesorId}/institucion/{institucion}', [DisponibilidadController::class, 'destroyByInstitucion']);
         Route::delete('/profesor/{profesorId}', [DisponibilidadController::class, 'destroyByProfesor']);
+        Route::delete('/{id}', [DisponibilidadController::class, 'destroy']);
+        Route::get('/{id}', [DisponibilidadController::class, 'show']);
     });
 
     Route::prefix('asignaciones')->group(function () {
@@ -173,24 +178,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/desactivar', [AsignacionController::class, 'desactivar']);
         Route::post('/{id}/activar', [AsignacionController::class, 'activar']);
         Route::put('/{id}', [AsignacionController::class, 'update']);
+        Route::delete('/{id}/permanente', [AsignacionController::class, 'destroyPermanent']);
         Route::delete('/{id}', [AsignacionController::class, 'destroy']);
     });
 
     Route::prefix('aulas')->group(function () {
         Route::get('/', [AulaController::class, 'index']);
-        Route::post('/', [AulaController::class, 'store']);
-        Route::get('/{id}', [AulaController::class, 'show']);
-        Route::put('/{id}', [AulaController::class, 'update']);
-        Route::delete('/{id}', [AulaController::class, 'destroy']);
         Route::get('/nivel/{nivel}', [AulaController::class, 'getByNivel']);
         Route::get('/estadisticas', [AulaController::class, 'estadisticas']);
         Route::get('/disponibilidad/disponibles', [AulaController::class, 'getDisponibles']);
         Route::get('/disponibilidad/verificar', [AulaController::class, 'verificarDisponibilidad']);
         Route::get('/disponibles/{dia}/{horaInicio}/{horaFin}', [AulaController::class, 'getDisponiblesPorRuta']);
+        Route::post('/', [AulaController::class, 'store']);
+        Route::get('/{id}', [AulaController::class, 'show']);
+        Route::put('/{id}', [AulaController::class, 'update']);
+        Route::delete('/{id}', [AulaController::class, 'destroy']);
     });
 
     Route::prefix('configuraciones-horario')->group(function () {
         Route::get('/vigente', [ConfiguracionHorarioController::class, 'vigente']);
+        Route::get('/recesos', [ConfiguracionHorarioController::class, 'recesos']);
         Route::get('/', [ConfiguracionHorarioController::class, 'index']);
         Route::get('/{id}', [ConfiguracionHorarioController::class, 'show']);
         Route::post('/', [ConfiguracionHorarioController::class, 'store']);

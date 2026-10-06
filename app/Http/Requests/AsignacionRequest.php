@@ -54,6 +54,12 @@ class AsignacionRequest extends FormRequest
                 'exists:grados,id',
             ],
 
+            'aula_id' => [
+                'required',
+                'integer',
+                'exists:aulas,id',
+            ],
+
             'horas_asignadas' => [
                 'required',
                 'integer',
@@ -117,6 +123,13 @@ class AsignacionRequest extends FormRequest
                     'sometimes',
                     'integer',
                     'exists:grados,id',
+                ],
+
+                'aula_id' => [
+                    'sometimes',
+                    'nullable',
+                    'integer',
+                    'exists:aulas,id',
                 ],
 
                 'horas_asignadas' => [
@@ -193,6 +206,16 @@ class AsignacionRequest extends FormRequest
 
             'grado_id.exists' =>
                 'El grado seleccionado no existe.',
+
+
+            'aula_id.required' =>
+                'El aula es obligatoria.',
+
+            'aula_id.integer' =>
+                'El aula seleccionada no es válida.',
+
+            'aula_id.exists' =>
+                'El aula seleccionada no existe.',
 
 
             'horas_asignadas.required' =>

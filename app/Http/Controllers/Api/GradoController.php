@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GradoRequest;
 use App\Models\Grado;
+use App\Models\Horario;
+use App\Models\ProfesorCurso;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -99,6 +101,23 @@ class GradoController extends Controller
             $data = $request->validated();
             $data['nombre_completo'] = $this->generarNombreCompleto($data);
 
+            $cambiaBaseAcademica =
+                ($data['nivel'] ?? $grado->nivel) !== $grado->nivel ||
+                ($data['turno'] ?? $grado->turno) !== $grado->turno;
+
+            if (
+                $cambiaBaseAcademica &&
+                (
+                    ProfesorCurso::where('grado_id', $grado->id)->where('activo', true)->exists() ||
+                    Horario::where('grado_id', $grado->id)->where('estado', 'activo')->exists()
+                )
+            ) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se puede cambiar el nivel o turno de un grado con asignaciones u horarios activos'
+                ], 422);
+            }
+
             $grado->update($data);
 
             DB::commit();
@@ -130,6 +149,20 @@ class GradoController extends Controller
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el grado porque tiene alumnos asignados'
+                ], 422);
+            }
+
+            if (ProfesorCurso::where('grado_id', $grado->id)->where('activo', true)->exists()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se puede eliminar el grado porque tiene asignaciones activas'
+                ], 422);
+            }
+
+            if (Horario::where('grado_id', $grado->id)->where('estado', 'activo')->exists()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No se puede eliminar el grado porque tiene horarios activos'
                 ], 422);
             }
 
@@ -192,12 +225,6 @@ class GradoController extends Controller
 
     private function generarNombreCompleto($data)
     {
-        $niveles = [
-            'primaria' => 'Primaria',
-            'secundaria' => 'Secundaria',
-            'academia' => 'Academia'
-        ];
-
-        return $data['grado'] . ' ' . $niveles[$data['nivel']] . ' ' . $data['seccion'];
+        return "{$data['nivel']} - {$data['grado']} {$data['seccion']}";
     }
 }

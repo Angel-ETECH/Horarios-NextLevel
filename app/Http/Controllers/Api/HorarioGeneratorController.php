@@ -322,7 +322,7 @@ class HorarioGeneratorController extends Controller
 
     /**
      * DELETE /api/horarios/generar/limpiar
-     * Eliminar horarios generados (soft delete)
+     * Eliminar horarios generados
      */
     public function limpiar(Request $request): JsonResponse
     {
@@ -335,7 +335,7 @@ class HorarioGeneratorController extends Controller
                 'confirmar' => 'required|accepted',
             ]);
 
-            $query = Horario::where('estado', 'activo');
+            $query = Horario::withTrashed();
 
             if ($request->institucion) {
                 $query->where('institucion', $request->institucion);
@@ -353,10 +353,11 @@ class HorarioGeneratorController extends Controller
                 $query->where('grado_id', $request->grado_id);
             }
 
-            $cantidad = $query->count();
+            $historialQuery = clone $query;
+            $cantidad = (clone $query)->count();
 
             // Registrar en historial antes de eliminar
-            $horarios = $query->get();
+            $horarios = $historialQuery->where('estado', 'activo')->get();
             foreach ($horarios as $horario) {
                 \App\Models\HistorialCambio::create([
                     'horario_id' => $horario->id,
@@ -370,8 +371,8 @@ class HorarioGeneratorController extends Controller
                 ]);
             }
 
-            // Eliminar (soft delete)
-            $query->delete();
+            // Eliminar definitivamente para liberar claves únicas de aula/horario.
+            $query->forceDelete();
 
             return response()->json([
                 'success' => true,
@@ -471,7 +472,7 @@ class HorarioGeneratorController extends Controller
      */
     protected function limpiarHorariosPorFiltros(array $opciones): void
     {
-        $query = Horario::where('estado', 'activo');
+        $query = Horario::withTrashed();
 
         if (!empty($opciones['institucion'])) {
             $query->where('institucion', $opciones['institucion']);
@@ -489,6 +490,6 @@ class HorarioGeneratorController extends Controller
             $query->where('grado_id', $opciones['grado_id']);
         }
 
-        $query->delete();
+        $query->forceDelete();
     }
 }

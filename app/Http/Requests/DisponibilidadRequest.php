@@ -32,9 +32,11 @@ class DisponibilidadRequest extends FormRequest
                 Rule::in([
                     'lunes',
                     'martes',
+                    'miércoles',
                     'miercoles',
                     'jueves',
                     'viernes',
+                    'sábado',
                     'sabado',
                     'domingo',
                 ]),
@@ -179,10 +181,11 @@ class DisponibilidadRequest extends FormRequest
         | NORMALIZAR DÍA
         |--------------------------------------------------------------------------
         |
-        | El backend almacenará los días sin tilde:
+        | El backend acepta días con o sin tilde y los guarda
+        | como la base de datos los define:
         |
-        | miércoles -> miercoles
-        | sábado    -> sabado
+        | miercoles -> miércoles
+        | sabado    -> sábado
         |
         */
 
@@ -194,11 +197,11 @@ class DisponibilidadRequest extends FormRequest
                 )
             );
 
-            $dia = str_replace(
-                ['á', 'é', 'í', 'ó', 'ú'],
-                ['a', 'e', 'i', 'o', 'u'],
-                $dia
-            );
+            $dia = match ($dia) {
+                'miercoles' => 'miércoles',
+                'sabado' => 'sábado',
+                default => $dia,
+            };
 
             $this->merge([
                 'dia_semana' => $dia,

@@ -14,7 +14,7 @@ class HistorialService
      * Registrar un cambio en el historial
      */
     public function registrarCambio(
-        int $horarioId,
+        ?int $horarioId,
         string $accion,
         ?array $datosAnteriores = null,
         ?array $datosNuevos = null,
@@ -33,6 +33,42 @@ class HistorialService
             'ip_usuario' => $ip ?? request()->ip(),
             'user_agent' => $userAgent ?? request()->userAgent(),
         ]);
+    }
+
+    /**
+     * Registrar eventos generales del sistema en el mismo historial.
+     */
+    public function registrarEvento(
+        string $modulo,
+        string $accion,
+        ?array $datosAnteriores = null,
+        ?array $datosNuevos = null,
+        ?string $motivo = null,
+        ?int $usuarioId = null
+    ): HistorialCambio {
+        $datosAnteriores = $this->prepararSnapshotEvento($modulo, $datosAnteriores);
+        $datosNuevos = $this->prepararSnapshotEvento($modulo, $datosNuevos);
+
+        return $this->registrarCambio(
+            null,
+            $accion,
+            $datosAnteriores,
+            $datosNuevos,
+            $motivo ?? "Evento de {$modulo}",
+            $usuarioId
+        );
+    }
+
+    private function prepararSnapshotEvento(string $modulo, ?array $datos): ?array
+    {
+        if ($datos === null) {
+            return null;
+        }
+
+        $datos['modulo'] = $datos['modulo'] ?? $modulo;
+        $datos['tipo_registro'] = $datos['tipo_registro'] ?? $modulo;
+
+        return $datos;
     }
 
     /**
@@ -286,7 +322,7 @@ class HistorialService
 
         $cambiosPorInstitucion = HistorialCambio::with('horario')
             ->get()
-            ->groupBy(fn($c) => $c->horario?->institucion ?? 'desconocido')
+            ->groupBy(fn($c) => $this->obtenerInstitucionRegistro($c))
             ->map(fn($group) => $group->count())
             ->toArray();
 
@@ -303,5 +339,13 @@ class HistorialService
             'cambios_por_institucion' => $cambiosPorInstitucion,
             'ultimos_cambios' => $ultimosCambios,
         ];
+    }
+
+    private function obtenerInstitucionRegistro(HistorialCambio $registro): string
+    {
+        return $registro->horario?->institucion
+            ?? ($registro->datos_nuevos['institucion'] ?? null)
+            ?? ($registro->datos_anteriores['institucion'] ?? null)
+            ?? 'desconocido';
     }
 }

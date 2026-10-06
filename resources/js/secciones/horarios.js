@@ -39,12 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnReset =
         $('btn-reset');
 
-    const btnPdf =
-        $('btn-pdf');
-
-    const btnExcel =
-        $('btn-excel');
-
     const tituloEl =
         $('titulo-horario');
 
@@ -71,6 +65,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const modoEdicionEl =
         $('modo-edicion-horario');
+
+    const configNivel =
+        $('config-horario-nivel');
+
+    const configTurno =
+        $('config-horario-turno');
+
+    const configNombre =
+        $('config-horario-nombre');
+
+    const configRecesoInicio =
+        $('config-receso-inicio');
+
+    const configRecesoMinutos =
+        $('config-receso-minutos');
+
+    const configStatus =
+        $('config-horario-status');
+
+    const configBloquesLista =
+        $('config-bloques-lista');
+
+    const btnAgregarBloqueClase =
+        $('btn-agregar-bloque-clase');
+
+    const btnAgregarBloqueReceso =
+        $('btn-agregar-bloque-receso');
+
+    const btnGuardarConfigHorario =
+        $('btn-guardar-config-horario');
 
     // =========================================================
     // MODAL ELIMINAR
@@ -114,8 +138,14 @@ document.addEventListener('DOMContentLoaded', () => {
         horarios:
             '/api/horarios',
 
+        grados:
+            '/api/grados',
+
         disponibilidades:
             '/api/disponibilidades',
+
+        configuraciones:
+            '/api/configuraciones-horario',
 
         exportPdf:
             '/api/exportar/pdf/download',
@@ -276,7 +306,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let horariosCache =
         [];
 
+    let gradosCache =
+        [];
+
     let disponibilidadesCache =
+        [];
+
+    let configuracionesHorarioCache =
+        [];
+
+    let configuracionHorarioActual =
+        null;
+
+    let bloquesConfiguracionHorario =
         [];
 
     let gruposVisibles =
@@ -811,6 +853,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             info:
                 'border-blue-200 bg-blue-50 text-blue-700',
+
+            warning:
+                'border-amber-200 bg-amber-50 text-amber-800',
         };
 
         mensajeEl.className =
@@ -853,6 +898,1075 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 4500
             );
+    }
+
+    // =========================================================
+    // CONFIGURACION DE BLOQUES Y RECESOS
+    // =========================================================
+
+    function nombreInstitucionActual() {
+        return institucionActiva === 'academia'
+            ? 'Academia'
+            : 'Colegio';
+    }
+
+    function nombreConfigHorarioDefault() {
+        const nivel =
+            configNivel?.value
+            ||
+            (
+                institucionActiva === 'academia'
+                    ? 'academia'
+                    : 'primaria'
+            );
+
+        const turno =
+            configTurno?.value
+            ||
+            'mañana';
+
+        return `${nombreInstitucionActual()} ${nivel} - ${turno}`;
+    }
+
+    function actualizarOpcionesNivelConfig() {
+        if (!configNivel) {
+            return;
+        }
+
+        const opciones =
+            institucionActiva === 'academia'
+                ? [
+                    {
+                        valor:
+                            'academia',
+
+                        texto:
+                            'Academia',
+                    },
+                ]
+                : [
+                    {
+                        valor:
+                            'primaria',
+
+                        texto:
+                            'Primaria',
+                    },
+                    {
+                        valor:
+                            'secundaria',
+
+                        texto:
+                            'Secundaria',
+                    },
+                ];
+
+        const actual =
+            configNivel.value;
+
+        configNivel.innerHTML =
+            opciones
+                .map(
+                    (opcion) =>
+                        `<option value="${esc(opcion.valor)}">${esc(opcion.texto)}</option>`
+                )
+                .join(
+                    ''
+                );
+
+        configNivel.value =
+            opciones.some(
+                (opcion) =>
+                    opcion.valor ===
+                    actual
+            )
+                ? actual
+                : opciones[0].valor;
+    }
+
+    function setEstadoConfigHorario(
+        texto,
+        tipo = 'info'
+    ) {
+        if (!configStatus) {
+            return;
+        }
+
+        const estilos = {
+            info:
+                'bg-slate-100 text-slate-600',
+
+            ok:
+                'bg-emerald-50 text-emerald-700',
+
+            error:
+                'bg-red-50 text-red-700',
+        };
+
+        configStatus.className =
+            `rounded-full px-4 py-2 text-xs font-semibold ${estilos[tipo] || estilos.info}`;
+
+        configStatus.textContent =
+            texto;
+    }
+
+    function crearBloqueConfig(
+        tipo = 'clase'
+    ) {
+        const ultimo =
+            bloquesConfiguracionHorario
+                .map(
+                    (bloque) =>
+                        aMinutos(
+                            bloque.hora_fin
+                        )
+                )
+                .filter(
+                    Boolean
+                )
+                .sort(
+                    (a, b) =>
+                        b - a
+                )[0];
+
+        const inicio =
+            ultimo
+            ||
+            420;
+
+        const fin =
+            tipo === 'receso'
+                ? inicio + 15
+                : inicio + 45;
+
+        return {
+            orden:
+                bloquesConfiguracionHorario.length + 1,
+
+            tipo,
+
+            nombre:
+                tipo === 'receso'
+                    ? 'Receso'
+                    : 'Clase',
+
+            hora_inicio:
+                aTexto(
+                    Math.min(
+                        inicio,
+                        1199
+                    )
+                ),
+
+            hora_fin:
+                aTexto(
+                    Math.min(
+                        fin,
+                        1200
+                    )
+                ),
+
+            numero_bloque:
+                tipo === 'clase'
+                    ? bloquesConfiguracionHorario.filter(
+                        (bloque) =>
+                            bloque.tipo ===
+                            'clase'
+                    ).length + 1
+                    : null,
+        };
+    }
+
+    function normalizarBloquesConfig() {
+        let numeroClase =
+            1;
+
+        return bloquesConfiguracionHorario
+            .map(
+                (bloque) => ({
+                    orden:
+                        Number(
+                            bloque.orden
+                        )
+                        ||
+                        0,
+
+                    tipo:
+                        bloque.tipo === 'receso'
+                            ? 'receso'
+                            : 'clase',
+
+                    nombre:
+                        String(
+                            bloque.nombre
+                            ||
+                            ''
+                        ).trim(),
+
+                    hora_inicio:
+                        horaCorta(
+                            bloque.hora_inicio
+                        ),
+
+                    hora_fin:
+                        horaCorta(
+                            bloque.hora_fin
+                        ),
+
+                    numero_bloque:
+                        bloque.numero_bloque
+                            ? Number(
+                                bloque.numero_bloque
+                            )
+                            : null,
+                })
+            )
+            .filter(
+                (bloque) =>
+                    bloque.hora_inicio
+                    &&
+                    bloque.hora_fin
+            )
+            .sort(
+                (a, b) =>
+                    aMinutos(
+                        a.hora_inicio
+                    )
+                    -
+                    aMinutos(
+                        b.hora_inicio
+                    )
+            )
+            .map(
+                (bloque, index) => {
+                    const esClase =
+                        bloque.tipo ===
+                        'clase';
+
+                    return {
+                        ...bloque,
+
+                        orden:
+                            index + 1,
+
+                        nombre:
+                            bloque.nombre
+                            ||
+                            (
+                                esClase
+                                    ? `Clase ${numeroClase}`
+                                    : 'Receso'
+                            ),
+
+                        numero_bloque:
+                            esClase
+                                ? numeroClase++
+                                : null,
+                    };
+                }
+            );
+    }
+
+    function obtenerMinutosRecesoConfig() {
+        const valor =
+            Number(
+                configRecesoMinutos?.value
+            );
+
+        if (
+            Number.isNaN(
+                valor
+            )
+        ) {
+            return 15;
+        }
+
+        return Math.min(
+            60,
+            Math.max(
+                5,
+                valor
+            )
+        );
+    }
+
+    function obtenerInicioRecesoConfig() {
+        return horaCorta(
+            configRecesoInicio?.value
+        )
+        ||
+        '09:00';
+    }
+
+    function recesosBaseConfig() {
+        const recesos =
+            [
+                {
+                    nombre:
+                        'Receso mañana 1',
+                    hora_inicio:
+                        '09:00',
+                    hora_fin:
+                        '09:30',
+                },
+                {
+                    nombre:
+                        'Receso mañana 2',
+                    hora_inicio:
+                        '11:00',
+                    hora_fin:
+                        '11:30',
+                },
+                {
+                    nombre:
+                        'Receso tarde 1',
+                    hora_inicio:
+                        '15:00',
+                    hora_fin:
+                        '15:30',
+                },
+                {
+                    nombre:
+                        'Receso tarde 2',
+                    hora_inicio:
+                        '17:00',
+                    hora_fin:
+                        '17:30',
+                },
+            ];
+
+        if (
+            configTurno?.value ===
+            'mañana'
+        ) {
+            return recesos.slice(
+                0,
+                2
+            );
+        }
+
+        if (
+            configTurno?.value ===
+            'tarde'
+        ) {
+            return recesos.slice(
+                2
+            );
+        }
+
+        return recesos;
+    }
+
+    function limitesTurnoConfig() {
+        if (
+            configTurno?.value ===
+            'mañana'
+        ) {
+            return {
+                inicio:
+                    '07:00',
+                fin:
+                    '12:00',
+            };
+        }
+
+        if (
+            configTurno?.value ===
+            'tarde'
+        ) {
+            return {
+                inicio:
+                    '13:00',
+                fin:
+                    '20:00',
+            };
+        }
+
+        return {
+            inicio:
+                '07:00',
+            fin:
+                '20:00',
+        };
+    }
+
+    function aplicarMinutosRecesoConfig(
+        bloquesBase
+    ) {
+        void bloquesBase;
+
+        const limites =
+            limitesTurnoConfig();
+
+        const recesos =
+            recesosBaseConfig();
+
+        const bloques =
+            [];
+
+        let numeroClase =
+            1;
+
+        let cursor =
+            aMinutos(
+                limites.inicio
+            );
+
+        const finTurno =
+            aMinutos(
+                limites.fin
+            );
+
+        const duracionClase =
+            45;
+
+        while (
+            cursor <
+            finTurno
+        ) {
+            const recesoActual =
+                recesos.find(
+                    receso =>
+                        aMinutos(
+                            receso.hora_inicio
+                        ) ===
+                        cursor
+                );
+
+            if (
+                recesoActual
+            ) {
+                bloques.push({
+                    orden:
+                        bloques.length + 1,
+                    tipo:
+                        'receso',
+                    nombre:
+                        recesoActual.nombre,
+                    hora_inicio:
+                        recesoActual.hora_inicio,
+                    hora_fin:
+                        recesoActual.hora_fin,
+                    numero_bloque:
+                        null,
+                });
+
+                cursor =
+                    aMinutos(
+                        recesoActual.hora_fin
+                    );
+
+                continue;
+            }
+
+            const siguienteReceso =
+                recesos.find(
+                    receso =>
+                        aMinutos(
+                            receso.hora_inicio
+                        ) >
+                        cursor
+                );
+
+            let finClase =
+                Math.min(
+                    cursor + duracionClase,
+                    finTurno
+                );
+
+            if (
+                siguienteReceso &&
+                finClase >
+                    aMinutos(
+                        siguienteReceso.hora_inicio
+                    )
+            ) {
+                // El último bloque antes del receso puede ser más corto.
+                // Así el horario queda continuo y termina exactamente al
+                // comenzar el receso, sin dejar minutos sin asignar.
+                finClase = aMinutos(
+                    siguienteReceso.hora_inicio
+                );
+            }
+
+            if (finClase <= cursor) {
+                cursor = siguienteReceso
+                    ? aMinutos(siguienteReceso.hora_inicio)
+                    : finTurno;
+                continue;
+            }
+
+            bloques.push({
+                orden:
+                    bloques.length + 1,
+                tipo:
+                    'clase',
+                nombre:
+                    `Clase ${numeroClase}`,
+                hora_inicio:
+                    aTexto(
+                        cursor
+                    ),
+                hora_fin:
+                    aTexto(
+                        finClase
+                    ),
+                numero_bloque:
+                    numeroClase,
+            });
+
+            numeroClase++;
+            cursor =
+                finClase;
+        }
+
+        return bloques;
+    }
+
+    function renderBloquesConfig() {
+        if (!configBloquesLista) {
+            return;
+        }
+
+        bloquesConfiguracionHorario =
+            aplicarMinutosRecesoConfig(
+                normalizarBloquesConfig()
+            );
+
+        if (
+            !bloquesConfiguracionHorario.length
+        ) {
+            configBloquesLista.innerHTML =
+                `
+                    <div class="px-4 py-8 text-center text-sm text-slate-500">
+                        Agrega bloques de clase y recesos para este turno.
+                    </div>
+                `;
+
+            return;
+        }
+
+        configBloquesLista.innerHTML =
+            bloquesConfiguracionHorario
+                .map(
+                    (bloque) => `
+                        <div
+                            class="rounded-2xl border p-4 ${bloque.tipo === 'receso' ? 'border-red-100 bg-red-50' : 'border-slate-200 bg-white'}"
+                        >
+                            <p class="text-xs font-bold uppercase tracking-wide ${bloque.tipo === 'receso' ? 'text-red-500' : 'text-slate-400'}">
+                                ${bloque.tipo === 'receso' ? 'Receso' : `Clase ${esc(bloque.numero_bloque || '')}`}
+                            </p>
+
+                            <p class="mt-2 text-sm font-bold text-slate-900">
+                                ${esc(bloque.nombre)}
+                            </p>
+
+                            <p class="mt-1 text-sm font-semibold ${bloque.tipo === 'receso' ? 'text-red-700' : 'text-[#1B3A6B]'}">
+                                ${esc(bloque.hora_inicio)} - ${esc(bloque.hora_fin)}
+                            </p>
+                        </div>
+                    `
+                )
+                .join(
+                    ''
+                );
+    }
+
+    function validarBloquesConfig(
+        bloques
+    ) {
+        if (
+            !bloques.some(
+                (bloque) =>
+                    bloque.tipo ===
+                    'clase'
+            )
+        ) {
+            return 'Agrega al menos un bloque de clase.';
+        }
+
+        for (
+            let index = 0;
+            index < bloques.length;
+            index++
+        ) {
+            const bloque =
+                bloques[index];
+
+            const inicio =
+                aMinutos(
+                    bloque.hora_inicio
+                );
+
+            const fin =
+                aMinutos(
+                    bloque.hora_fin
+                );
+
+            if (
+                inicio < 420
+                ||
+                fin > 1200
+            ) {
+                return 'Los bloques deben estar entre 07:00 y 20:00.';
+            }
+
+            if (
+                fin <= inicio
+            ) {
+                return 'Cada bloque debe terminar después de iniciar.';
+            }
+
+            const siguiente =
+                bloques[index + 1];
+
+            if (
+                siguiente
+                &&
+                aMinutos(
+                    siguiente.hora_inicio
+                ) < fin
+            ) {
+                return 'Hay bloques cruzados. Ajusta las horas antes de guardar.';
+            }
+        }
+
+        return null;
+    }
+
+    function mapearBloquesConfig(
+        bloques = []
+    ) {
+        bloquesConfiguracionHorario =
+            bloques.map(
+                (bloque) => ({
+                    orden:
+                        bloque.orden,
+
+                    tipo:
+                        bloque.tipo,
+
+                    nombre:
+                        bloque.nombre,
+
+                    hora_inicio:
+                        horaCorta(
+                            bloque.hora_inicio
+                        ),
+
+                    hora_fin:
+                        horaCorta(
+                            bloque.hora_fin
+                        ),
+
+                    numero_bloque:
+                        bloque.numero_bloque,
+                })
+            );
+    }
+
+    function configuracionInicialBloques() {
+        bloquesConfiguracionHorario =
+            [
+                {
+                    orden:
+                        1,
+
+                    tipo:
+                        'clase',
+
+                    nombre:
+                        'Clase 1',
+
+                    hora_inicio:
+                        '07:00',
+
+                    hora_fin:
+                        '07:45',
+
+                    numero_bloque:
+                        1,
+                },
+                {
+                    orden:
+                        2,
+
+                    tipo:
+                        'receso',
+
+                    nombre:
+                        'Receso',
+
+                    hora_inicio:
+                        '09:15',
+
+                    hora_fin:
+                        '09:30',
+
+                    numero_bloque:
+                        null,
+                },
+            ];
+    }
+
+    async function cargarConfigHorario() {
+        if (
+            !configNivel
+            ||
+            !configTurno
+            ||
+            !configBloquesLista
+        ) {
+            return;
+        }
+
+        actualizarOpcionesNivelConfig();
+
+        setEstadoConfigHorario(
+            'Cargando configuración...',
+            'info'
+        );
+
+        try {
+            const configuraciones =
+                await cargarTodasLasPaginas(
+                    API.configuraciones,
+                    {
+                        institucion:
+                            institucionActiva,
+
+                        nivel:
+                            configNivel.value,
+
+                        turno:
+                            configTurno.value,
+                    }
+                );
+
+            configuracionHorarioActual =
+                configuraciones
+                    .filter(
+                        (config) =>
+                            normalizarInstitucion(
+                                config.institucion
+                            ) ===
+                            institucionActiva
+                            &&
+                            String(
+                                config.nivel
+                            ) ===
+                            String(
+                                configNivel.value
+                            )
+                            &&
+                            String(
+                                config.turno
+                            ) ===
+                            String(
+                                configTurno.value
+                            )
+                    )
+                    .sort(
+                        (a, b) =>
+                            Number(
+                                b.año_academico
+                                ||
+                                0
+                            )
+                            -
+                            Number(
+                                a.año_academico
+                                ||
+                                0
+                            )
+                    )[0]
+                ||
+                null;
+
+            if (
+                configuracionHorarioActual
+            ) {
+                if (
+                    configNombre
+                ) {
+                    configNombre.value =
+                        configuracionHorarioActual.nombre
+                        ||
+                        nombreConfigHorarioDefault();
+                }
+
+                mapearBloquesConfig(
+                    configuracionHorarioActual.bloques
+                    ||
+                    []
+                );
+
+                const primerReceso =
+                    normalizarBloquesConfig()
+                        .find(
+                            (bloque) =>
+                                bloque.tipo ===
+                                'receso'
+                        );
+
+                if (
+                    configRecesoMinutos
+                ) {
+                    configRecesoMinutos.value =
+                        primerReceso
+                            ? Math.max(
+                                5,
+                                aMinutos(
+                                    primerReceso.hora_fin
+                                )
+                                -
+                                aMinutos(
+                                    primerReceso.hora_inicio
+                                )
+                            )
+                            : 15;
+                }
+
+                if (
+                    configRecesoInicio
+                ) {
+                    configRecesoInicio.value =
+                        primerReceso
+                            ? horaCorta(
+                                primerReceso.hora_inicio
+                            )
+                            : '09:00';
+                }
+
+                setEstadoConfigHorario(
+                    'Configuración activa cargada',
+                    'ok'
+                );
+            } else {
+                if (
+                    configNombre
+                ) {
+                    configNombre.value =
+                        nombreConfigHorarioDefault();
+                }
+
+                configuracionInicialBloques();
+
+                if (
+                    configRecesoMinutos
+                ) {
+                    configRecesoMinutos.value =
+                        15;
+                }
+
+                if (
+                    configRecesoInicio
+                ) {
+                    configRecesoInicio.value =
+                        '09:00';
+                }
+
+                setEstadoConfigHorario(
+                    'Sin guardar para esta selección',
+                    'info'
+                );
+            }
+
+            renderBloquesConfig();
+        } catch (error) {
+            console.error(
+                'Error cargando configuración de horario:',
+                error
+            );
+
+            configuracionHorarioActual =
+                null;
+
+            configuracionInicialBloques();
+
+            renderBloquesConfig();
+
+            setEstadoConfigHorario(
+                'No se pudo cargar la configuración',
+                'error'
+            );
+        }
+    }
+
+    async function guardarConfigHorario() {
+        if (
+            !configNivel
+            ||
+            !configTurno
+        ) {
+            return;
+        }
+
+        const bloques =
+            aplicarMinutosRecesoConfig(
+                normalizarBloquesConfig()
+            );
+
+        const errorValidacion =
+            validarBloquesConfig(
+                bloques
+            );
+
+        if (
+            errorValidacion
+        ) {
+            mostrarMensaje(
+                errorValidacion,
+                'error'
+            );
+
+            return;
+        }
+
+        const inicio =
+            bloques[0].hora_inicio;
+
+        const fin =
+            bloques[
+                bloques.length - 1
+            ].hora_fin;
+
+        const payload = {
+            institucion:
+                institucionActiva,
+
+            nivel:
+                configNivel.value,
+
+            turno:
+                configTurno.value,
+
+            nombre:
+                String(
+                    configNombre?.value
+                    ||
+                    nombreConfigHorarioDefault()
+                ).trim(),
+
+            hora_inicio:
+                inicio,
+
+            hora_fin:
+                fin,
+
+            duracion_bloque_minutos:
+                45,
+
+            año_academico:
+                new Date().getFullYear(),
+
+            activo:
+                true,
+
+            bloques,
+        };
+
+        const original =
+            btnGuardarConfigHorario?.textContent;
+
+        try {
+            if (
+                btnGuardarConfigHorario
+            ) {
+                btnGuardarConfigHorario.disabled =
+                    true;
+
+                btnGuardarConfigHorario.textContent =
+                    'Guardando...';
+            }
+
+            const respuesta =
+                configuracionHorarioActual?.id
+                    ? await window
+                        .axios
+                        .put(
+                            `${API.configuraciones}/${configuracionHorarioActual.id}`,
+                            payload
+                        )
+                    : await window
+                        .axios
+                        .post(
+                            API.configuraciones,
+                            payload
+                        );
+
+            configuracionHorarioActual =
+                respuesta
+                    .data
+                    ?.data
+                ||
+                configuracionHorarioActual;
+
+            const reprogramacion =
+                respuesta
+                    .data
+                    ?.reprogramacion_horarios;
+
+            const incompletas =
+                Array.isArray(
+                    reprogramacion?.asignaciones_incompletas
+                )
+                    ? reprogramacion.asignaciones_incompletas.length
+                    : 0;
+
+            const errores =
+                Array.isArray(
+                    reprogramacion?.errores
+                )
+                    ? reprogramacion.errores.length
+                    : 0;
+
+            const mensajeReprogramacion =
+                reprogramacion?.total_eliminados > 0
+                    ? `Configuración guardada. Se adaptaron ${reprogramacion.horarios_creados || 0} clase(s) al nuevo receso.`
+                    : 'Configuración de bloques guardada.';
+
+            mostrarMensaje(
+                incompletas || errores
+                    ? `${mensajeReprogramacion} Revisa ${incompletas + errores} asignación(es) pendiente(s).`
+                    : mensajeReprogramacion,
+                incompletas || errores
+                    ? 'warning'
+                    : 'ok'
+            );
+
+            await cargarConfigHorario();
+
+            await cargarDatos({
+                silencioso:
+                    true,
+            });
+        } catch (error) {
+            console.error(
+                'Error guardando configuración de horario:',
+                error
+            );
+
+            mostrarMensaje(
+                obtenerMensajeError(
+                    error,
+                    'No se pudo guardar la configuración.'
+                ),
+                'error'
+            );
+        } finally {
+            if (
+                btnGuardarConfigHorario
+            ) {
+                btnGuardarConfigHorario.disabled =
+                    false;
+
+                btnGuardarConfigHorario.textContent =
+                    original
+                    ||
+                    'Guardar configuración';
+            }
+        }
     }
 
     // =========================================================
@@ -1765,7 +2879,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const [
                 horarios,
+                grados,
                 disponibilidades,
+                configuraciones,
             ] =
                 await Promise.all([
                     cargarTodasLasPaginas(
@@ -1777,7 +2893,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     ),
 
                     cargarTodasLasPaginas(
+                        API.grados,
+                        {
+                            activo:
+                                1,
+                        }
+                    )
+                        .catch(
+                            () => []
+                        ),
+
+                    cargarTodasLasPaginas(
                         API.disponibilidades,
+                        {
+                            institucion:
+                                institucionActiva,
+                        }
+                    )
+                        .catch(
+                            () => []
+                        ),
+
+                    cargarTodasLasPaginas(
+                        API.configuraciones,
                         {
                             institucion:
                                 institucionActiva,
@@ -1793,8 +2931,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     normalizarHorario
                 );
 
+            gradosCache =
+                grados;
+
             disponibilidadesCache =
                 disponibilidades;
+
+            configuracionesHorarioCache =
+                configuraciones;
 
             render();
         } catch (error) {
@@ -1804,6 +2948,12 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
             horariosCache =
+                [];
+
+            gradosCache =
+                [];
+
+            configuracionesHorarioCache =
                 [];
 
             if (
@@ -1843,6 +2993,39 @@ document.addEventListener('DOMContentLoaded', () => {
             horario.institucion
         ) ===
         institucionActiva;
+
+    function gradoEsDeInstitucionActiva(
+        grado
+    ) {
+        if (
+            grado?.activo === false
+            ||
+            Number(
+                grado?.activo
+            ) === 0
+        ) {
+            return false;
+        }
+
+        const nivel =
+            normalizarTexto(
+                grado?.nivel
+            );
+
+        if (
+            institucionActiva ===
+            'academia'
+        ) {
+            return nivel === 'academia';
+        }
+
+        return [
+            'primaria',
+            'secundaria',
+        ].includes(
+            nivel
+        );
+    }
 
     // =========================================================
     // FILTROS
@@ -1942,6 +3125,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cursos =
             new Map();
+
+        gradosCache
+            .filter(
+                gradoEsDeInstitucionActiva
+            )
+            .forEach(
+                (grado) => {
+                    grados.set(
+                        String(
+                            grado.id
+                        ),
+                        {
+                            id:
+                                grado.id,
+
+                            texto:
+                                nombreGrado(
+                                    grado
+                                ),
+                        }
+                    );
+                }
+            );
 
         bloques.forEach(
             (bloque) => {
@@ -2272,6 +3478,222 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    function nivelHorario(
+        bloque
+    ) {
+        const nivel =
+            bloque.grado?.nivel
+            ||
+            bloque.nivel
+            ||
+            bloque.curso?.nivel
+            ||
+            (
+                normalizarInstitucion(
+                    bloque.institucion
+                ) ===
+                'academia'
+                    ? 'academia'
+                    : ''
+            );
+
+        return normalizarTexto(
+            nivel
+        );
+    }
+
+    function turnoHorario(
+        bloque
+    ) {
+        return normalizarTexto(
+            bloque.turno
+            ||
+            determinarTurno(
+                bloque.hora_inicio
+            )
+        );
+    }
+
+    function configuracionParaHorario(
+        bloque
+    ) {
+        const institucion =
+            normalizarInstitucion(
+                bloque.institucion
+                ||
+                institucionActiva
+            );
+
+        const nivel =
+            nivelHorario(
+                bloque
+            );
+
+        const turno =
+            turnoHorario(
+                bloque
+            );
+
+        return configuracionesHorarioCache
+            .filter(
+                (config) => {
+                    const configInstitucion =
+                        normalizarInstitucion(
+                            config.institucion
+                        );
+
+                    const configNivel =
+                        normalizarTexto(
+                            config.nivel
+                        );
+
+                    const configTurno =
+                        normalizarTexto(
+                            config.turno
+                        );
+
+                    return (
+                        configInstitucion ===
+                        institucion
+                        &&
+                        (
+                            !nivel
+                            ||
+                            configNivel ===
+                            nivel
+                            ||
+                            configNivel ===
+                            'todos'
+                        )
+                        &&
+                        (
+                            configTurno ===
+                            turno
+                            ||
+                            configTurno ===
+                            'completo'
+                        )
+                    );
+                }
+            )
+            .sort(
+                (a, b) =>
+                    Number(
+                        b.año_academico
+                        ||
+                        0
+                    )
+                    -
+                    Number(
+                        a.año_academico
+                        ||
+                        0
+                    )
+            )[0]
+            ||
+            null;
+    }
+
+    function recesosParaBloque(
+        bloque
+    ) {
+        const config =
+            configuracionParaHorario(
+                bloque
+            );
+
+        return (
+            config?.bloques
+            ||
+            []
+        )
+            .filter(
+                (item) =>
+                    item.tipo ===
+                    'receso'
+            )
+            .map(
+                (item) => ({
+                    nombre:
+                        item.nombre
+                        ||
+                        'Receso',
+
+                    hora_inicio:
+                        horaCorta(
+                            item.hora_inicio
+                        ),
+
+                    hora_fin:
+                        horaCorta(
+                            item.hora_fin
+                        ),
+                })
+            )
+            .filter(
+                (item) =>
+                    item.hora_inicio
+                    &&
+                    item.hora_fin
+            );
+    }
+
+    function recesosParaGrupo(
+        grupo
+    ) {
+        const mapa =
+            new Map();
+
+        grupo.bloques.forEach(
+            (bloque) => {
+                recesosParaBloque(
+                    bloque
+                ).forEach(
+                    (receso) => {
+                        const clave =
+                            `${receso.hora_inicio}-${receso.hora_fin}-${receso.nombre}`;
+
+                        mapa.set(
+                            clave,
+                            receso
+                        );
+                    }
+                );
+            }
+        );
+
+        return [
+            ...mapa.values(),
+        ].sort(
+            (a, b) =>
+                aMinutos(
+                    a.hora_inicio
+                )
+                -
+                aMinutos(
+                    b.hora_inicio
+                )
+        );
+    }
+
+    function horarioChocaConReceso(
+        bloque,
+        horaInicio,
+        horaFin
+    ) {
+        return recesosParaBloque(
+            bloque
+        ).find(
+            (receso) =>
+                existeTraslape(
+                    horaInicio,
+                    horaFin,
+                    receso.hora_inicio,
+                    receso.hora_fin
+                )
+        );
+    }
+
     // =========================================================
     // VALIDAR MOVIMIENTO
     // =========================================================
@@ -2340,6 +3762,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     `${datos.profesor} no está disponible el ${diaATexto(
                         dia
                     )} de ${horaInicio} a ${horaFin}.`,
+            };
+        }
+
+        const receso =
+            horarioChocaConReceso(
+                bloque,
+                horaInicio,
+                horaFin
+            );
+
+        if (
+            receso
+        ) {
+            return {
+                valido:
+                    false,
+
+                mensaje:
+                    `No se puede poner una clase durante el receso (${receso.hora_inicio} - ${receso.hora_fin}).`,
             };
         }
 
@@ -2943,8 +4384,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ================================================= */
 
             .horario-timeline-grid{
-                width:max-content;
-                min-width:100%;
+                width:100%;
+                min-width:max-content;
                 background:#FFFFFF;
             }
 
@@ -2990,6 +4431,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 justify-content:center;
                 border-right:1px solid #DCE4EE;
                 background:#F8FAFC;
+                margin:4px 4px 0;
+                border:1px solid rgba(148,163,184,.14);
+                border-bottom:0;
+                border-radius:14px 14px 0 0;
                 padding:0 12px;
             }
 
@@ -3002,6 +4447,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 font-size:13px;
                 font-weight:900;
                 line-height:1.1;
+            }
+
+            .horario-timeline-head-day::before{
+                content:"▦";
+                display:flex;
+                width:28px;
+                height:28px;
+                align-items:center;
+                justify-content:center;
+                margin-bottom:5px;
+                border-radius:9px;
+                background:rgba(59,130,246,.12);
+                color:#2563EB;
+                font-size:17px;
+                font-weight:900;
+                box-shadow:inset 0 0 0 1px rgba(59,130,246,.08);
+            }
+
+            .horario-timeline-head-day:nth-child(3)::before{
+                background:rgba(16,185,129,.14);
+            }
+
+            .horario-timeline-head-day:nth-child(4)::before{
+                background:rgba(245,158,11,.16);
+            }
+
+            .horario-timeline-head-day:nth-child(5)::before{
+                background:rgba(124,58,237,.14);
+            }
+
+            .horario-timeline-head-day:nth-child(6)::before{
+                background:rgba(236,72,153,.14);
+            }
+
+            .horario-timeline-head-day:nth-child(7)::before{
+                background:rgba(59,130,246,.12);
+            }
+
+            .horario-timeline-head-day strong,
+            .horario-timeline-head-day span{
+                position:relative;
+                z-index:1;
             }
 
             .horario-timeline-head-day span{
@@ -3130,6 +4617,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 pointer-events:none;
             }
 
+            .horario-timeline-receso{
+                position:absolute;
+                left:8px;
+                right:8px;
+                z-index:4;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                border:1px dashed #FCA5A5;
+                border-radius:12px;
+                background:rgba(254,226,226,.74);
+                color:#B91C1C;
+                font-size:10px;
+                font-weight:900;
+                letter-spacing:.02em;
+                text-transform:uppercase;
+                pointer-events:none;
+                box-shadow:0 3px 10px rgba(185,28,28,.05);
+            }
+
+            .horario-timeline-receso::before{
+                content:"☕";
+                display:inline-flex;
+                width:24px;
+                height:24px;
+                align-items:center;
+                justify-content:center;
+                margin-right:7px;
+                border-radius:8px;
+                background:rgba(255,255,255,.58);
+                font-size:13px;
+                text-transform:none;
+            }
+
             /* ================================================
                POSICIÓN CLASE
             ================================================= */
@@ -3192,7 +4713,94 @@ document.addEventListener('DOMContentLoaded', () => {
                     11px
                     43px
                     10px
-                    12px;
+                    42px;
+            }
+
+            .horario-card-symbol{
+                position:absolute;
+                top:10px;
+                left:14px;
+                display:flex;
+                width:25px;
+                height:25px;
+                align-items:center;
+                justify-content:center;
+                border-radius:8px;
+                background:rgba(255,255,255,.62);
+                color:inherit;
+            }
+
+            .horario-card-symbol svg{
+                width:15px;
+                height:15px;
+            }
+
+            .horario-grupo-cabecera{
+                display:flex;
+                flex-wrap:wrap;
+                min-width:0;
+                align-items:center;
+                gap:14px;
+            }
+
+            .horario-grupo-icono{
+                display:flex;
+                width:52px;
+                height:52px;
+                flex:0 0 52px;
+                align-items:center;
+                justify-content:center;
+                border-radius:16px;
+                background:linear-gradient(145deg,#6366F1,#4F46E5);
+                color:#FFFFFF;
+                box-shadow:0 8px 18px rgba(79,70,229,.22);
+            }
+
+            .horario-grupo-icono svg{
+                width:27px;
+                height:27px;
+            }
+
+            .horario-grupo-titulo{
+                min-width:0;
+            }
+
+            .horario-grupo-titulo h3{
+                overflow:hidden;
+                color:#0F2749;
+                font-size:20px;
+                font-weight:900;
+                line-height:1.15;
+                text-overflow:ellipsis;
+                white-space:nowrap;
+            }
+
+            .horario-grupo-titulo p{
+                margin-top:5px;
+                color:#7186A5;
+                font-size:13px;
+                font-weight:700;
+            }
+
+            .horario-timeline-head-time{
+                gap:8px;
+                color:#0F2749;
+                font-size:12px;
+                letter-spacing:0;
+            }
+
+            .horario-timeline-head-time::before{
+                content:"◷";
+                display:flex;
+                width:28px;
+                height:28px;
+                align-items:center;
+                justify-content:center;
+                border-radius:9px;
+                background:#EFF6FF;
+                color:#1D4ED8;
+                font-size:19px;
+                font-weight:700;
             }
 
             .horario-card-title{
@@ -3757,22 +5365,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function plantillaColumnas(
         grupo
     ) {
-        return (
-            `${TIMELINE.anchoHora}px `
-            +
-            DIAS
-                .map(
-                    (dia) =>
-                        `${anchoDia(
+        const columnas =
+            DIAS.map(
+                (dia) => {
+                    const ancho =
+                        anchoDia(
                             calcularLanesDia(
                                 grupo,
                                 dia.numero
                             )
-                        )}px`
-                )
-                .join(
-                    ' '
-                )
+                        );
+
+                    return `minmax(${ancho}px, 1fr)`;
+                }
+            );
+
+        return (
+            `${TIMELINE.anchoHora}px `
+            +
+            columnas.join(
+                ' '
+            )
         );
     }
 
@@ -3888,6 +5501,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         background:${color.acento};
                     "
                 ></div>
+
+                <span
+                    class="horario-card-symbol"
+                    aria-hidden="true"
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.9"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5A2.5 2.5 0 0 0 17.5 16H4z" />
+                        <path d="M4 5.5V19a2 2 0 0 0 2 2h11.5A2.5 2.5 0 0 0 20 18.5" />
+                    </svg>
+                </span>
 
                 ${eliminar}
 
@@ -4022,6 +5652,86 @@ document.addEventListener('DOMContentLoaded', () => {
                     dia.numero
             );
 
+        const recesos =
+            recesosParaGrupo(
+                grupo
+            )
+                .map(
+                    (receso) => {
+                        const inicio =
+                            aMinutos(
+                                receso.hora_inicio
+                            );
+
+                        const fin =
+                            aMinutos(
+                                receso.hora_fin
+                            );
+
+                        if (
+                            fin <= rango.desde
+                            ||
+                            inicio >= rango.hasta
+                        ) {
+                            return '';
+                        }
+
+                        const top =
+                            rango.paddingSuperior
+                            +
+                            (
+                                Math.max(
+                                    inicio,
+                                    rango.desde
+                                )
+                                -
+                                rango.desde
+                            )
+                            *
+                            TIMELINE.pxPorMinuto;
+
+                        const alto =
+                            Math.max(
+                                26,
+                                (
+                                    Math.min(
+                                        fin,
+                                        rango.hasta
+                                    )
+                                    -
+                                    Math.max(
+                                        inicio,
+                                        rango.desde
+                                    )
+                                )
+                                *
+                                TIMELINE.pxPorMinuto
+                                -
+                                4
+                            );
+
+                        return `
+                            <div
+                                class="horario-timeline-receso"
+                                style="
+                                    top:${top + 2}px;
+                                    height:${alto}px;
+                                "
+                            >
+                                Receso · ${esc(receso.hora_inicio)} - ${esc(receso.hora_fin)}
+                            </div>
+                        `;
+                    }
+                )
+                .join(
+                    ''
+                );
+
+        const tieneRecesos =
+            Boolean(
+                recesos.trim()
+            );
+
         const items =
             calcularDistribucionDia(
                 bloquesDia
@@ -4121,6 +5831,8 @@ document.addEventListener('DOMContentLoaded', () => {
             >
                 ${
                     bloquesDia.length
+                    ||
+                    tieneRecesos
                         ? ''
                         : `
                             <span
@@ -4132,6 +5844,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             </span>
                         `
                 }
+
+                ${recesos}
 
                 ${items}
             </div>
@@ -4208,28 +5922,34 @@ document.addEventListener('DOMContentLoaded', () => {
             >
                 <div
                     class="
-                        flex
-                        flex-col
-                        gap-3
+                        horario-grupo-cabecera
+
                         border-b
                         border-slate-200
                         px-5
                         py-4
-
-                        sm:flex-row
-                        sm:items-center
-                        sm:justify-between
                     "
                 >
-                    <div>
+                    <span
+                        class="horario-grupo-icono"
+                        aria-hidden="true"
+                    >
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M3 6.5 12 2l9 4.5v5.2c0 4.7-3.8 8.8-9 10.3-5.2-1.5-9-5.6-9-10.3z" />
+                            <path d="m8 11 4 2 4-2" />
+                            <path d="M12 13v6" />
+                        </svg>
+                    </span>
+
+                    <div class="horario-grupo-titulo">
                         <h3
-                            class="
-                                text-base
-                                font-extrabold
-                            "
-                            style="
-                                color:#0F2749;
-                            "
                         >
                             ${esc(
                                 grupo.nombre
@@ -4237,11 +5957,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         </h3>
 
                         <p
-                            class="
-                                mt-1
-                                text-xs
-                                text-slate-500
-                            "
                         >
                             ${grupo.bloques.length}
 
@@ -4256,6 +5971,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div
                         class="
+                            ml-auto
                             flex
                             flex-wrap
                             items-center
@@ -4282,6 +5998,20 @@ document.addEventListener('DOMContentLoaded', () => {
                                     : 'Academia'
                             }
                         </span>
+
+                        <button
+                            type="button"
+                            class="
+                                horario-export-btn
+                                btn-exportar-grupo
+                            "
+                            data-exportar-grupo="${esc(
+                                grupo.clave
+                            )}"
+                            data-formato="excel"
+                        >
+                            Excel
+                        </button>
 
                         <button
                             type="button"
@@ -5780,7 +7510,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const ancho =
                 Math.max(
-                    1000,
+                    1680,
                     elemento.scrollWidth,
                     documento
                         .body
@@ -5789,7 +7519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const alto =
                 Math.max(
-                    600,
+                    900,
                     elemento.scrollHeight,
                     documento
                         .body
@@ -5797,10 +7527,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
 
             iframe.style.width =
-                `${ancho + 40}px`;
+                `${ancho}px`;
 
             iframe.style.height =
-                `${alto + 40}px`;
+                `${alto}px`;
+
+            await new Promise(
+                (resolve) =>
+                    iframe.contentWindow
+                        .requestAnimationFrame(
+                            resolve
+                        )
+            );
+
+            const rect =
+                elemento.getBoundingClientRect();
+
+            const anchoCaptura =
+                Math.ceil(
+                    Math.max(
+                        rect.width,
+                        elemento.scrollWidth
+                    )
+                );
+
+            const altoCaptura =
+                Math.ceil(
+                    Math.max(
+                        rect.height,
+                        elemento.scrollHeight
+                    )
+                );
 
             const canvas =
                 await html2canvas(
@@ -5819,16 +7576,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             true,
 
                         width:
-                            elemento.scrollWidth,
+                            anchoCaptura,
 
                         height:
-                            elemento.scrollHeight,
+                            altoCaptura,
 
                         windowWidth:
-                            ancho,
+                            anchoCaptura,
 
                         windowHeight:
-                            alto,
+                            altoCaptura,
                     }
                 );
 
@@ -5909,7 +7666,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function exportarExcel(
-        bloques
+        bloques,
+        nombre = null
     ) {
         if (
             !bloques.length
@@ -5999,9 +7757,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Horarios'
             );
 
+        const nombreArchivo =
+            nombre
+                ? nombreSeguroArchivo(
+                    `horario_${nombre}_${institucionActiva}`
+                )
+                : `horarios_${institucionActiva}`;
+
         XLSX.writeFile(
             libro,
-            `horarios_${institucionActiva}.xlsx`
+            `${nombreArchivo}.xlsx`
         );
 
         mostrarMensaje(
@@ -6078,10 +7843,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Generando...';
 
             try {
-                if (
+                const formato =
                     botonExportar
                         .dataset
-                        .formato ===
+                        .formato;
+
+                if (
+                    formato ===
+                    'excel'
+                ) {
+                    exportarExcel(
+                        grupo.bloques,
+
+                        grupo.nombre
+                    );
+                } else if (
+                    formato ===
                     'pdf'
                 ) {
                     await exportarPdf(
@@ -6170,10 +7947,170 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     cerrarTodosFiltros();
 
+                    cargarConfigHorario();
+
                     cargarDatos();
                 }
             )
     );
+
+    // =========================================================
+    // BLOQUES Y RECESOS
+    // =========================================================
+
+    configNivel
+        ?.addEventListener(
+            'change',
+            cargarConfigHorario
+        );
+
+    configTurno
+        ?.addEventListener(
+            'change',
+            cargarConfigHorario
+        );
+
+    configRecesoInicio
+        ?.addEventListener(
+            'input',
+            () => {
+                renderBloquesConfig();
+            }
+        );
+
+    configRecesoMinutos
+        ?.addEventListener(
+            'input',
+            () => {
+                renderBloquesConfig();
+            }
+        );
+
+    btnGuardarConfigHorario
+        ?.addEventListener(
+            'click',
+            guardarConfigHorario
+        );
+
+    configBloquesLista
+        ?.addEventListener(
+            'input',
+            (event) => {
+                const campo =
+                    event
+                        .target
+                        ?.dataset
+                        ?.configCampo;
+
+                const fila =
+                    event
+                        .target
+                        ?.closest(
+                            '[data-config-index]'
+                        );
+
+                if (
+                    !campo
+                    ||
+                    !fila
+                ) {
+                    return;
+                }
+
+                const index =
+                    Number(
+                        fila.dataset.configIndex
+                    );
+
+                if (
+                    !bloquesConfiguracionHorario[index]
+                ) {
+                    return;
+                }
+
+                bloquesConfiguracionHorario[index][campo] =
+                    campo === 'numero_bloque'
+                        ? Number(
+                            event.target.value
+                        )
+                        : event.target.value;
+            }
+        );
+
+    configBloquesLista
+        ?.addEventListener(
+            'change',
+            (event) => {
+                const campo =
+                    event
+                        .target
+                        ?.dataset
+                        ?.configCampo;
+
+                const fila =
+                    event
+                        .target
+                        ?.closest(
+                            '[data-config-index]'
+                        );
+
+                if (
+                    !campo
+                    ||
+                    !fila
+                ) {
+                    return;
+                }
+
+                const index =
+                    Number(
+                        fila.dataset.configIndex
+                    );
+
+                if (
+                    !bloquesConfiguracionHorario[index]
+                ) {
+                    return;
+                }
+
+                bloquesConfiguracionHorario[index][campo] =
+                    campo === 'numero_bloque'
+                        ? Number(
+                            event.target.value
+                        )
+                        : event.target.value;
+
+                renderBloquesConfig();
+            }
+        );
+
+    configBloquesLista
+        ?.addEventListener(
+            'click',
+            (event) => {
+                const boton =
+                    event
+                        .target
+                        ?.closest(
+                            '[data-config-eliminar]'
+                        );
+
+                if (
+                    !boton
+                ) {
+                    return;
+                }
+
+                bloquesConfiguracionHorario.splice(
+                    Number(
+                        boton.dataset.configEliminar
+                    ),
+                    1
+                );
+
+                renderBloquesConfig();
+            }
+        );
 
     // =========================================================
     // VISTAS
@@ -6309,52 +8246,6 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
     // =========================================================
-    // PDF GENERAL
-    // =========================================================
-
-    btnPdf
-        ?.addEventListener(
-            'click',
-            async () => {
-                const original =
-                    btnPdf.innerHTML;
-
-                btnPdf.disabled =
-                    true;
-
-                btnPdf.textContent =
-                    'Generando...';
-
-                try {
-                    await exportarPdf(
-                        obtenerBloquesVisibles(),
-
-                        `horarios_${institucionActiva}`
-                    );
-                } finally {
-                    btnPdf.disabled =
-                        false;
-
-                    btnPdf.innerHTML =
-                        original;
-                }
-            }
-        );
-
-    // =========================================================
-    // EXCEL GENERAL
-    // =========================================================
-
-    btnExcel
-        ?.addEventListener(
-            'click',
-            () =>
-                exportarExcel(
-                    obtenerBloquesVisibles()
-                )
-        );
-
-    // =========================================================
     // ACTUALIZACIÓN
     // =========================================================
 
@@ -6374,6 +8265,8 @@ document.addEventListener('DOMContentLoaded', () => {
     inyectarEstilosTimeline();
 
     actualizarTodosCustomFiltros();
+
+    cargarConfigHorario();
 
     cargarDatos();
 });

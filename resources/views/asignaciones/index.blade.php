@@ -887,6 +887,55 @@
             </div>
 
 
+            {{-- AULA --}}
+
+            <div>
+
+                <label
+                    class="
+                        mb-2 block
+                        text-sm font-semibold
+                    "
+                    style="color:#0F2749;"
+                >
+                    Aula
+                    <span class="text-red-600">*</span>
+                </label>
+
+                <select
+                    id="asignacion-aula"
+                    class="nl-native-select"
+                >
+
+                    <option value="">
+                        Seleccionar aula
+                    </option>
+
+                </select>
+
+                <div
+                    class="nl-select"
+                    data-custom-select="asignacion-aula"
+                    data-label="Aula"
+                    data-search="true"
+                    data-placeholder="Seleccionar aula"
+                    data-icon="aula"
+                ></div>
+
+                <p
+                    id="aula-help"
+                    class="
+                        mt-1.5
+                        text-xs
+                        text-slate-500
+                    "
+                >
+                    Las aulas son compartidas; el sistema evitará choques de horario.
+                </p>
+
+            </div>
+
+
             {{-- HORAS ASIGNADAS --}}
 
             <div>
@@ -954,6 +1003,42 @@
                 <p class="mt-1.5 text-xs text-slate-500">
                     Entre 1 y 40 horas.
                 </p>
+
+                <div
+                    id="asignacion-disponibilidad-resumen"
+                    class="
+                        mt-3
+                        rounded-xl
+                        border
+                        border-slate-200
+                        bg-slate-50
+                        px-4
+                        py-3
+                        text-xs
+                        leading-5
+                        text-slate-600
+                    "
+                >
+                    Selecciona profesor e institución para ver sus horas disponibles.
+                </div>
+
+                <div
+                    id="asignacion-recesos-resumen"
+                    class="
+                        mt-2
+                        rounded-xl
+                        border
+                        border-slate-200
+                        bg-slate-50
+                        px-4
+                        py-3
+                        text-xs
+                        leading-5
+                        text-slate-600
+                    "
+                >
+                    Selecciona grado e institución para validar recesos.
+                </div>
 
             </div>
 
@@ -1356,7 +1441,7 @@
             <table
                 class="
                     w-full
-                    min-w-[1050px]
+                    min-w-[1180px]
                     text-left
                 "
             >
@@ -1417,6 +1502,17 @@
                                 text-[#1B3A6B]
                             "
                         >
+                            Aula
+                        </th>
+
+                        <th
+                            class="
+                                px-5 py-3
+                                text-xs font-bold
+                                uppercase tracking-wider
+                                text-[#1B3A6B]
+                            "
+                        >
                             Horas
                         </th>
 
@@ -1467,7 +1563,7 @@
                     <tr id="asignaciones-cargando">
 
                         <td
-                            colspan="8"
+                            colspan="9"
                             class="
                                 px-5 py-14
                                 text-center

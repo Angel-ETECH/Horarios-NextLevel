@@ -2,13 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-
     <title>{{ $titulo ?? 'Horario Académico' }}</title>
-
     <style>
         @page {
             size: A4 landscape;
-            margin: 20px;
+            margin: 18px;
         }
 
         * {
@@ -18,885 +16,475 @@
         body {
             margin: 0;
             padding: 0;
-            font-family: 'DejaVu Sans', Arial, sans-serif;
-            color: #1E293B;
-            background: #FFFFFF;
+            background: #ffffff;
+            color: #0f2749;
+            font-family: DejaVu Sans, Arial, sans-serif;
             font-size: 9px;
         }
 
-        /* =========================================================
-           HEADER
-        ========================================================= */
-
-        .header {
+        .document {
             width: 100%;
-            margin-bottom: 15px;
+            padding: 4px 0;
         }
 
-        .header-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .header-table td {
-            vertical-align: middle;
-        }
-
-        .brand-cell {
-            width: 55%;
-        }
-
-        .date-cell {
-            width: 45%;
-            text-align: right;
-        }
-
-        .brand {
-            font-size: 23px;
-            font-weight: bold;
-            color: #0F2749;
-            line-height: 1.1;
-        }
-
-        .brand-red {
-            color: #DB0808;
-        }
-
-        .brand-subtitle {
-            margin-top: 4px;
-            color: #64748B;
-            font-size: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-        }
-
-        .generated-label {
-            color: #94A3B8;
-            font-size: 7px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-        }
-
-        .generated-date {
-            margin-top: 3px;
-            color: #0F2749;
-            font-size: 9px;
-            font-weight: bold;
-        }
-
-        .line-blue {
-            height: 4px;
-            margin-top: 10px;
-            background: #0F2749;
-        }
-
-        .line-red {
-            width: 90px;
-            height: 4px;
-            margin-top: -4px;
-            background: #DB0808;
-        }
-
-        /* =========================================================
-           TITLE
-        ========================================================= */
-
-        .title-section {
-            margin-top: 13px;
-            margin-bottom: 12px;
-        }
-
-        .document-label {
-            color: #DB0808;
-            font-size: 7px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .document-title {
-            margin: 4px 0 0 0;
-            color: #0F2749;
-            font-size: 18px;
-            font-weight: bold;
-            line-height: 1.2;
-        }
-
-        .document-description {
-            margin-top: 5px;
-            color: #64748B;
-            font-size: 8px;
-        }
-
-        /* =========================================================
-           INFORMATION
-        ========================================================= */
-
-        .info-box {
-            width: 100%;
-            margin-bottom: 13px;
-            padding: 8px 10px;
-            background: #F8FAFC;
-            border: 1px solid #E2E8F0;
-            border-left: 4px solid #1B3A6B;
-        }
-
-        .info-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .info-table td {
-            padding: 1px 8px 1px 0;
-            vertical-align: top;
-        }
-
-        .info-label {
-            color: #64748B;
-            font-size: 7px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.4px;
-        }
-
-        .info-value {
-            margin-top: 2px;
-            color: #0F2749;
-            font-size: 8.5px;
-            font-weight: bold;
-        }
-
-        /* =========================================================
-           SCHEDULE TABLE
-        ========================================================= */
-
-        .schedule-table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
-        }
-
-        .schedule-table thead {
-            display: table-header-group;
-        }
-
-        .schedule-table tr {
-            page-break-inside: avoid;
-        }
-
-        .schedule-table th {
-            padding: 7px 3px;
-            background: #0F2749;
-            border: 1px solid #1B3A6B;
-            color: #FFFFFF;
-            text-align: center;
-            vertical-align: middle;
-            font-size: 7px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .schedule-table td {
-            padding: 7px 3px;
-            border: 1px solid #E2E8F0;
-            color: #334155;
-            text-align: center;
-            vertical-align: middle;
-            font-size: 7.5px;
-            line-height: 1.25;
-            word-break: break-word;
-        }
-
-        .schedule-table tbody tr:nth-child(even) {
-            background: #F8FAFC;
-        }
-
-        /* =========================================================
-           COLUMN WIDTHS
-        ========================================================= */
-
-        .col-number {
-            width: 3%;
-        }
-
-        .col-profesor {
-            width: 15%;
-        }
-
-        .col-curso {
-            width: 14%;
-        }
-
-        .col-grado {
-            width: 12%;
-        }
-
-        .col-aula {
-            width: 10%;
-        }
-
-        .col-institucion {
-            width: 8%;
-        }
-
-        .col-dia {
-            width: 7%;
-        }
-
-        .col-hora {
-            width: 7%;
-        }
-
-        .col-turno {
-            width: 7%;
-        }
-
-        .col-estado {
-            width: 7%;
-        }
-
-        /* =========================================================
-           CONTENT
-        ========================================================= */
-
-        .profesor-name {
-            color: #0F2749;
-            font-weight: bold;
-        }
-
-        .curso-name {
-            color: #1B3A6B;
-            font-weight: bold;
-        }
-
-        .aula-name {
-            color: #334155;
-            font-weight: bold;
-        }
-
-        .codigo {
-            display: block;
-            margin-top: 2px;
-            color: #94A3B8;
-            font-size: 6px;
-        }
-
-        .hora {
-            color: #0F2749;
-            font-size: 8px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-
-        /* =========================================================
-           BADGES
-        ========================================================= */
-
-        .badge {
-            display: inline-block;
-            padding: 3px 7px;
-            border-radius: 10px;
-            font-size: 6.5px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .badge-activo {
-            background: #DCFCE7;
-            color: #166534;
-        }
-
-        .badge-modificado {
-            background: #FEF3C7;
-            color: #92400E;
-        }
-
-        .badge-cancelado {
-            background: #FEE2E2;
-            color: #991B1B;
-        }
-
-        .badge-default {
-            background: #E2E8F0;
-            color: #475569;
-        }
-
-        /* =========================================================
-           SUMMARY
-        ========================================================= */
-
-        .summary {
-            margin-top: 12px;
-        }
-
-        .summary-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .summary-left {
-            width: 65%;
-            color: #64748B;
-            font-size: 7px;
-        }
-
-        .summary-right {
-            width: 35%;
-            text-align: right;
-        }
-
-        .summary-total {
-            display: inline-block;
-            padding: 6px 11px;
-            background: #0F2749;
-            color: #FFFFFF;
-            font-size: 8px;
-            font-weight: bold;
-        }
-
-        .summary-total strong {
-            font-size: 11px;
-        }
-
-        /* =========================================================
-           FOOTER
-        ========================================================= */
-
-        .footer {
-            margin-top: 15px;
-            padding-top: 8px;
-            border-top: 1px solid #E2E8F0;
-        }
-
+        .top-table,
+        .meta-table,
+        .schedule-table,
         .footer-table {
             width: 100%;
             border-collapse: collapse;
         }
 
-        .footer-left {
-            width: 60%;
-            color: #94A3B8;
-            font-size: 6.5px;
+        .top-table td {
+            vertical-align: middle;
         }
 
-        .footer-right {
-            width: 40%;
-            color: #64748B;
-            font-size: 6.5px;
+        .brand-title {
+            color: #0f2749;
+            font-size: 22px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .brand-title span,
+        .title-red,
+        .footer-brand span {
+            color: #d90808;
+        }
+
+        .brand-subtitle {
+            margin-top: 3px;
+            color: #556987;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .generated {
             text-align: right;
+            color: #0f2749;
+            font-weight: 700;
+        }
+
+        .generated-label {
+            color: #64748b;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .generated-date {
+            margin-top: 2px;
+            font-size: 11px;
+        }
+
+        .main-title {
+            margin: 10px 0 9px;
+            color: #0f2749;
+            font-size: 19px;
+            font-weight: 800;
+            line-height: 1.18;
+        }
+
+        .meta-wrap {
+            margin-bottom: 9px;
+            border: 1px solid #dbe5f1;
+            border-radius: 9px;
+            background: #f4f8fd;
+        }
+
+        .meta-table td {
+            width: 20%;
+            min-height: 34px;
+            padding: 9px 10px 10px;
+            border-right: 1px solid #cbd8e8;
+            vertical-align: top;
+        }
+
+        .meta-table td:last-child {
+            border-right: 0;
+        }
+
+        .meta-label {
+            color: #5d708c;
+            font-size: 7px;
+            font-weight: 700;
+            line-height: 1.15;
+        }
+
+        .meta-value {
+            margin-top: 4px;
+            color: #0f2749;
+            font-size: 8px;
+            font-weight: 800;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+
+        .schedule-table {
+            table-layout: fixed;
+            border-spacing: 0;
+        }
+
+        .schedule-table th {
+            height: 32px;
+            padding: 8px 4px;
+            background: #102d52;
+            border: 2px solid #ffffff;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: center;
+            vertical-align: middle;
+            line-height: 1.1;
+        }
+
+        .schedule-table th.time-cell {
+            background: #102d52 !important;
+            color: #ffffff;
+        }
+
+        .schedule-table td {
+            min-height: 48px;
+            padding: 5px;
+            border: 2px solid #ffffff;
+            background: #f4f8fd;
+            color: #0f2749;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .time-cell {
+            width: 11%;
+            color: #1f314a;
+            background: #eef3f8 !important;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .day-cell {
+            width: 14.8%;
+        }
+
+        .class-card {
+            display: block;
+            min-height: 42px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 7px 7px 6px;
+            border-radius: 6px;
+            border: 1px solid #e5eaf1;
+            border-left: 4px solid #2563eb;
+            background: #fff7f8;
+            line-height: 1.25;
+        }
+
+        .class-card + .class-card {
+            margin: 4px auto 0;
+        }
+
+        .tone-0,
+        .tone-1,
+        .tone-2 { background: #fff0f3; border-left-color: #e11d48; }
+        .tone-3,
+        .tone-4,
+        .tone-5 { background: #fff9e8; border-left-color: #f59e0b; }
+
+        .class-head {
+            display: block;
+            text-align: left;
+        }
+
+        .course {
+            display: inline-block;
+            color: #09245a;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 1.15;
+            width: 74%;
+        }
+
+        .level-badge {
+            display: inline-block;
+            padding: 2px 4px;
+            border-radius: 4px;
+            background: #fde2e8;
+            color: #be123c;
+            font-size: 6px;
+            font-weight: 800;
+            text-align: center;
+        }
+
+        .level-sec,
+        .level-aca {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .grade {
+            display: block;
+            margin-top: 3px;
+            color: #0f2749;
+            font-size: 9px;
+        }
+
+        .room {
+            display: block;
+            margin-top: 5px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(15, 39, 73, 0.08);
+            background: transparent;
+            color: #0f2749;
+            font-size: 8px;
+            font-weight: 800;
+        }
+
+        .room-label {
+            color: #64748b;
+            font-size: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .room-value {
+            color: #09245a;
+            font-size: 8px;
+            font-weight: 800;
+        }
+
+        .empty-slot {
+            color: #64748b;
+            font-size: 15px;
+            text-align: center;
+        }
+
+        .footer {
+            min-height: 34px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #dbe5f1;
+        }
+
+        .footer-left {
+            color: #5d708c;
+            font-size: 10px;
+        }
+
+        .footer-table td {
+            vertical-align: middle;
         }
 
         .footer-brand {
-            color: #0F2749;
-            font-weight: bold;
+            color: #0f2749;
+            font-weight: 800;
         }
 
-        .empty {
-            padding: 25px !important;
-            color: #94A3B8 !important;
-            text-align: center !important;
+        .footer-total {
+            text-align: right;
+        }
+
+        .total-pill {
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 9px;
+            background: #102d52;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1.1;
         }
     </style>
 </head>
-
 <body>
-
 @php
-    $primerHorario = $horarios->first();
+    $horariosOrdenados = $horarios->sortBy(function ($h) {
+        $diaOrden = [
+            'lunes' => 1,
+            'martes' => 2,
+            'miércoles' => 3,
+            'miercoles' => 3,
+            'jueves' => 4,
+            'viernes' => 5,
+            'sábado' => 6,
+            'sabado' => 6,
+        ];
 
+        $dia = strtolower((string) ($h->dia_semana ?? ''));
+        $inicio = substr((string) ($h->hora_inicio ?? '99:99'), 0, 5);
+
+        return str_pad((string) ($diaOrden[$dia] ?? 9), 2, '0', STR_PAD_LEFT) . '-' . $inicio;
+    })->values();
+
+    $primerHorario = $horariosOrdenados->first();
     $institucionFiltro = $filtros['institucion'] ?? null;
-
-    $nombreInstitucion = match($institucionFiltro) {
+    $nombreInstitucion = match ($institucionFiltro) {
         'colegio' => 'Colegio',
         'academia' => 'Academia',
-        default => $primerHorario
-            ? ucfirst($primerHorario->institucion ?? 'No especificada')
-            : 'No especificada',
+        default => $primerHorario ? ucfirst($primerHorario->institucion ?? 'No especificada') : 'No especificada',
     };
+    $nombreProfesor = $primerHorario?->profesor?->nombre_completo ?? 'No especificado';
+    $codigoProfesor = $primerHorario?->profesor?->codigo ?? 'N/A';
+    $periodo = $primerHorario?->periodo_academico ?? 'No especificado';
+    $tituloBase = $titulo ?? 'Horario de ' . $nombreProfesor;
+    $tituloDocumento = preg_match('/-\s*' . preg_quote($nombreInstitucion, '/') . '\s*$/i', $tituloBase)
+        ? $tituloBase
+        : $tituloBase . ' - ' . $nombreInstitucion;
+    $dias = [
+        'lunes' => 'Lunes',
+        'martes' => 'Martes',
+        'miércoles' => 'Miércoles',
+        'jueves' => 'Jueves',
+        'viernes' => 'Viernes',
+        'sábado' => 'Sábado',
+    ];
+    $normalizarDia = function ($dia) {
+        $dia = strtolower(trim((string) $dia));
+        return match ($dia) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => $dia,
+        };
+    };
+    $formatearHora = function ($valor) {
+        try {
+            return \Carbon\Carbon::parse($valor)->format('H:i');
+        } catch (\Exception $e) {
+            return substr((string) $valor, 0, 5);
+        }
+    };
+    $bloques = [];
+    $celdas = [];
 
-    $nombreProfesor =
-        $primerHorario?->profesor?->nombre_completo ?? null;
+    foreach ($horariosOrdenados as $horario) {
+        $inicio = $formatearHora($horario->hora_inicio);
+        $fin = $formatearHora($horario->hora_fin);
+        $bloqueKey = $inicio . '|' . $fin;
+        $diaKey = $normalizarDia($horario->dia_semana ?? '');
 
-    $codigoProfesor =
-        $primerHorario?->profesor?->codigo ?? null;
+        $bloques[$bloqueKey] = [
+            'inicio' => $inicio,
+            'fin' => $fin,
+        ];
 
-    $periodo =
-        $primerHorario?->periodo_academico ?? null;
+        $celdas[$bloqueKey][$diaKey][] = $horario;
+    }
+
+    uasort($bloques, fn ($a, $b) => strcmp($a['inicio'], $b['inicio']) ?: strcmp($a['fin'], $b['fin']));
+
 @endphp
 
-
-{{-- =========================================================
-     HEADER
-========================================================= --}}
-
-<div class="header">
-
-    <table class="header-table">
-
+<div class="document">
+    <table class="top-table">
         <tr>
-
-            <td class="brand-cell">
-
-                <div class="brand">
-                    Next Level
-                    <span class="brand-red">School</span>
-                </div>
-
-                <div class="brand-subtitle">
-                    Sistema de Gestión Académica
-                </div>
-
+            <td>
+                <div class="brand-title">Next Level <span>School</span></div>
+                <div class="brand-subtitle">Sistema de Gestión Académica</div>
             </td>
-
-
-            <td class="date-cell">
-
-                <div class="generated-label">
-                    Documento generado
-                </div>
-
-                <div class="generated-date">
-                    {{ now()->format('d/m/Y H:i') }}
-                </div>
-
+            <td class="generated">
+                <div class="generated-label">Documento generado</div>
+                <div class="generated-date">{{ now()->format('d/m/Y H:i') }}</div>
             </td>
-
         </tr>
-
     </table>
 
-
-    <div class="line-blue"></div>
-
-    <div class="line-red"></div>
-
-</div>
-
-
-{{-- =========================================================
-     TITLE
-========================================================= --}}
-
-<div class="title-section">
-
-    <div class="document-label">
-        Horario académico
+    <div class="main-title">
+        {{ $tituloDocumento }}
     </div>
 
-    <h1 class="document-title">
-        {{ $titulo ?? 'Horario Académico' }}
-    </h1>
-
-    <div class="document-description">
-        Distribución oficial de clases registrada en el sistema Next Level.
+    <div class="meta-wrap">
+        <table class="meta-table">
+            <tr>
+                <td>
+                    <div class="meta-label">Profesor</div>
+                    <div class="meta-value">{{ $nombreProfesor }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Código</div>
+                    <div class="meta-value">{{ $codigoProfesor }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Institución</div>
+                    <div class="meta-value">{{ $nombreInstitucion }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Periodo académico</div>
+                    <div class="meta-value">{{ $periodo }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Total</div>
+                    <div class="meta-value">{{ $horariosOrdenados->count() }} {{ $horariosOrdenados->count() === 1 ? 'clase' : 'clases' }}</div>
+                </td>
+            </tr>
+        </table>
     </div>
 
-</div>
-
-
-{{-- =========================================================
-     INFORMATION
-========================================================= --}}
-
-<div class="info-box">
-
-    <table class="info-table">
-
-        <tr>
-
-            @if($nombreProfesor)
-
-                <td>
-
-                    <div class="info-label">
-                        Profesor
-                    </div>
-
-                    <div class="info-value">
-                        {{ $nombreProfesor }}
-                    </div>
-
-                </td>
-
-            @endif
-
-
-            @if($codigoProfesor)
-
-                <td>
-
-                    <div class="info-label">
-                        Código
-                    </div>
-
-                    <div class="info-value">
-                        {{ $codigoProfesor }}
-                    </div>
-
-                </td>
-
-            @endif
-
-
-            <td>
-
-                <div class="info-label">
-                    Institución
-                </div>
-
-                <div class="info-value">
-                    {{ $nombreInstitucion }}
-                </div>
-
-            </td>
-
-
-            @if($periodo)
-
-                <td>
-
-                    <div class="info-label">
-                        Periodo académico
-                    </div>
-
-                    <div class="info-value">
-                        {{ $periodo }}
-                    </div>
-
-                </td>
-
-            @endif
-
-
-            <td>
-
-                <div class="info-label">
-                    Total de clases
-                </div>
-
-                <div class="info-value">
-                    {{ $horarios->count() }}
-                </div>
-
-            </td>
-
-        </tr>
-
+    <table class="schedule-table">
+        <thead>
+            <tr>
+                <th class="time-cell">Hora</th>
+                @foreach($dias as $nombreDia)
+                    <th class="day-cell">{{ $nombreDia }}</th>
+                @endforeach
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($bloques as $bloqueKey => $bloque)
+                <tr>
+                    <td class="time-cell">{{ $bloque['inicio'] }} - {{ $bloque['fin'] }}</td>
+                    @foreach($dias as $diaKey => $nombreDia)
+                        <td class="day-cell">
+                            @forelse(($celdas[$bloqueKey][$diaKey] ?? []) as $item)
+                                @php
+                                    $tone = abs(crc32((string) ($item->curso_id ?? $item->id ?? 0))) % 6;
+                                    $aulaNombre = trim((string) ($item->aula->nombre ?? ''));
+                                    $aulaTexto = $aulaNombre !== ''
+                                        ? preg_replace('/^\s*aula\s+/i', '', $aulaNombre)
+                                        : 'No asignada';
+                                    $nivelTexto = strtolower((string) ($item->grado->nombre_completo ?? $item->curso->nombre ?? ''));
+                                    $institucionTexto = strtolower((string) ($item->institucion ?? $item->institucion_nombre ?? ''));
+                                    $nivelCodigo = str_contains($nivelTexto, 'secundaria')
+                                        ? 'SEC'
+                                        : (str_contains($nivelTexto, 'academia') || $institucionTexto === 'academia' ? 'ACA' : 'PRI');
+                                    $nivelClase = strtolower($nivelCodigo);
+                                @endphp
+                                <span class="class-card tone-{{ $tone }}">
+                                    <span class="class-head">
+                                        <span class="course">{{ $item->curso->nombre ?? 'Curso no especificado' }}</span>
+                                        <span class="level-badge level-{{ $nivelClase }}">{{ $nivelCodigo }}</span>
+                                    </span>
+                                    <span class="grade">{{ $item->grado->nombre_completo ?? 'Grado no especificado' }}</span>
+                                    <span class="room">
+                                        <span class="room-label">Aula</span>
+                                        <span class="room-value">{{ $aulaTexto }}</span>
+                                    </span>
+                                </span>
+                            @empty
+                                <div class="empty-slot">—</div>
+                            @endforelse
+                        </td>
+                    @endforeach
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="7" class="empty-slot">No existen horarios disponibles para exportar.</td>
+                </tr>
+            @endforelse
+        </tbody>
     </table>
 
+    <div class="footer">
+        <table class="footer-table">
+            <tr>
+                <td class="footer-left">
+                    <span class="footer-brand">Next Level <span>School</span></span>
+                    · Sistema de Gestión de Horarios
+                </td>
+                <td class="footer-total">
+                    <span class="total-pill">Total: {{ $horariosOrdenados->count() }} {{ $horariosOrdenados->count() === 1 ? 'clase' : 'clases' }}</span>
+                </td>
+            </tr>
+        </table>
+    </div>
 </div>
-
-
-{{-- =========================================================
-     TABLE
-========================================================= --}}
-
-<table class="schedule-table">
-
-    <thead>
-
-        <tr>
-
-            <th class="col-number">
-                #
-            </th>
-
-            <th class="col-profesor">
-                Profesor
-            </th>
-
-            <th class="col-curso">
-                Curso
-            </th>
-
-            <th class="col-grado">
-                Grado
-            </th>
-
-            <th class="col-aula">
-                Aula
-            </th>
-
-            <th class="col-institucion">
-                Institución
-            </th>
-
-            <th class="col-dia">
-                Día
-            </th>
-
-            <th class="col-hora">
-                Inicio
-            </th>
-
-            <th class="col-hora">
-                Fin
-            </th>
-
-            <th class="col-turno">
-                Turno
-            </th>
-
-            <th class="col-estado">
-                Estado
-            </th>
-
-        </tr>
-
-    </thead>
-
-
-    <tbody>
-
-    @forelse($horarios as $index => $h)
-
-        @php
-            $estado = strtolower($h->estado ?? '');
-
-            $badgeClass = match($estado) {
-                'activo' => 'badge-activo',
-                'modificado' => 'badge-modificado',
-                'cancelado' => 'badge-cancelado',
-                default => 'badge-default',
-            };
-
-            /*
-             * IMPORTANTE:
-             * hora_inicio y hora_fin pueden llegar como Carbon
-             * o como fecha/hora completa.
-             *
-             * Aquí dejamos únicamente HH:mm.
-             */
-
-            try {
-                $horaInicio = \Carbon\Carbon::parse(
-                    $h->hora_inicio
-                )->format('H:i');
-            } catch (\Exception $e) {
-                $horaInicio = substr(
-                    (string) $h->hora_inicio,
-                    0,
-                    5
-                );
-            }
-
-            try {
-                $horaFin = \Carbon\Carbon::parse(
-                    $h->hora_fin
-                )->format('H:i');
-            } catch (\Exception $e) {
-                $horaFin = substr(
-                    (string) $h->hora_fin,
-                    0,
-                    5
-                );
-            }
-        @endphp
-
-
-        <tr>
-
-            <td>
-                {{ $index + 1 }}
-            </td>
-
-
-            <td>
-
-                <span class="profesor-name">
-                    {{ $h->profesor->nombre_completo ?? 'N/A' }}
-                </span>
-
-                @if(!empty($h->profesor->codigo))
-
-                    <span class="codigo">
-                        {{ $h->profesor->codigo }}
-                    </span>
-
-                @endif
-
-            </td>
-
-
-            <td>
-
-                <span class="curso-name">
-                    {{ $h->curso->nombre ?? 'N/A' }}
-                </span>
-
-                @if(!empty($h->curso->codigo))
-
-                    <span class="codigo">
-                        {{ $h->curso->codigo }}
-                    </span>
-
-                @endif
-
-            </td>
-
-
-            <td>
-
-                {{ $h->grado->nombre_completo ?? 'N/A' }}
-
-                @if(!empty($h->grado->codigo))
-
-                    <span class="codigo">
-                        {{ $h->grado->codigo }}
-                    </span>
-
-                @endif
-
-            </td>
-
-
-            <td>
-
-                <span class="aula-name">
-                    {{ $h->aula->nombre ?? 'N/A' }}
-                </span>
-
-                @if(!empty($h->aula->codigo))
-
-                    <span class="codigo">
-                        {{ $h->aula->codigo }}
-                    </span>
-
-                @endif
-
-            </td>
-
-
-            <td>
-                {{ ucfirst($h->institucion ?? 'N/A') }}
-            </td>
-
-
-            <td>
-                {{ ucfirst($h->dia_semana ?? 'N/A') }}
-            </td>
-
-
-            <td class="hora">
-                {{ $horaInicio }}
-            </td>
-
-
-            <td class="hora">
-                {{ $horaFin }}
-            </td>
-
-
-            <td>
-                {{ ucfirst($h->turno ?? 'N/A') }}
-            </td>
-
-
-            <td>
-
-                <span class="badge {{ $badgeClass }}">
-                    {{ ucfirst($h->estado ?? 'N/A') }}
-                </span>
-
-            </td>
-
-        </tr>
-
-
-    @empty
-
-        <tr>
-
-            <td
-                colspan="11"
-                class="empty"
-            >
-                No existen horarios disponibles para exportar.
-            </td>
-
-        </tr>
-
-    @endforelse
-
-    </tbody>
-
-</table>
-
-
-{{-- =========================================================
-     SUMMARY
-========================================================= --}}
-
-<div class="summary">
-
-    <table class="summary-table">
-
-        <tr>
-
-            <td class="summary-left">
-
-                Los datos corresponden a los horarios activos
-                registrados en el sistema Next Level.
-
-            </td>
-
-
-            <td class="summary-right">
-
-                <span class="summary-total">
-
-                    Total:
-
-                    <strong>
-                        {{ $horarios->count() }}
-                    </strong>
-
-                    {{ $horarios->count() === 1 ? 'clase' : 'clases' }}
-
-                </span>
-
-            </td>
-
-        </tr>
-
-    </table>
-
-</div>
-
-
-{{-- =========================================================
-     FOOTER
-========================================================= --}}
-
-<div class="footer">
-
-    <table class="footer-table">
-
-        <tr>
-
-            <td class="footer-left">
-
-                <span class="footer-brand">
-                    Next Level School
-                </span>
-
-                · Sistema de Gestión de Horarios
-
-            </td>
-
-
-            <td class="footer-right">
-
-                © {{ date('Y') }} Next Level School
-
-            </td>
-
-        </tr>
-
-    </table>
-
-</div>
-
 </body>
 </html>
