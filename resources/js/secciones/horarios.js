@@ -150,6 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
         exportPdf:
             '/api/exportar/pdf/download',
 
+        exportExcel:
+            '/api/exportar/excel/download',
+
         exportImagen:
             '/api/exportar/imagen/html',
     };
@@ -7665,9 +7668,10 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function exportarExcel(
+    async function exportarExcel(
         bloques,
-        nombre = null
+        nombre = null,
+        grupo = null
     ) {
         if (
             !bloques.length
@@ -7680,83 +7684,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (
-            typeof XLSX ===
-            'undefined'
-        ) {
-            mostrarMensaje(
-                'No se cargó la librería de Excel.',
-                'error'
-            );
-
-            return;
-        }
-
-        const filas = [[
-            'Institución',
-            'Día',
-            'Hora inicio',
-            'Hora fin',
-            'Profesor',
-            'Curso',
-            'Grado',
-            'Aula',
-        ]];
-
-        ordenarBloquesExportacion(
-            bloques
-        ).forEach(
-            (bloque) => {
-                const datos =
-                    datosClase(
-                        bloque
-                    );
-
-                filas.push([
-                    institucionActiva ===
-                    'colegio'
-                        ? 'Colegio'
-                        : 'Academia',
-
-                    diaATexto(
-                        bloque.dia_semana
-                    ),
-
-                    bloque.hora_inicio,
-
-                    bloque.hora_fin,
-
-                    datos.profesor,
-
-                    datos.curso,
-
-                    datos.grado,
-
-                    datos.aula,
-                ]);
-            }
-        );
-
-        const hoja =
-            XLSX
-                .utils
-                .aoa_to_sheet(
-                    filas
-                );
-
-        const libro =
-            XLSX
-                .utils
-                .book_new();
-
-        XLSX
-            .utils
-            .book_append_sheet(
-                libro,
-                hoja,
-                'Horarios'
-            );
-
         const nombreArchivo =
             nombre
                 ? nombreSeguroArchivo(
@@ -7764,14 +7691,68 @@ document.addEventListener('DOMContentLoaded', () => {
                 )
                 : `horarios_${institucionActiva}`;
 
-        XLSX.writeFile(
-            libro,
-            `${nombreArchivo}.xlsx`
-        );
+        try {
+            mostrarMensaje(
+                'Generando Excel...',
+                'info'
+            );
 
-        mostrarMensaje(
-            'Excel descargado correctamente.'
-        );
+            const respuesta =
+                await window
+                    .axios
+                    .get(
+                        API.exportExcel,
+                        {
+                            params: {
+                                ...obtenerFiltrosExportacion(
+                                    grupo
+                                ),
+
+                                titulo:
+                                    tituloExportacion(
+                                        grupo
+                                    ),
+                            },
+
+                            responseType:
+                                'blob',
+                        }
+                    );
+
+            const blob =
+                new Blob(
+                    [
+                        respuesta.data,
+                    ],
+                    {
+                        type:
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    }
+                );
+
+            descargarBlob(
+                blob,
+
+                `${nombreArchivo}.xlsx`
+            );
+
+            mostrarMensaje(
+                'Excel descargado correctamente.'
+            );
+        } catch (error) {
+            console.error(
+                'Error exportando Excel:',
+                error
+            );
+
+            mostrarMensaje(
+                obtenerMensajeError(
+                    error,
+                    'No se pudo generar el Excel.'
+                ),
+                'error'
+            );
+        }
     }
 
     // =========================================================
@@ -7852,10 +7833,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     formato ===
                     'excel'
                 ) {
-                    exportarExcel(
+                    await exportarExcel(
                         grupo.bloques,
 
-                        grupo.nombre
+                        grupo.nombre,
+
+                        grupo
                     );
                 } else if (
                     formato ===
