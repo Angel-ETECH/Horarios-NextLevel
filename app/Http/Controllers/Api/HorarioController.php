@@ -4,18 +4,38 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Grado;
 use App\Models\Horario;
+use App\Models\Profesor;
 use App\Services\HistorialService;
+use App\Services\HorarioService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class HorarioController extends Controller
 {
     protected HistorialService $historialService;
+    protected HorarioService $horarioService;
 
-    public function __construct(HistorialService $historialService)
+    public function __construct(
+        HistorialService $historialService,
+        HorarioService $horarioService
+    )
     {
         $this->historialService = $historialService;
+        $this->horarioService = $horarioService;
+    }
+
+    private function normalizarDiaSemana(string $dia): string
+    {
+        $dia = strtolower(trim($dia));
+
+        return match ($dia) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => $dia,
+        };
     }
 
     /**
@@ -45,15 +65,19 @@ class HorarioController extends Controller
         }
 
         if ($request->has('dia_semana')) {
-            $query->where('dia_semana', $request->dia_semana);
+            $query->where('dia_semana', $this->normalizarDiaSemana($request->dia_semana));
         }
 
         if ($request->has('turno')) {
             $query->where('turno', $request->turno);
         }
 
+        if ($request->has('institucion')) {
+            $query->where('institucion', $request->institucion);
+        }
+
         // Búsqueda por texto
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->whereHas('profesor', function($sub) use ($search) {
@@ -72,12 +96,35 @@ class HorarioController extends Controller
         }
 
         // Ordenamiento
-        $sortBy = $request->sort_by ?? 'dia_semana';
-        $sortOrder = $request->sort_order ?? 'asc';
-        $query->orderBy($sortBy, $sortOrder);
+        $sortBy = $request->input('sort_by', 'dia_semana');
+        $sortOrder = strtolower((string) $request->input('sort_order', 'asc')) === 'desc'
+            ? 'desc'
+            : 'asc';
+
+        $sortPermitidos = [
+            'dia_semana',
+            'hora_inicio',
+            'hora_fin',
+            'turno',
+            'institucion',
+            'created_at',
+            'updated_at',
+        ];
+
+        if (!in_array($sortBy, $sortPermitidos, true)) {
+            $sortBy = 'dia_semana';
+        }
+
+        if ($sortBy === 'dia_semana') {
+            $query->orderByRaw(
+                "FIELD(dia_semana, 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado') {$sortOrder}"
+            )->orderBy('hora_inicio');
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+        }
 
         // Paginación
-        $perPage = $request->per_page ?? 20;
+        $perPage = max(1, min(100, (int) $request->input('per_page', 20)));
         $horarios = $query->paginate($perPage);
 
         return response()->json([
@@ -97,11 +144,26 @@ class HorarioController extends Controller
      * GET /api/horarios/profesor/{profesorId}
      * Obtener horario completo de un profesor (Vista individual)
      */
-    public function getByProfesor(int $profesorId): JsonResponse
+    public function getByProfesor(Request $request, int $profesorId): JsonResponse
     {
+        $profesor = Profesor::where('estado', 'activo')->find($profesorId);
+
+        if (!$profesor) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Profesor no encontrado o inactivo',
+            ], 404);
+        }
+
         $horarios = Horario::with(['curso', 'aula', 'grado'])
             ->where('profesor_id', $profesorId)
-            ->where('estado', 'activo')
+            ->where('estado', 'activo');
+
+        if ($request->filled('institucion')) {
+            $horarios->where('institucion', $request->institucion);
+        }
+
+        $horarios = $horarios
             ->orderBy('dia_semana')
             ->orderBy('hora_inicio')
             ->get();
@@ -114,12 +176,10 @@ class HorarioController extends Controller
             $horariosPorDia[$dia] = $horarios->where('dia_semana', $dia)->values();
         }
 
-        $profesor = $horarios->first()?->profesor;
-
         // Calcular carga horaria total
         $cargaTotal = $horarios->sum(function($h) {
             return \Carbon\Carbon::parse($h->hora_inicio)
-                ->diffInHours(\Carbon\Carbon::parse($h->hora_fin));
+                ->diffInMinutes(\Carbon\Carbon::parse($h->hora_fin)) / 60;
         });
 
         return response()->json([
@@ -137,11 +197,26 @@ class HorarioController extends Controller
      * GET /api/horarios/grado/{gradoId}
      * Obtener horario completo de un grado
      */
-    public function getByGrado(int $gradoId): JsonResponse
+    public function getByGrado(Request $request, int $gradoId): JsonResponse
     {
+        $grado = Grado::where('activo', true)->find($gradoId);
+
+        if (!$grado) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Grado no encontrado o inactivo',
+            ], 404);
+        }
+
         $horarios = Horario::with(['profesor', 'curso', 'aula'])
             ->where('grado_id', $gradoId)
-            ->where('estado', 'activo')
+            ->where('estado', 'activo');
+
+        if ($request->filled('institucion')) {
+            $horarios->where('institucion', $request->institucion);
+        }
+
+        $horarios = $horarios
             ->orderBy('dia_semana')
             ->orderBy('hora_inicio')
             ->get();
@@ -153,8 +228,6 @@ class HorarioController extends Controller
         foreach ($dias as $dia) {
             $horariosPorDia[$dia] = $horarios->where('dia_semana', $dia)->values();
         }
-
-        $grado = $horarios->first()?->grado;
 
         return response()->json([
             'success' => true,
@@ -172,6 +245,8 @@ class HorarioController extends Controller
      */
     public function getByDia(string $dia): JsonResponse
     {
+        $dia = $this->normalizarDiaSemana($dia);
+
         $horarios = Horario::with(['profesor', 'curso', 'aula', 'grado'])
             ->where('dia_semana', $dia)
             ->where('estado', 'activo')
@@ -220,20 +295,19 @@ class HorarioController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         try {
-            $horario = Horario::findOrFail($id);
+            $horario = Horario::with(['profesor', 'curso', 'grado', 'aula'])->findOrFail($id);
 
             // Guardar estado anterior
-            $datosAnteriores = $horario->toArray();
+            $datosAnteriores = $this->crearSnapshotHistorial($horario);
 
-            // Actualizar
-            $horario->update($request->all());
+            $horarioActualizado = $this->horarioService->update($id, $request->except('motivo'));
 
             // Registrar cambio
             $this->historialService->registrarCambio(
-                $horario->id,
+                $horarioActualizado->id,
                 'actualizar',
                 $datosAnteriores,
-                $horario->toArray(),
+                $this->crearSnapshotHistorial($horarioActualizado),
                 $request->motivo ?? 'Actualización manual',
                 auth()->id()
             );
@@ -241,9 +315,15 @@ class HorarioController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Horario actualizado exitosamente',
-                'data' => $horario->load(['profesor', 'curso', 'aula', 'grado'])
+                'data' => $horarioActualizado
             ]);
 
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de validación',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -255,17 +335,15 @@ class HorarioController extends Controller
 
     /**
      * DELETE /api/horarios/{id}
-     * Eliminar un horario (soft delete con historial)
+     * Eliminar un horario y liberar su bloque
      */
     public function destroy(int $id, Request $request): JsonResponse
     {
         try {
-            $horario = Horario::findOrFail($id);
+            $horario = Horario::with(['profesor', 'curso', 'grado', 'aula'])->findOrFail($id);
 
             // Guardar datos antes de eliminar
-            $datos = $horario->toArray();
-
-            $horario->delete();
+            $datos = $this->crearSnapshotHistorial($horario);
 
             // Registrar cambio
             $this->historialService->registrarCambio(
@@ -276,6 +354,8 @@ class HorarioController extends Controller
                 $request->motivo ?? 'Eliminación manual',
                 auth()->id()
             );
+
+            $horario->forceDelete();
 
             return response()->json([
                 'success' => true,
@@ -289,5 +369,26 @@ class HorarioController extends Controller
                 'error' => $e->getMessage()
             ], 422);
         }
+    }
+
+    private function crearSnapshotHistorial(Horario $horario): array
+    {
+        $datos = $horario->toArray();
+
+        $profesor = $horario->profesor;
+
+        $datos['profesor_nombre'] = $profesor
+            ? trim(implode(' ', array_filter([
+                $profesor->nombre ?? null,
+                $profesor->apellido_paterno ?? null,
+                $profesor->apellido_materno ?? null,
+            ])))
+            : null;
+
+        $datos['curso_nombre'] = $horario->curso?->nombre;
+        $datos['grado_nombre'] = $horario->grado?->nombre_completo;
+        $datos['aula_nombre'] = $horario->aula?->nombre;
+
+        return $datos;
     }
 }

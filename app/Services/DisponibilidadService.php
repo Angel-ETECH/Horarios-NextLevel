@@ -12,6 +12,12 @@ use Illuminate\Validation\ValidationException;
 
 class DisponibilidadService
 {
+    public function __construct(
+        private HorarioRecesoService $recesoService,
+        private HistorialService $historialService
+    ) {
+    }
+
     /**
      * Obtener todas las disponibilidades.
      */
@@ -358,15 +364,6 @@ class DisponibilidadService
             $excludeId
         );
 
-        $this->verificarSolapamientos(
-            $profesorId,
-            $dia,
-            $horaInicio,
-            $horaFin,
-            $institucion,
-            $excludeId
-        );
-
         return true;
     }
 
@@ -400,12 +397,12 @@ class DisponibilidadService
 
         $minHora =
             Carbon::parse(
-                '06:00'
+                '07:00'
             );
 
         $maxHora =
             Carbon::parse(
-                '23:00'
+                '20:00'
             );
 
         if (
@@ -417,7 +414,7 @@ class DisponibilidadService
 
             throw ValidationException::withMessages([
                 'hora_inicio' =>
-                    'El rango horario debe estar entre 06:00 y 23:00',
+                    'El rango horario debe estar entre 07:00 y 20:00',
             ]);
         }
 
@@ -429,12 +426,12 @@ class DisponibilidadService
 
         if (
             $horas >
-            12
+            13
         ) {
 
             throw ValidationException::withMessages([
                 'hora_fin' =>
-                    'El bloque de disponibilidad no puede exceder las 12 horas continuas',
+                    'El bloque de disponibilidad no puede exceder las 13 horas continuas',
             ]);
         }
 
@@ -452,6 +449,19 @@ class DisponibilidadService
             throw ValidationException::withMessages([
                 'hora_fin' =>
                     'El bloque de disponibilidad debe tener al menos 30 minutos de duración',
+            ]);
+        }
+
+        $receso = $this->recesoService->rangoChocaConRecesoInstitucion(
+            $data['institucion'] ?? 'colegio',
+            $data['hora_inicio'],
+            $data['hora_fin']
+        );
+
+        if ($receso) {
+            throw ValidationException::withMessages([
+                'receso' =>
+                    "No se puede guardar disponibilidad durante {$receso['nombre']} ({$receso['hora_inicio']} - {$receso['hora_fin']}).",
             ]);
         }
     }
@@ -695,6 +705,12 @@ class DisponibilidadService
                         'profesor'
                     );
 
+                $this->registrarAuditoriaDisponibilidad(
+                    'crear',
+                    null,
+                    $disponibilidad,
+                    'Disponibilidad creada'
+                );
 
                 return
                     $disponibilidad;
@@ -721,6 +737,10 @@ class DisponibilidadService
                         $id
                     );
 
+                $datosAnteriores =
+                    $this->snapshotDisponibilidad(
+                        $disponibilidad
+                    );
 
                 if (
                     isset(
@@ -778,6 +798,12 @@ class DisponibilidadService
                         'profesor'
                     );
 
+                $this->registrarAuditoriaDisponibilidad(
+                    'actualizar',
+                    $datosAnteriores,
+                    $disponibilidad,
+                    'Disponibilidad actualizada'
+                );
 
                 return
                     $disponibilidad;
@@ -794,14 +820,32 @@ class DisponibilidadService
         int $id
     ): bool {
 
-        $disponibilidad =
-            DisponibilidadProfesor::findOrFail(
-                $id
+        return DB::transaction(function () use ($id) {
+            $disponibilidad =
+                DisponibilidadProfesor::findOrFail(
+                    $id
+                );
+
+            $datosAnteriores =
+                $this->snapshotDisponibilidad(
+                    $disponibilidad
+                );
+
+            $resultado =
+                $disponibilidad
+                    ->delete();
+
+            $this->historialService->registrarEvento(
+                'disponibilidad',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Disponibilidad eliminada'
             );
 
-        return
-            $disponibilidad
-                ->delete();
+            return
+                $resultado;
+        });
     }
 
     /**
@@ -816,9 +860,35 @@ class DisponibilidadService
                 $profesorId
             );
 
-        return $profesor
-            ->disponibilidades()
-            ->delete();
+        return DB::transaction(function () use ($profesor) {
+            $disponibilidades =
+                $profesor
+                    ->disponibilidades()
+                    ->get();
+
+            foreach (
+                $disponibilidades as
+                $disponibilidad
+            ) {
+                $datosAnteriores =
+                    $this->snapshotDisponibilidad(
+                        $disponibilidad
+                    );
+
+                $disponibilidad->delete();
+
+                $this->historialService->registrarEvento(
+                    'disponibilidad',
+                    'eliminar',
+                    $datosAnteriores,
+                    null,
+                    'Disponibilidad eliminada por profesor'
+                );
+            }
+
+            return
+                $disponibilidades->count();
+        });
     }
 
     /**
@@ -829,15 +899,102 @@ class DisponibilidadService
         string $institucion
     ): int {
 
-        return DisponibilidadProfesor::where(
-            'profesor_id',
-            $profesorId
-        )
-            ->where(
-                'institucion',
-                $institucion
-            )
-            ->delete();
+        return DB::transaction(function () use (
+            $profesorId,
+            $institucion
+        ) {
+            $disponibilidades =
+                DisponibilidadProfesor::where(
+                    'profesor_id',
+                    $profesorId
+                )
+                    ->where(
+                        'institucion',
+                        $institucion
+                    )
+                    ->get();
+
+            foreach (
+                $disponibilidades as
+                $disponibilidad
+            ) {
+                $datosAnteriores =
+                    $this->snapshotDisponibilidad(
+                        $disponibilidad
+                    );
+
+                $disponibilidad->delete();
+
+                $this->historialService->registrarEvento(
+                    'disponibilidad',
+                    'eliminar',
+                    $datosAnteriores,
+                    null,
+                    'Disponibilidad eliminada por institución'
+                );
+            }
+
+            return
+                $disponibilidades->count();
+        });
+    }
+
+    private function registrarAuditoriaDisponibilidad(
+        string $accion,
+        ?array $datosAnteriores,
+        DisponibilidadProfesor $disponibilidad,
+        string $motivo
+    ): void {
+
+        $this->historialService->registrarEvento(
+            'disponibilidad',
+            $accion,
+            $datosAnteriores,
+            $this->snapshotDisponibilidad($disponibilidad),
+            $motivo
+        );
+    }
+
+    private function snapshotDisponibilidad(
+        DisponibilidadProfesor $disponibilidad
+    ): array {
+
+        $disponibilidad
+            ->loadMissing(
+                'profesor'
+            );
+
+        return array_merge(
+            $disponibilidad->toArray(),
+            [
+                'modulo' =>
+                    'disponibilidad',
+
+                'tipo_registro' =>
+                    'disponibilidad',
+
+                'profesor_nombre' =>
+                    $disponibilidad
+                        ->profesor
+                        ?->nombre_completo,
+
+                'curso_nombre' =>
+                    'Disponibilidad',
+
+                'grado_nombre' =>
+                    ucfirst((string) ($disponibilidad->dia_semana ?? '')),
+
+                'aula_nombre' =>
+                    trim(
+                        ($disponibilidad->hora_inicio ?? '') .
+                        ' - ' .
+                        ($disponibilidad->hora_fin ?? '')
+                    ),
+
+                'institucion' =>
+                    $disponibilidad->institucion ?? 'colegio',
+            ]
+        );
     }
 
     // =========================================================

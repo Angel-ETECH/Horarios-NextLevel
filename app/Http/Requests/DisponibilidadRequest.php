@@ -32,9 +32,11 @@ class DisponibilidadRequest extends FormRequest
                 Rule::in([
                     'lunes',
                     'martes',
+                    'miércoles',
                     'miercoles',
                     'jueves',
                     'viernes',
+                    'sábado',
                     'sabado',
                     'domingo',
                 ]),
@@ -43,12 +45,15 @@ class DisponibilidadRequest extends FormRequest
             'hora_inicio' => [
                 'required',
                 'date_format:H:i',
+                'after_or_equal:07:00',
+                'before:20:00',
             ],
 
             'hora_fin' => [
                 'required',
                 'date_format:H:i',
                 'after:hora_inicio',
+                'before_or_equal:20:00',
             ],
 
             'tipo' => [
@@ -128,6 +133,12 @@ class DisponibilidadRequest extends FormRequest
             'hora_inicio.date_format' =>
                 'La hora de inicio debe tener formato HH:MM.',
 
+            'hora_inicio.after_or_equal' =>
+                'La hora de inicio no puede ser antes de las 07:00.',
+
+            'hora_inicio.before' =>
+                'La hora de inicio debe ser antes de las 20:00.',
+
             'hora_fin.required' =>
                 'La hora de fin es obligatoria.',
 
@@ -136,6 +147,9 @@ class DisponibilidadRequest extends FormRequest
 
             'hora_fin.after' =>
                 'La hora de fin debe ser después de la hora de inicio.',
+
+            'hora_fin.before_or_equal' =>
+                'La hora de fin no puede pasar de las 20:00.',
 
             'tipo.required' =>
                 'El tipo de disponibilidad es obligatorio.',
@@ -167,10 +181,11 @@ class DisponibilidadRequest extends FormRequest
         | NORMALIZAR DÍA
         |--------------------------------------------------------------------------
         |
-        | El backend almacenará los días sin tilde:
+        | El backend acepta días con o sin tilde y los guarda
+        | como la base de datos los define:
         |
-        | miércoles -> miercoles
-        | sábado    -> sabado
+        | miercoles -> miércoles
+        | sabado    -> sábado
         |
         */
 
@@ -182,11 +197,11 @@ class DisponibilidadRequest extends FormRequest
                 )
             );
 
-            $dia = str_replace(
-                ['á', 'é', 'í', 'ó', 'ú'],
-                ['a', 'e', 'i', 'o', 'u'],
-                $dia
-            );
+            $dia = match ($dia) {
+                'miercoles' => 'miércoles',
+                'sabado' => 'sábado',
+                default => $dia,
+            };
 
             $this->merge([
                 'dia_semana' => $dia,

@@ -1162,6 +1162,24 @@
     </div>
 
 
+    <div
+        id="availability-detail"
+        class="
+            rounded-2xl
+            border
+            border-slate-200
+            bg-white
+            px-5
+            py-4
+            text-sm
+            leading-6
+            text-slate-600
+        "
+    >
+        Selecciona un profesor para ver la disponibilidad guardada.
+    </div>
+
+
     {{-- =========================================================
          ACLARACIÓN
     ========================================================== --}}
@@ -1345,7 +1363,11 @@
                 '15:00',
                 '16:00',
                 '17:00',
+                '18:00',
+                '19:00',
             ];
+
+            $horaCierreDisponibilidad = '20:00';
 
             $diasDisponibilidad = [
                 1 => 'Lunes',
@@ -1494,6 +1516,50 @@
                         @endfor
 
                     @endforeach
+
+
+                    <div
+                        class="
+                            border-r
+                            border-slate-200
+                            bg-slate-100
+                            p-4
+                            text-center
+                        "
+                    >
+
+                        <span
+                            class="
+                                text-xs
+                                font-bold
+                                text-slate-700
+                            "
+                        >
+                            {{ $horaCierreDisponibilidad }}
+                        </span>
+
+                    </div>
+
+
+                    @for ($dia = 1; $dia <= 6; $dia++)
+
+                        <div
+                            class="
+                                {{ $dia < 6 ? 'border-r' : '' }}
+                                border-slate-200
+                                bg-slate-50
+                                px-3
+                                py-4
+                                text-center
+                                text-[11px]
+                                font-semibold
+                                text-slate-400
+                            "
+                        >
+                            Límite del día
+                        </div>
+
+                    @endfor
 
                 </div>
 
@@ -1663,6 +1729,43 @@
                             </button>
 
                         @endforeach
+
+
+                        <div
+                            class="
+                                flex
+                                w-full
+                                items-center
+                                justify-between
+                                bg-slate-50
+                                px-4
+                                py-3
+                                text-left
+                            "
+                        >
+
+                            <span
+                                class="
+                                    text-sm
+                                    font-bold
+                                    text-slate-700
+                                "
+                            >
+                                {{ $horaCierreDisponibilidad }}
+                            </span>
+
+
+                            <span
+                                class="
+                                    text-xs
+                                    font-semibold
+                                    text-slate-400
+                            "
+                        >
+                                Límite del día
+                            </span>
+
+                        </div>
 
                     </div>
 
@@ -1907,6 +2010,8 @@
                         id="personalizado-inicio"
                         type="time"
                         step="60"
+                        min="07:00"
+                        max="19:59"
                         value="09:15"
                         class="
                             disponibilidad-time
@@ -1938,6 +2043,8 @@
                         id="personalizado-fin"
                         type="time"
                         step="60"
+                        min="07:01"
+                        max="20:00"
                         value="10:05"
                         class="
                             disponibilidad-time

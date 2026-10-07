@@ -2514,7 +2514,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const respuesta =
                 await apiGet(
-                    endpoint
+                    endpoint,
+                    {
+                        institucion:
+                            institucionSeleccionada,
+                    }
                 );
 
 

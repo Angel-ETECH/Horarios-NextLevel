@@ -7,18 +7,26 @@ use App\Models\ProfesorCurso;
 use App\Models\Profesor;
 use App\Models\Curso;
 use App\Models\Grado;
+use App\Models\Aula;
+use App\Models\Horario;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AsignacionService
 {
+    public function __construct(
+        private HorarioRecesoService $recesoService,
+        private HistorialService $historialService
+    ) {
+    }
+
     /**
      * Obtener todas las asignaciones con sus relaciones
      */
     public function getAll(): Collection
     {
-        return ProfesorCurso::with(['profesor', 'curso', 'grado'])
+        return ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
             ->orderBy('profesor_id')
             ->orderBy('curso_id')
             ->get();
@@ -29,32 +37,15 @@ class AsignacionService
      */
     public function getByProfesor(int $profesorId): Collection
     {
-        $profesor = Profesor::findOrFail($profesorId);
+        Profesor::findOrFail($profesorId);
 
-        return $profesor->cursos()
-            ->withPivot('grado_id', 'horas_asignadas', 'rol', 'activo', 'observaciones', 'institucion')
-            ->with(['grados' => function($query) use ($profesorId) {
-                $query->wherePivot('profesor_id', $profesorId);
-            }])
-            ->wherePivot('activo', true)
-            ->get()
-            ->map(function($curso) use ($profesorId) {
-                // Obtener el grado específico para esta asignación
-                $grado = Grado::whereHas('profesores', function($query) use ($profesorId, $curso) {
-                    $query->where('profesor_id', $profesorId)
-                          ->where('curso_id', $curso->id);
-                })->first();
-
-                return [
-                    'curso' => $curso,
-                    'grado' => $grado,
-                    'horas_asignadas' => $curso->pivot->horas_asignadas,
-                    'rol' => $curso->pivot->rol,
-                    'activo' => $curso->pivot->activo,
-                    'observaciones' => $curso->pivot->observaciones,
-                    'institucion' => $curso->pivot->institucion ?? 'colegio'
-                ];
-            });
+        return ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
+            ->where('profesor_id', $profesorId)
+            ->where('activo', true)
+            ->orderBy('institucion')
+            ->orderBy('grado_id')
+            ->orderBy('curso_id')
+            ->get();
     }
 
     /**
@@ -62,11 +53,14 @@ class AsignacionService
      */
     public function getByCurso(int $cursoId): Collection
     {
-        $curso = Curso::findOrFail($cursoId);
+        Curso::findOrFail($cursoId);
 
-        return $curso->profesores()
-            ->withPivot('grado_id', 'horas_asignadas', 'rol', 'activo', 'observaciones', 'institucion')
-            ->wherePivot('activo', true)
+        return ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
+            ->where('curso_id', $cursoId)
+            ->where('activo', true)
+            ->orderBy('institucion')
+            ->orderBy('grado_id')
+            ->orderBy('profesor_id')
             ->get();
     }
 
@@ -75,11 +69,14 @@ class AsignacionService
      */
     public function getByGrado(int $gradoId): Collection
     {
-        $grado = Grado::findOrFail($gradoId);
+        Grado::findOrFail($gradoId);
 
-        return $grado->profesores()
-            ->withPivot('curso_id', 'horas_asignadas', 'rol', 'activo', 'observaciones', 'institucion')
-            ->wherePivot('activo', true)
+        return ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
+            ->where('grado_id', $gradoId)
+            ->where('activo', true)
+            ->orderBy('institucion')
+            ->orderBy('curso_id')
+            ->orderBy('profesor_id')
             ->get();
     }
 
@@ -88,7 +85,7 @@ class AsignacionService
      */
     public function getByInstitucion(string $institucion): Collection
     {
-        return ProfesorCurso::with(['profesor', 'curso', 'grado'])
+        return ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
             ->where('institucion', $institucion)
             ->where('activo', true)
             ->orderBy('profesor_id')
@@ -183,7 +180,7 @@ class AsignacionService
     /**
      * Validar que el curso y grado existan y estén activos
      */
-    private function validateCursoYGrado(int $cursoId, int $gradoId): void
+    private function validateCursoYGrado(int $cursoId, int $gradoId, ?string $institucion = null): void
     {
         // Validar curso
         $curso = Curso::find($cursoId);
@@ -219,6 +216,65 @@ class AsignacionService
                 'curso_id' => "El curso es de nivel '{$curso->nivel}' pero el grado es de nivel '{$grado->nivel}'"
             ]);
         }
+
+        if ($institucion) {
+            $this->validateInstitucionAcademica($institucion, $curso, $grado);
+        }
+    }
+
+    private function validateInstitucionAcademica(string $institucion, Curso $curso, Grado $grado): void
+    {
+        $cursoNivel = strtolower((string) ($curso->nivel ?? ''));
+        $gradoNivel = strtolower((string) ($grado->nivel ?? ''));
+
+        if ($institucion === 'academia') {
+            if ($gradoNivel !== 'academia') {
+                throw ValidationException::withMessages([
+                    'grado_id' => 'Para Academia solo puedes seleccionar grados de Academia.'
+                ]);
+            }
+
+            if (!in_array($cursoNivel, ['academia', 'todos'], true)) {
+                throw ValidationException::withMessages([
+                    'curso_id' => 'Para Academia solo puedes seleccionar cursos de Academia.'
+                ]);
+            }
+
+            return;
+        }
+
+        if ($institucion === 'colegio') {
+            if (!in_array($gradoNivel, ['primaria', 'secundaria'], true)) {
+                throw ValidationException::withMessages([
+                    'grado_id' => 'Para Colegio solo puedes seleccionar grados de Primaria o Secundaria.'
+                ]);
+            }
+
+            if (!in_array($cursoNivel, ['primaria', 'secundaria', 'todos'], true)) {
+                throw ValidationException::withMessages([
+                    'curso_id' => 'Para Colegio solo puedes seleccionar cursos de Primaria o Secundaria.'
+                ]);
+            }
+        }
+    }
+
+    private function validateAula(int $aulaId, int $gradoId): void
+    {
+        $aula = Aula::find($aulaId);
+
+        if (!$aula) {
+            throw ValidationException::withMessages([
+                'aula_id' => 'El aula seleccionada no existe'
+            ]);
+        }
+
+        if (!$aula->activo) {
+            throw ValidationException::withMessages([
+                'aula_id' => 'El aula seleccionada no está activa'
+            ]);
+        }
+
+        Grado::findOrFail($gradoId);
     }
 
     /**
@@ -241,6 +297,18 @@ class AsignacionService
                 'profesor_id' => 'El profesor no está activo'
             ]);
         }
+    }
+
+    private function validateConfiguracionRecesos(int $gradoId, string $institucion): void
+    {
+        $grado = Grado::findOrFail($gradoId);
+        $turno = $grado->turno ?: 'completo';
+
+        $this->recesoService->validarConfiguracionLista(
+            $institucion,
+            $grado->nivel,
+            $turno
+        );
     }
 
     /**
@@ -273,22 +341,42 @@ class AsignacionService
             $this->validateProfesorCurso($data);
 
             // 2. Validar compatibilidad curso-grado
-            $this->validateCursoYGrado($data['curso_id'], $data['grado_id']);
+            $this->validateCursoYGrado(
+                $data['curso_id'],
+                $data['grado_id'],
+                $data['institucion'] ?? 'colegio'
+            );
 
-            // 3. Validar que no exista duplicado
+            // 3. Validar que el aula exista y sea compatible con el grado
+            $this->validateAula($data['aula_id'], $data['grado_id']);
+
+            // 4. Validar que no exista duplicado
             $this->validateUnique($data);
 
-            // 4. Validar carga horaria del profesor
+            // 5. Validar carga horaria del profesor
             $this->validateCargaHoraria($data['profesor_id'], $data['horas_asignadas']);
 
-            // 5. Crear la asignación
+            // 6. Validar configuración de recesos antes de programar
+            $this->validateConfiguracionRecesos(
+                $data['grado_id'],
+                $data['institucion'] ?? 'colegio'
+            );
+
+            // 7. Crear la asignación
             $asignacion = ProfesorCurso::create($data);
 
-            // 6. Actualizar carga horaria actual del profesor
+            // 8. Actualizar carga horaria actual del profesor
             $this->actualizarCargaHorariaProfesor($data['profesor_id']);
 
-            // 7. Cargar relaciones
-            $asignacion->load(['profesor', 'curso', 'grado']);
+            // 9. Cargar relaciones
+            $asignacion->load(['profesor', 'curso', 'grado', 'aula']);
+
+            $this->registrarAuditoriaAsignacion(
+                'crear',
+                null,
+                $asignacion,
+                'Asignación creada'
+            );
 
             return $asignacion;
         });
@@ -301,11 +389,13 @@ class AsignacionService
     {
         return DB::transaction(function () use ($id, $data) {
             $asignacion = ProfesorCurso::findOrFail($id);
+            $datosAnteriores = $this->snapshotAsignacion($asignacion);
 
             // Obtener valores actuales
             $profesorIdActual = $asignacion->profesor_id;
             $cursoIdActual = $asignacion->curso_id;
             $gradoIdActual = $asignacion->grado_id;
+            $aulaIdActual = $asignacion->aula_id;
             $horasActuales = $asignacion->horas_asignadas;
             $institucionActual = $asignacion->institucion ?? 'colegio';
 
@@ -313,6 +403,7 @@ class AsignacionService
             $nuevoProfesorId = $data['profesor_id'] ?? $profesorIdActual;
             $nuevoCursoId = $data['curso_id'] ?? $cursoIdActual;
             $nuevoGradoId = $data['grado_id'] ?? $gradoIdActual;
+            $nuevoAulaId = $data['aula_id'] ?? $aulaIdActual;
             $nuevasHoras = $data['horas_asignadas'] ?? $horasActuales;
             $nuevaInstitucion = $data['institucion'] ?? $institucionActual;
 
@@ -324,9 +415,24 @@ class AsignacionService
             if (isset($data['curso_id']) || isset($data['grado_id'])) {
                 $this->validateCursoYGrado(
                     $data['curso_id'] ?? $cursoIdActual,
-                    $data['grado_id'] ?? $gradoIdActual
+                    $data['grado_id'] ?? $gradoIdActual,
+                    $nuevaInstitucion
+                );
+            } elseif (isset($data['institucion'])) {
+                $this->validateCursoYGrado(
+                    $nuevoCursoId,
+                    $nuevoGradoId,
+                    $nuevaInstitucion
                 );
             }
+
+            if (!$nuevoAulaId) {
+                throw ValidationException::withMessages([
+                    'aula_id' => 'Selecciona un aula para esta asignación.'
+                ]);
+            }
+
+            $this->validateAula((int) $nuevoAulaId, (int) $nuevoGradoId);
 
             // 2. VALIDACIÓN CRÍTICA: Verificar duplicados al actualizar
             // IMPORTANTE: Si cambia profesor, curso, grado o institución,
@@ -349,10 +455,53 @@ class AsignacionService
                 $this->validateCargaHoraria($nuevoProfesorId, $nuevasHoras, $id);
             }
 
-            // 4. Actualizar la asignación
+            // 4. Validar configuración de recesos antes de actualizar
+            $this->validateConfiguracionRecesos(
+                $nuevoGradoId,
+                $nuevaInstitucion
+            );
+
+            // 5. Actualizar la asignación
             $asignacion->update($data);
 
-            // 5. Actualizar carga horaria de ambos profesores (si cambió)
+            $cambioIdentidad =
+                $nuevoProfesorId != $profesorIdActual ||
+                $nuevoCursoId != $cursoIdActual ||
+                $nuevoGradoId != $gradoIdActual ||
+                $nuevaInstitucion != $institucionActual;
+
+            $cambioAula =
+                (int) $nuevoAulaId !== (int) $aulaIdActual;
+
+            $quedaActiva = array_key_exists('activo', $data)
+                ? (bool) $data['activo']
+                : (bool) $asignacion->activo;
+
+            if (!$quedaActiva) {
+                $this->eliminarHorariosDeAsignacion(
+                    $nuevoProfesorId,
+                    $nuevoCursoId,
+                    $nuevoGradoId,
+                    $nuevaInstitucion
+                );
+            } elseif ($cambioIdentidad || $cambioAula) {
+                $this->eliminarHorariosDeAsignacion(
+                    $profesorIdActual,
+                    $cursoIdActual,
+                    $gradoIdActual,
+                    $institucionActual
+                );
+            } elseif ($nuevasHoras < $horasActuales) {
+                $this->ajustarHorariosAhorasAsignadas(
+                    $nuevoProfesorId,
+                    $nuevoCursoId,
+                    $nuevoGradoId,
+                    $nuevaInstitucion,
+                    $nuevasHoras
+                );
+            }
+
+            // 6. Actualizar carga horaria de ambos profesores (si cambió)
             if ($nuevoProfesorId != $profesorIdActual) {
                 $this->actualizarCargaHorariaProfesor($profesorIdActual);
                 $this->actualizarCargaHorariaProfesor($nuevoProfesorId);
@@ -360,8 +509,20 @@ class AsignacionService
                 $this->actualizarCargaHorariaProfesor($nuevoProfesorId);
             }
 
-            // 6. Cargar relaciones
-            $asignacion->load(['profesor', 'curso', 'grado']);
+            // 7. Cargar relaciones
+            $asignacion->load(['profesor', 'curso', 'grado', 'aula']);
+
+            $accionAuditoria = $quedaActiva ? 'actualizar' : 'eliminar';
+            $motivoAuditoria = $quedaActiva
+                ? 'Asignación actualizada'
+                : 'Asignación desactivada';
+
+            $this->registrarAuditoriaAsignacion(
+                $accionAuditoria,
+                $datosAnteriores,
+                $asignacion,
+                $motivoAuditoria
+            );
 
             return $asignacion;
         });
@@ -374,12 +535,64 @@ class AsignacionService
     {
         return DB::transaction(function () use ($id) {
             $asignacion = ProfesorCurso::findOrFail($id);
+            $datosAnteriores = $this->snapshotAsignacion($asignacion);
 
             // En lugar de eliminar, desactivar
             $asignacion->update(['activo' => false]);
 
+            $this->eliminarHorariosDeAsignacion(
+                $asignacion->profesor_id,
+                $asignacion->curso_id,
+                $asignacion->grado_id,
+                $asignacion->institucion ?? 'colegio'
+            );
+
             // Actualizar carga horaria del profesor
             $this->actualizarCargaHorariaProfesor($asignacion->profesor_id);
+
+            $asignacion->refresh()->load(['profesor', 'curso', 'grado', 'aula']);
+
+            $this->registrarAuditoriaAsignacion(
+                'eliminar',
+                $datosAnteriores,
+                $asignacion,
+                'Asignación desactivada'
+            );
+
+            return true;
+        });
+    }
+
+    /**
+     * Eliminar definitivamente una asignación y sus horarios vinculados.
+     */
+    public function deletePermanent(int $id): bool
+    {
+        return DB::transaction(function () use ($id) {
+            $asignacion = ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
+                ->findOrFail($id);
+
+            $datosAnteriores = $this->snapshotAsignacion($asignacion);
+            $profesorId = $asignacion->profesor_id;
+
+            $this->eliminarHorariosDeAsignacion(
+                $asignacion->profesor_id,
+                $asignacion->curso_id,
+                $asignacion->grado_id,
+                $asignacion->institucion ?? 'colegio'
+            );
+
+            $asignacion->delete();
+
+            $this->actualizarCargaHorariaProfesor($profesorId);
+
+            $this->historialService->registrarEvento(
+                'asignaciones',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Asignación eliminada definitivamente'
+            );
 
             return true;
         });
@@ -392,6 +605,7 @@ class AsignacionService
     {
         return DB::transaction(function () use ($id) {
             $asignacion = ProfesorCurso::findOrFail($id);
+            $datosAnteriores = $this->snapshotAsignacion($asignacion);
 
             // Verificar que no haya duplicado al activar
             $this->validateUnique([
@@ -408,6 +622,22 @@ class AsignacionService
                 $id
             );
 
+            if (!$asignacion->aula_id) {
+                throw ValidationException::withMessages([
+                    'aula_id' => 'Selecciona un aula antes de reactivar esta asignación.'
+                ]);
+            }
+
+            $this->validateAula(
+                $asignacion->aula_id,
+                $asignacion->grado_id
+            );
+
+            $this->validateConfiguracionRecesos(
+                $asignacion->grado_id,
+                $asignacion->institucion ?? 'colegio'
+            );
+
             // Reactivar
             $asignacion->update(['activo' => true]);
 
@@ -415,7 +645,14 @@ class AsignacionService
             $this->actualizarCargaHorariaProfesor($asignacion->profesor_id);
 
             // Cargar relaciones
-            $asignacion->load(['profesor', 'curso', 'grado']);
+            $asignacion->load(['profesor', 'curso', 'grado', 'aula']);
+
+            $this->registrarAuditoriaAsignacion(
+                'restaurar',
+                $datosAnteriores,
+                $asignacion,
+                'Asignación reactivada'
+            );
 
             return $asignacion;
         });
@@ -427,7 +664,8 @@ class AsignacionService
     public function desactivar(int $id): ProfesorCurso
     {
         $this->delete($id);
-        return ProfesorCurso::findOrFail($id);
+        return ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
+            ->findOrFail($id);
     }
 
     /**
@@ -436,15 +674,164 @@ class AsignacionService
     public function deleteByProfesor(int $profesorId): int
     {
         return DB::transaction(function () use ($profesorId) {
-            $count = ProfesorCurso::where('profesor_id', $profesorId)
+            $asignaciones = ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
+                ->where('profesor_id', $profesorId)
                 ->where('activo', true)
-                ->update(['activo' => false]);
+                ->get();
+
+            $count = $asignaciones->count();
+
+            $asignaciones->each(function (ProfesorCurso $asignacion) {
+                $datosAnteriores = $this->snapshotAsignacion($asignacion);
+                $asignacion->update(['activo' => false]);
+                $asignacion->refresh()->load(['profesor', 'curso', 'grado', 'aula']);
+
+                $this->registrarAuditoriaAsignacion(
+                    'eliminar',
+                    $datosAnteriores,
+                    $asignacion,
+                    'Asignación desactivada por limpieza de profesor'
+                );
+            });
+
+            $horarios = Horario::with(['profesor', 'curso', 'grado', 'aula'])
+                ->where('profesor_id', $profesorId)
+                ->where('estado', 'activo')
+                ->get();
+
+            $this->eliminarHorariosConAuditoria(
+                $horarios,
+                'Limpieza de horarios por profesor'
+            );
 
             // Actualizar carga horaria del profesor
             $this->actualizarCargaHorariaProfesor($profesorId);
 
             return $count;
         });
+    }
+
+    /**
+     * Quitar del horario las clases que pertenecen a una asignación.
+     */
+    private function eliminarHorariosDeAsignacion(
+        int $profesorId,
+        int $cursoId,
+        int $gradoId,
+        string $institucion
+    ): int {
+        $horarios = Horario::with(['profesor', 'curso', 'grado', 'aula'])
+            ->where('profesor_id', $profesorId)
+            ->where('curso_id', $cursoId)
+            ->where('grado_id', $gradoId)
+            ->where('institucion', $institucion)
+            ->where('estado', 'activo')
+            ->get();
+
+        return $this->eliminarHorariosConAuditoria(
+            $horarios,
+            'Horario eliminado por cambio de asignación'
+        );
+    }
+
+    /**
+     * Si se reducen horas, elimina las clases sobrantes para que el horario
+     * refleje exactamente la asignación actual.
+     */
+    private function ajustarHorariosAhorasAsignadas(
+        int $profesorId,
+        int $cursoId,
+        int $gradoId,
+        string $institucion,
+        int $horasAsignadas
+    ): void {
+        $horarios = Horario::where('profesor_id', $profesorId)
+            ->where('curso_id', $cursoId)
+            ->where('grado_id', $gradoId)
+            ->where('institucion', $institucion)
+            ->where('estado', 'activo')
+            ->orderBy('dia_semana')
+            ->orderBy('hora_inicio')
+            ->get();
+
+        if ($horarios->count() <= $horasAsignadas) {
+            return;
+        }
+
+        $horarios
+            ->slice($horasAsignadas)
+            ->each(function (Horario $horario) {
+                $this->eliminarHorariosConAuditoria(
+                    collect([$horario]),
+                    'Horario eliminado por reducción de horas asignadas'
+                );
+            });
+    }
+
+    private function registrarAuditoriaAsignacion(
+        string $accion,
+        ?array $datosAnteriores,
+        ProfesorCurso $asignacion,
+        string $motivo
+    ): void {
+        $this->historialService->registrarEvento(
+            'asignaciones',
+            $accion,
+            $datosAnteriores,
+            $this->snapshotAsignacion($asignacion),
+            $motivo
+        );
+    }
+
+    private function snapshotAsignacion(ProfesorCurso $asignacion): array
+    {
+        $asignacion->loadMissing(['profesor', 'curso', 'grado', 'aula']);
+
+        return array_merge($asignacion->toArray(), [
+            'modulo' => 'asignaciones',
+            'tipo_registro' => 'asignacion',
+            'profesor_nombre' => $asignacion->profesor?->nombre_completo,
+            'curso_nombre' => $asignacion->curso?->nombre,
+            'grado_nombre' => $asignacion->grado?->nombre_completo,
+            'aula_nombre' => $asignacion->aula?->nombre,
+            'institucion' => $asignacion->institucion ?? 'colegio',
+        ]);
+    }
+
+    private function snapshotHorario(Horario $horario): array
+    {
+        $horario->loadMissing(['profesor', 'curso', 'grado', 'aula']);
+
+        return array_merge($horario->toArray(), [
+            'modulo' => 'horarios',
+            'tipo_registro' => 'horario',
+            'profesor_nombre' => $horario->profesor?->nombre_completo,
+            'curso_nombre' => $horario->curso?->nombre,
+            'grado_nombre' => $horario->grado?->nombre_completo,
+            'aula_nombre' => $horario->aula?->nombre,
+        ]);
+    }
+
+    private function eliminarHorariosConAuditoria(
+        \Illuminate\Support\Collection $horarios,
+        string $motivo
+    ): int {
+        $eliminados = 0;
+
+        foreach ($horarios as $horario) {
+            $this->historialService->registrarCambio(
+                $horario->id,
+                'eliminar',
+                $this->snapshotHorario($horario),
+                null,
+                $motivo
+            );
+
+            $horario->forceDelete();
+            $eliminados++;
+        }
+
+        return $eliminados;
     }
 
     /**

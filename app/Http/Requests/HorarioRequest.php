@@ -31,7 +31,7 @@ class HorarioRequest extends FormRequest
             'aula_id' => 'required|exists:aulas,id',
             'dia_semana' => [
                 'required',
-                Rule::in(['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'])
+                Rule::in(['lunes', 'martes', 'miercoles', 'miércoles', 'jueves', 'viernes', 'sabado', 'sábado'])
             ],
             'hora_inicio' => 'required|date_format:H:i',
             'hora_fin' => 'required|date_format:H:i|after:hora_inicio',
@@ -63,7 +63,7 @@ class HorarioRequest extends FormRequest
             $rules['curso_id'] = 'sometimes|exists:cursos,id';
             $rules['grado_id'] = 'sometimes|exists:grados,id';
             $rules['aula_id'] = 'sometimes|exists:aulas,id';
-            $rules['dia_semana'] = 'sometimes|in:lunes,martes,miércoles,jueves,viernes,sábado';
+            $rules['dia_semana'] = 'sometimes|in:lunes,martes,miercoles,miércoles,jueves,viernes,sabado,sábado';
             $rules['hora_inicio'] = 'sometimes|date_format:H:i';
             $rules['hora_fin'] = 'sometimes|date_format:H:i|after:hora_inicio';
             $rules['turno'] = 'sometimes|in:mañana,tarde,noche';
@@ -185,14 +185,14 @@ class HorarioRequest extends FormRequest
             );
         }
 
-        // 3. Validar que esté dentro del horario permitido (6:00 - 23:00)
-        $minHora = Carbon::parse('06:00');
-        $maxHora = Carbon::parse('23:00');
+        // 3. Validar que esté dentro del horario permitido (07:00 - 20:00)
+        $minHora = Carbon::parse('07:00');
+        $maxHora = Carbon::parse('20:00');
 
         if ($inicio < $minHora || $fin > $maxHora) {
             $validator->errors()->add(
                 'hora_inicio',
-                'El horario debe estar entre las 06:00 y las 23:00'
+                'El horario debe estar entre las 07:00 y las 20:00'
             );
         }
 
@@ -251,8 +251,9 @@ class HorarioRequest extends FormRequest
 
         // 2. Validar rangos de turnos
         $turnos = [
-            'mañana' => ['min' => 6, 'max' => 14],   // 6:00 - 13:59
-            'tarde'  => ['min' => 14, 'max' => 23]   // 14:00 - 22:59
+            'mañana' => ['min' => 6, 'max' => 14],
+            'tarde'  => ['min' => 12, 'max' => 20],
+            'noche'  => ['min' => 18, 'max' => 20],
         ];
 
         $rango = $turnos[$turno] ?? null;
@@ -314,7 +315,12 @@ class HorarioRequest extends FormRequest
         // Normalizar el día de la semana
         if ($this->has('dia_semana')) {
             $dia = strtolower($this->input('dia_semana'));
-            $dia = str_replace(['á', 'é', 'í', 'ó', 'ú'], ['a', 'e', 'i', 'o', 'u'], $dia);
+            $dia = match ($dia) {
+                'miercoles' => 'miércoles',
+                'sabado' => 'sábado',
+                default => $dia,
+            };
+
             $this->merge(['dia_semana' => $dia]);
         }
 

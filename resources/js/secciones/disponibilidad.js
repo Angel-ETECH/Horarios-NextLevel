@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const hoursElement =
         document.getElementById('availability-hours');
 
+    const detailElement =
+        document.getElementById('availability-detail');
+
     const dayButtons =
         document.querySelectorAll('.select-day');
 
@@ -84,9 +87,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_DISPONIBILIDADES =
         '/api/disponibilidades';
 
+    const API_CONFIGURACIONES =
+        '/api/configuraciones-horario';
+
 
     const DURACION_BLOQUE_GRID_MIN =
         60;
+
+    const HORA_MINIMA_PERMITIDA =
+        '07:00';
+
+    const HORA_MAXIMA_PERMITIDA =
+        '20:00';
 
 
     // =========================================================
@@ -143,6 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let guardando =
         false;
+
+    let recesosInstitucion =
+        [];
 
 
     // =========================================================
@@ -224,6 +239,57 @@ document.addEventListener('DOMContentLoaded', () => {
             minutosHora(horaFin) -
             minutosHora(horaInicio)
         );
+    }
+
+    function aTextoHora(minutos) {
+        return `${String(
+            Math.floor(
+                minutos /
+                60
+            )
+        ).padStart(
+            2,
+            '0'
+        )}:${String(
+            minutos %
+            60
+        ).padStart(
+            2,
+            '0'
+        )}`;
+    }
+
+    function rangosSeCruzan(
+        inicioA,
+        finA,
+        inicioB,
+        finB
+    ) {
+        return minutosHora(
+            inicioA
+        ) < minutosHora(
+            finB
+        ) &&
+        minutosHora(
+            finA
+        ) > minutosHora(
+            inicioB
+        );
+    }
+
+    function recesoQueCruza(
+        horaInicio,
+        horaFin
+    ) {
+        return recesosInstitucion.find(
+            receso =>
+                rangosSeCruzan(
+                    horaInicio,
+                    horaFin,
+                    receso.hora_inicio,
+                    receso.hora_fin
+                )
+        ) || null;
     }
 
 
@@ -1391,7 +1457,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (
                         slot.dataset.dia &&
-                        slot.dataset.hora
+                        slot.dataset.hora &&
+                        !slot.classList.contains(
+                            'receso-slot'
+                        )
                     ) {
 
                         ids.add(
@@ -1516,6 +1585,73 @@ document.addEventListener('DOMContentLoaded', () => {
                         1
                     );
         }
+
+
+        if (detailElement) {
+
+            if (
+                !profesorSelect.value
+            ) {
+
+                detailElement.textContent =
+                    'Selecciona un profesor para ver la disponibilidad guardada.';
+
+                return;
+            }
+
+
+            const franjasGrid =
+                bloquesGridAFranjas(
+                    seleccionados
+                );
+
+
+            const franjasPersonalizadas =
+                personalizadosData.map(
+                    item => ({
+                        dia_semana:
+                            Number(
+                                item.dia
+                            ),
+                        hora_inicio:
+                            item.horaInicio,
+                        hora_fin:
+                            item.horaFin
+                    })
+                );
+
+
+            const resumen =
+                [
+                    ...franjasGrid,
+                    ...franjasPersonalizadas
+                ]
+                    .sort(
+                        (a, b) =>
+                            Number(a.dia_semana) -
+                                Number(b.dia_semana) ||
+                            String(a.hora_inicio)
+                                .localeCompare(
+                                    String(b.hora_inicio)
+                                )
+                    )
+                    .map(
+                        item =>
+                            `${diasCortos[
+                                Number(
+                                    item.dia_semana
+                                )
+                            ] ?? 'Día'} ${
+                                item.hora_inicio
+                            }-${item.hora_fin}`
+                    );
+
+
+            detailElement.textContent =
+                resumen.length > 0
+                    ? `Disponibilidad guardada/seleccionada: ${resumen.join(' · ')}`
+                    : 'Este profesor no tiene disponibilidad guardada para esta institución.';
+        }
     }
 
 
@@ -1527,6 +1663,14 @@ document.addEventListener('DOMContentLoaded', () => {
         slot,
         seleccionado
     ) {
+        if (
+            seleccionado &&
+            slot.classList.contains(
+                'receso-slot'
+            )
+        ) {
+            return;
+        }
 
         slot.classList.toggle(
             'selected',
@@ -1574,6 +1718,125 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    async function cargarRecesosInstitucion() {
+        try {
+            const response =
+                await window.axios.get(
+                    `${API_CONFIGURACIONES}/recesos`,
+                    {
+                        params: {
+                            institucion:
+                                institucionSelect.value ||
+                                'colegio'
+                        }
+                    }
+                );
+
+            const data =
+                response?.data?.data ??
+                response?.data ??
+                [];
+
+            recesosInstitucion =
+                Array.isArray(
+                    data
+                )
+                    ? data.map(
+                        receso => ({
+                            nombre:
+                                receso.nombre ||
+                                'Receso',
+                            hora_inicio:
+                                horaCorta(
+                                    receso.hora_inicio
+                                ),
+                            hora_fin:
+                                horaCorta(
+                                    receso.hora_fin
+                                )
+                        })
+                    )
+                    : [];
+        } catch (error) {
+            console.error(
+                'Error cargando recesos:',
+                error
+            );
+
+            recesosInstitucion =
+                [];
+        }
+
+        aplicarRecesosAlGrid();
+    }
+
+    function aplicarRecesosAlGrid() {
+        slots.forEach(
+            slot => {
+                const inicio =
+                    slot.dataset.hora;
+
+                const fin =
+                    aTextoHora(
+                        minutosHora(
+                            inicio
+                        ) +
+                        DURACION_BLOQUE_GRID_MIN
+                    );
+
+                const receso =
+                    recesoQueCruza(
+                        inicio,
+                        fin
+                    );
+
+                slot.classList.toggle(
+                    'receso-slot',
+                    Boolean(
+                        receso
+                    )
+                );
+
+                slot.classList.toggle(
+                    'cursor-not-allowed',
+                    Boolean(
+                        receso
+                    )
+                );
+
+                slot.classList.toggle(
+                    'bg-red-50',
+                    Boolean(
+                        receso
+                    )
+                );
+
+                slot.classList.toggle(
+                    'text-red-500',
+                    Boolean(
+                        receso
+                    )
+                );
+
+                if (
+                    receso
+                ) {
+                    marcarSlot(
+                        slot,
+                        false
+                    );
+
+                    slot.title =
+                        `${receso.nombre}: ${receso.hora_inicio} - ${receso.hora_fin}`;
+                } else {
+                    slot.removeAttribute(
+                        'title'
+                    );
+                }
+            }
+        );
+    }
+
 
     // =========================================================
     // CARGAR DISPONIBILIDAD VISUAL
@@ -1582,6 +1845,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function cargarDisponibilidadVisual() {
 
         limpiarGrid();
+        aplicarRecesosAlGrid();
 
 
         if (
@@ -1610,6 +1874,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     slot,
                     datos.includes(
                         id
+                    ) &&
+                    !slot.classList.contains(
+                        'receso-slot'
                     )
                 );
             }
@@ -1944,16 +2211,16 @@ document.addEventListener('DOMContentLoaded', () => {
         'change',
         async () => {
 
+            const profesorAnterior =
+                profesorSelect.value;
+
+
             actualizarCustomSelect(
                 institucionSelect
             );
 
-
-            profesorSelect.value =
-                '';
-
-
             limpiarGrid();
+            aplicarRecesosAlGrid();
 
 
             const claveAnterior =
@@ -1977,6 +2244,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             await cargarProfesores();
+            await cargarRecesosInstitucion();
+
+
+            if (
+                profesorAnterior &&
+                Array.from(
+                    profesorSelect.options
+                ).some(
+                    option =>
+                        String(option.value) ===
+                        String(profesorAnterior)
+                )
+            ) {
+
+                profesorSelect.value =
+                    profesorAnterior;
+
+
+                actualizarCustomSelect(
+                    profesorSelect
+                );
+            }
+
+
+            await cargarDisponibilidadAPI();
 
 
             renderizarPersonalizados();
@@ -2043,6 +2335,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             'selected'
                         );
 
+                    if (
+                        slot.classList.contains(
+                            'receso-slot'
+                        )
+                    ) {
+                        alert(
+                            'Ese bloque corresponde a un receso y no puede marcarse como disponibilidad.'
+                        );
+
+                        return;
+                    }
+
 
                     document
                         .querySelectorAll(
@@ -2053,7 +2357,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                 marcarSlot(
                                     copia,
-                                    seleccionar
+                                    seleccionar &&
+                                    !copia.classList.contains(
+                                        'receso-slot'
+                                    )
                                 );
                             }
                         );
@@ -2171,7 +2478,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                                     marcarSlot(
                                         slot,
-                                        !todosSeleccionados
+                                        !todosSeleccionados &&
+                                        !slot.classList.contains(
+                                            'receso-slot'
+                                        )
                                     );
                                 }
                             );
@@ -2224,7 +2534,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 slot =>
                     marcarSlot(
                         slot,
-                        true
+                        !slot.classList.contains(
+                            'receso-slot'
+                        )
                     )
             );
 
@@ -2729,6 +3041,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 alert(
                     'La hora de fin debe ser posterior a la hora de inicio.'
+                );
+
+                return;
+            }
+
+
+            if (
+                horaInicio <
+                HORA_MINIMA_PERMITIDA
+                ||
+                horaFin >
+                HORA_MAXIMA_PERMITIDA
+            ) {
+
+                alert(
+                    'La disponibilidad debe estar entre las 07:00 y las 20:00.'
+                );
+
+                return;
+            }
+
+            const receso =
+                recesoQueCruza(
+                    horaInicio,
+                    horaFin
+                );
+
+            if (
+                receso
+            ) {
+                alert(
+                    `Ese rango cruza ${receso.nombre} (${receso.hora_inicio} - ${receso.hora_fin}).`
                 );
 
                 return;
@@ -3369,6 +3713,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         actualizarTodosCustomSelects();
 
+
+        await cargarRecesosInstitucion();
 
         await cargarProfesores();
 

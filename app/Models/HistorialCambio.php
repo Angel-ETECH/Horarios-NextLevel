@@ -75,7 +75,11 @@ class HistorialCambio extends Model
      */
     public function scopePorHorario(Builder $query, int $horarioId): Builder
     {
-        return $query->where('horario_id', $horarioId);
+        return $query->where(function (Builder $q) use ($horarioId) {
+            $q->where('horario_id', $horarioId)
+              ->orWhere('datos_anteriores->id', $horarioId)
+              ->orWhere('datos_nuevos->id', $horarioId);
+        });
     }
 
     /**
@@ -147,8 +151,11 @@ class HistorialCambio extends Model
      */
     public function scopePorInstitucion(Builder $query, string $institucion): Builder
     {
-        return $query->whereHas('horario', function (Builder $q) use ($institucion) {
-            $q->where('institucion', $institucion);
+        return $query->where(function (Builder $q) use ($institucion) {
+            $q->whereHas('horario', function (Builder $sub) use ($institucion) {
+                $sub->where('institucion', $institucion);
+            })->orWhere('datos_anteriores->institucion', $institucion)
+              ->orWhere('datos_nuevos->institucion', $institucion);
         });
     }
 
@@ -167,8 +174,11 @@ class HistorialCambio extends Model
      */
     public function scopePorProfesor(Builder $query, int $profesorId): Builder
     {
-        return $query->whereHas('horario', function (Builder $q) use ($profesorId) {
-            $q->where('profesor_id', $profesorId);
+        return $query->where(function (Builder $q) use ($profesorId) {
+            $q->whereHas('horario', function (Builder $sub) use ($profesorId) {
+                $sub->where('profesor_id', $profesorId);
+            })->orWhere('datos_anteriores->profesor_id', $profesorId)
+              ->orWhere('datos_nuevos->profesor_id', $profesorId);
         });
     }
 
@@ -187,8 +197,11 @@ class HistorialCambio extends Model
      */
     public function scopePorGrado(Builder $query, int $gradoId): Builder
     {
-        return $query->whereHas('horario', function (Builder $q) use ($gradoId) {
-            $q->where('grado_id', $gradoId);
+        return $query->where(function (Builder $q) use ($gradoId) {
+            $q->whereHas('horario', function (Builder $sub) use ($gradoId) {
+                $sub->where('grado_id', $gradoId);
+            })->orWhere('datos_anteriores->grado_id', $gradoId)
+              ->orWhere('datos_nuevos->grado_id', $gradoId);
         });
     }
 
@@ -207,8 +220,21 @@ class HistorialCambio extends Model
      */
     public function scopePorAula(Builder $query, int $aulaId): Builder
     {
-        return $query->whereHas('horario', function (Builder $q) use ($aulaId) {
-            $q->where('aula_id', $aulaId);
+        return $query->where(function (Builder $q) use ($aulaId) {
+            $q->whereHas('horario', function (Builder $sub) use ($aulaId) {
+                $sub->where('aula_id', $aulaId);
+            })->orWhere('datos_anteriores->aula_id', $aulaId)
+              ->orWhere('datos_nuevos->aula_id', $aulaId);
+        });
+    }
+
+    public function scopePorCurso(Builder $query, int $cursoId): Builder
+    {
+        return $query->where(function (Builder $q) use ($cursoId) {
+            $q->whereHas('horario', function (Builder $sub) use ($cursoId) {
+                $sub->where('curso_id', $cursoId);
+            })->orWhere('datos_anteriores->curso_id', $cursoId)
+              ->orWhere('datos_nuevos->curso_id', $cursoId);
         });
     }
 

@@ -23,6 +23,11 @@ class HorarioGeneratorService
     protected array $estadisticas = [];
     protected array $configuracionesCache = [];
 
+    public function __construct(
+        private HistorialService $historialService
+    ) {
+    }
+
     /**
      * ========================================
      * MÉTODO PRINCIPAL
@@ -30,8 +35,6 @@ class HorarioGeneratorService
      */
     public function generarHorarios(array $opciones = []): array
     {
-        Log::info('Iniciando generación de horarios...', $opciones);
-
         DB::beginTransaction();
 
         try {
@@ -52,7 +55,7 @@ class HorarioGeneratorService
                 $resultado = $this->procesarAsignacion($asignacion);
 
                 if ($resultado['creado']) {
-                    $horariosCreados += $resultado['horas_asignadas'];
+                    $horariosCreados += $resultado['horarios_creados'] ?? $resultado['horas_asignadas'];
                 }
 
                 if ($resultado['horas_asignadas'] < $asignacion->horas_asignadas) {
@@ -102,10 +105,6 @@ class HorarioGeneratorService
     {
         $query = Horario::where('estado', 'activo');
 
-        if (!empty($opciones['institucion'])) {
-            $query->where('institucion', $opciones['institucion']);
-        }
-
         if (!empty($opciones['periodo_academico'])) {
             $query->where('periodo_academico', $opciones['periodo_academico']);
         }
@@ -118,7 +117,8 @@ class HorarioGeneratorService
                 $horario->grado_id,
                 $horario->aula_id,
                 $horario->dia_semana,
-                $horario->hora_inicio
+                $horario->hora_inicio,
+                $horario->hora_fin
             );
         }
 
@@ -146,19 +146,36 @@ class HorarioGeneratorService
         $profesorId = $asignacion->profesor_id;
         $gradoId = $asignacion->grado_id;
         $institucion = $asignacion->institucion ?? 'colegio';
-        $horasNecesarias = $asignacion->horas_asignadas;
+        $horasRequeridas = $asignacion->horas_asignadas;
+        $horasExistentes = Horario::where('estado', 'activo')
+            ->where('profesor_id', $profesorId)
+            ->where('curso_id', $asignacion->curso_id)
+            ->where('grado_id', $gradoId)
+            ->where('institucion', $institucion)
+            ->count();
+        $horasNecesarias = max(0, $horasRequeridas - $horasExistentes);
 
-        // 1. Obtener la configuración desde BD
-        $config = $this->obtenerConfiguracion(
+        if ($horasNecesarias === 0) {
+            return [
+                'creado' => false,
+                'horas_asignadas' => $horasRequeridas,
+                'horarios_creados' => 0,
+                'motivo' => 'La asignación ya tiene sus horas programadas'
+            ];
+        }
+
+        // 1. Obtener configuraciones desde BD
+        $configuraciones = $this->obtenerConfiguracionesCandidatas(
             $institucion,
             $asignacion->grado->nivel,
             $asignacion->grado->turno
         );
 
-        if (!$config) {
+        if ($configuraciones->isEmpty()) {
             return [
                 'creado' => false,
-                'horas_asignadas' => 0,
+                'horas_asignadas' => $horasExistentes,
+                'horarios_creados' => 0,
                 'motivo' => "No hay configuración activa para {$institucion}/{$asignacion->grado->nivel}/{$asignacion->grado->turno}"
             ];
         }
@@ -169,34 +186,62 @@ class HorarioGeneratorService
         if ($disponibilidades->isEmpty()) {
             return [
                 'creado' => false,
-                'horas_asignadas' => 0,
+                'horas_asignadas' => $horasExistentes,
+                'horarios_creados' => 0,
                 'motivo' => 'El profesor no tiene disponibilidad registrada'
             ];
         }
 
-        // 3. Aulas adecuadas
-        $aulas = $this->obtenerAulasParaGrado($asignacion->grado, $institucion);
+        if (!$asignacion->aula_id) {
+            return [
+                'creado' => false,
+                'horas_asignadas' => $horasExistentes,
+                'horarios_creados' => 0,
+                'motivo' => 'La asignación no tiene aula definida'
+            ];
+        }
+
+        // 3. Aula definida en la asignación
+        $aulas = $this->obtenerAulasParaAsignacion($asignacion);
 
         if ($aulas->isEmpty()) {
             return [
                 'creado' => false,
-                'horas_asignadas' => 0,
-                'motivo' => 'No hay aulas disponibles'
+                'horas_asignadas' => $horasExistentes,
+                'horarios_creados' => 0,
+                'motivo' => 'El aula asignada no está activa'
             ];
         }
 
-        // 4. Asignar bloques
-        $bloquesAsignados = $this->asignarBloquesConConfiguracion(
-            $asignacion,
-            $config,
-            $disponibilidades,
-            $aulas
-        );
+        // 4. Asignar bloques. Se intenta primero el turno exacto y luego
+        // alternativas del mismo nivel cuando la disponibilidad no coincide.
+        $bloquesAsignados = [];
+        $horasPendientes = $horasNecesarias;
+
+        foreach ($configuraciones as $config) {
+            $bloquesConfig = $this->asignarBloquesConConfiguracion(
+                $asignacion,
+                $config,
+                $disponibilidades,
+                $aulas,
+                $horasPendientes
+            );
+
+            if (!empty($bloquesConfig)) {
+                $bloquesAsignados = array_merge($bloquesAsignados, $bloquesConfig);
+                $horasPendientes -= count($bloquesConfig);
+            }
+
+            if ($horasPendientes <= 0) {
+                break;
+            }
+        }
 
         if (empty($bloquesAsignados)) {
             return [
                 'creado' => false,
-                'horas_asignadas' => 0,
+                'horas_asignadas' => $horasExistentes,
+                'horarios_creados' => 0,
                 'motivo' => 'No se encontraron bloques horarios disponibles'
             ];
         }
@@ -206,7 +251,8 @@ class HorarioGeneratorService
 
         return [
             'creado' => true,
-            'horas_asignadas' => count($bloquesAsignados),
+            'horas_asignadas' => $horasExistentes + count($bloquesAsignados),
+            'horarios_creados' => count($bloquesAsignados),
         ];
     }
 
@@ -215,23 +261,39 @@ class HorarioGeneratorService
      */
     protected function obtenerConfiguracion(string $institucion, string $nivel, string $turno): ?ConfiguracionHorario
     {
+        return $this->obtenerConfiguracionesCandidatas($institucion, $nivel, $turno)->first();
+    }
+
+    /**
+     * Obtener configuraciones candidatas desde BD (con cache)
+     */
+    protected function obtenerConfiguracionesCandidatas(string $institucion, string $nivel, string $turno): Collection
+    {
         $key = "{$institucion}_{$nivel}_{$turno}";
 
         if (isset($this->configuracionesCache[$key])) {
             return $this->configuracionesCache[$key];
         }
 
-        $config = ConfiguracionHorario::with('bloques')
+        $prioridadTurnos = collect([$turno, 'completo', 'tarde', 'mañana'])
+            ->filter()
+            ->unique()
+            ->values();
+
+        $configuraciones = ConfiguracionHorario::with('bloques')
             ->where('institucion', $institucion)
             ->where('nivel', $nivel)
-            ->where('turno', $turno)
             ->where('activo', true)
+            ->whereIn('turno', $prioridadTurnos)
             ->orderBy('año_academico', 'desc')
-            ->first();
+            ->get()
+            ->sortBy(fn ($config) => $prioridadTurnos->search($config->turno))
+            ->unique('id')
+            ->values();
 
-        $this->configuracionesCache[$key] = $config;
+        $this->configuracionesCache[$key] = $configuraciones;
 
-        return $config;
+        return $configuraciones;
     }
 
     /**
@@ -241,15 +303,16 @@ class HorarioGeneratorService
         $asignacion,
         ConfiguracionHorario $config,
         Collection $disponibilidades,
-        Collection $aulas
+        Collection $aulas,
+        int $horasObjetivo
     ): array {
         $bloquesAsignados = [];
-        $horasRestantes = $asignacion->horas_asignadas;
+        $horasRestantes = $horasObjetivo;
         $profesorId = $asignacion->profesor_id;
         $gradoId = $asignacion->grado_id;
 
-        // Obtener bloques de CLASE (excluir recesos)
-        $bloquesClase = $config->bloquesClase;
+        // Obtener bloques de clase sin huecos antes o después de recesos.
+        $bloquesClase = $this->obtenerBloquesClaseContinuos($config);
 
         // Días disponibles del profesor
         $diasDisponibles = $disponibilidades->pluck('dia_semana')->unique()->values();
@@ -269,12 +332,12 @@ class HorarioGeneratorService
                 }
 
                 // Verificar que no esté ocupado
-                if ($this->horaOcupada($profesorId, $gradoId, $dia, $horaInicio)) {
+                if ($this->horaOcupada($profesorId, $gradoId, $dia, $horaInicio, $horaFin)) {
                     continue;
                 }
 
                 // Buscar aula
-                $aulaAsignada = $this->buscarAulaDisponible($aulas, $dia, $horaInicio);
+                $aulaAsignada = $this->buscarAulaDisponible($aulas, $dia, $horaInicio, $horaFin);
 
                 if (!$aulaAsignada) {
                     continue;
@@ -289,12 +352,148 @@ class HorarioGeneratorService
                     'numero_bloque' => $bloque->numero_bloque,
                 ];
 
-                $this->marcarOcupado($profesorId, $gradoId, $aulaAsignada->id, $dia, $horaInicio);
+                $this->marcarOcupado($profesorId, $gradoId, $aulaAsignada->id, $dia, $horaInicio, $horaFin);
                 $horasRestantes--;
             }
         }
 
         return $bloquesAsignados;
+    }
+
+    protected function obtenerBloquesClaseContinuos(ConfiguracionHorario $config): Collection
+    {
+        $bloquesGuardados = $config->bloques->sortBy('orden')->values();
+
+        if (
+            $bloquesGuardados->isNotEmpty()
+            && $this->bloquesSonContinuos($config, $bloquesGuardados)
+        ) {
+            return $config->bloquesClase;
+        }
+
+        return $this->generarBloquesClaseDesdeConfiguracion($config);
+    }
+
+    protected function bloquesSonContinuos(ConfiguracionHorario $config, Collection $bloques): bool
+    {
+        if ($bloques->isEmpty()) {
+            return false;
+        }
+
+        if ($this->minutosHorario($bloques->first()->hora_inicio) !== $this->minutosHorario($config->hora_inicio)) {
+            return false;
+        }
+
+        if ($this->minutosHorario($bloques->last()->hora_fin) !== $this->minutosHorario($config->hora_fin)) {
+            return false;
+        }
+
+        for ($index = 1; $index < $bloques->count(); $index++) {
+            $anterior = $bloques[$index - 1];
+            $actual = $bloques[$index];
+
+            if ($this->minutosHorario($actual->hora_inicio) !== $this->minutosHorario($anterior->hora_fin)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function generarBloquesClaseDesdeConfiguracion(ConfiguracionHorario $config): Collection
+    {
+        $recesos = $this->recesosParaGeneracion($config);
+        $bloques = collect();
+        $cursor = $this->minutosHorario($config->hora_inicio);
+        $finTurno = $this->minutosHorario($config->hora_fin);
+        $duracionClase = max(30, (int) ($config->duracion_bloque_minutos ?: 45));
+        $numeroBloque = 1;
+
+        while ($cursor < $finTurno) {
+            $recesoActual = $recesos->first(
+                fn ($receso) => $receso['inicio_minutos'] === $cursor
+            );
+
+            if ($recesoActual) {
+                $cursor = $recesoActual['fin_minutos'];
+                continue;
+            }
+
+            $siguienteReceso = $recesos->first(
+                fn ($receso) => $receso['inicio_minutos'] > $cursor
+            );
+
+            $finClase = min($cursor + $duracionClase, $finTurno);
+
+            if ($siguienteReceso && $finClase > $siguienteReceso['inicio_minutos']) {
+                $finClase = $siguienteReceso['inicio_minutos'];
+            }
+
+            if ($finClase <= $cursor) {
+                $cursor = $siguienteReceso
+                    ? $siguienteReceso['inicio_minutos']
+                    : $finTurno;
+                continue;
+            }
+
+            $bloques->push((object) [
+                'hora_inicio' => Carbon::createFromFormat('H:i', $this->horaDesdeMinutos($cursor)),
+                'hora_fin' => Carbon::createFromFormat('H:i', $this->horaDesdeMinutos($finClase)),
+                'numero_bloque' => $numeroBloque,
+            ]);
+
+            $numeroBloque++;
+            $cursor = $finClase;
+        }
+
+        return $bloques;
+    }
+
+    protected function recesosParaGeneracion(ConfiguracionHorario $config): Collection
+    {
+        $recesos = $config->bloquesReceso
+            ->map(fn ($receso) => [
+                'hora_inicio' => $this->horaDesdeValor($receso->hora_inicio),
+                'hora_fin' => $this->horaDesdeValor($receso->hora_fin),
+            ]);
+
+        if ($recesos->isEmpty()) {
+            $base = match ($config->turno) {
+                'mañana' => array_slice(HorarioRecesoService::RECESOS_BASE, 0, 2),
+                'tarde' => array_slice(HorarioRecesoService::RECESOS_BASE, 2, 2),
+                default => HorarioRecesoService::RECESOS_BASE,
+            };
+
+            $recesos = collect($base);
+        }
+
+        return $recesos
+            ->map(fn ($receso) => [
+                'hora_inicio' => $receso['hora_inicio'],
+                'hora_fin' => $receso['hora_fin'],
+                'inicio_minutos' => $this->minutosHorario($receso['hora_inicio']),
+                'fin_minutos' => $this->minutosHorario($receso['hora_fin']),
+            ])
+            ->sortBy('inicio_minutos')
+            ->values();
+    }
+
+    protected function minutosHorario($valor): int
+    {
+        $hora = $this->horaDesdeValor($valor);
+        [$horas, $minutos] = array_map('intval', explode(':', $hora));
+
+        return ($horas * 60) + $minutos;
+    }
+
+    protected function horaDesdeValor($valor): string
+    {
+        return Carbon::parse($valor)->format('H:i');
+    }
+
+    protected function horaDesdeMinutos(int $minutos): string
+    {
+        return sprintf('%02d:%02d', intdiv($minutos, 60), $minutos % 60);
     }
 
     /**
@@ -340,7 +539,7 @@ class HorarioGeneratorService
      */
     protected function obtenerAsignaciones(array $opciones = []): Collection
     {
-        $query = ProfesorCurso::with(['profesor', 'curso', 'grado'])
+        $query = ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
             ->where('activo', true);
 
         if (!empty($opciones['profesor_id'])) {
@@ -361,6 +560,13 @@ class HorarioGeneratorService
     /**
      * Obtener aulas adecuadas
      */
+    protected function obtenerAulasParaAsignacion($asignacion): Collection
+    {
+        return Aula::where('id', $asignacion->aula_id)
+            ->where('activo', true)
+            ->get();
+    }
+
     protected function obtenerAulasParaGrado($grado, string $institucion): Collection
     {
         return Aula::where('activo', true)
@@ -376,11 +582,10 @@ class HorarioGeneratorService
     /**
      * Buscar aula disponible
      */
-    protected function buscarAulaDisponible(Collection $aulas, string $dia, string $hora): ?Aula
+    protected function buscarAulaDisponible(Collection $aulas, string $dia, string $horaInicio, string $horaFin): ?Aula
     {
         foreach ($aulas as $aula) {
-            $clave = "{$aula->id}_{$dia}_{$hora}";
-            if (!isset($this->aulasOcupadas[$clave])) {
+            if (!$this->estaOcupado($this->aulasOcupadas, $aula->id, $dia, $horaInicio, $horaFin)) {
                 return $aula;
             }
         }
@@ -390,20 +595,76 @@ class HorarioGeneratorService
     /**
      * Verificar si una hora está ocupada
      */
-    protected function horaOcupada(int $profesorId, int $gradoId, string $dia, string $hora): bool
+    protected function horaOcupada(
+        int $profesorId,
+        int $gradoId,
+        string $dia,
+        string $horaInicio,
+        string $horaFin
+    ): bool
     {
-        return isset($this->profesoresOcupados["{$profesorId}_{$dia}_{$hora}"])
-            || isset($this->gradosOcupados["{$gradoId}_{$dia}_{$hora}"]);
+        return $this->estaOcupado($this->profesoresOcupados, $profesorId, $dia, $horaInicio, $horaFin)
+            || $this->estaOcupado($this->gradosOcupados, $gradoId, $dia, $horaInicio, $horaFin);
     }
 
     /**
      * Marcar como ocupado
      */
-    protected function marcarOcupado(int $profesorId, int $gradoId, int $aulaId, string $dia, string $hora): void
+    protected function marcarOcupado(
+        int $profesorId,
+        int $gradoId,
+        int $aulaId,
+        string $dia,
+        string $horaInicio,
+        string $horaFin
+    ): void
     {
-        $this->profesoresOcupados["{$profesorId}_{$dia}_{$hora}"] = true;
-        $this->gradosOcupados["{$gradoId}_{$dia}_{$hora}"] = true;
-        $this->aulasOcupadas["{$aulaId}_{$dia}_{$hora}"] = true;
+        $this->registrarOcupacion($this->profesoresOcupados, $profesorId, $dia, $horaInicio, $horaFin);
+        $this->registrarOcupacion($this->gradosOcupados, $gradoId, $dia, $horaInicio, $horaFin);
+        $this->registrarOcupacion($this->aulasOcupadas, $aulaId, $dia, $horaInicio, $horaFin);
+    }
+
+    protected function estaOcupado(array $ocupados, int $entidadId, string $dia, string $horaInicio, string $horaFin): bool
+    {
+        $clave = "{$entidadId}_{$dia}";
+        $inicio = Carbon::parse($horaInicio);
+        $fin = Carbon::parse($horaFin);
+
+        foreach ($ocupados[$clave] ?? [] as $rango) {
+            if ($inicio->lt(Carbon::parse($rango['fin'])) && $fin->gt(Carbon::parse($rango['inicio']))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function registrarOcupacion(
+        array &$ocupados,
+        int $entidadId,
+        string $dia,
+        string $horaInicio,
+        string $horaFin
+    ): void {
+        $clave = "{$entidadId}_{$dia}";
+
+        $ocupados[$clave][] = [
+            'inicio' => $this->normalizarHoraClave($horaInicio),
+            'fin' => $this->normalizarHoraClave($horaFin),
+        ];
+    }
+
+    protected function normalizarHoraClave($hora): string
+    {
+        if ($hora instanceof Carbon) {
+            return $hora->format('H:i');
+        }
+
+        try {
+            return Carbon::parse($hora)->format('H:i');
+        } catch (\Throwable $e) {
+            return substr((string) $hora, 0, 5);
+        }
     }
 
     /**
@@ -434,10 +695,34 @@ class HorarioGeneratorService
                 'observacion' => 'Generado automáticamente',
             ]);
 
+            $horario->load(['profesor', 'curso', 'grado', 'aula']);
+
+            $this->historialService->registrarCambio(
+                $horario->id,
+                'crear',
+                null,
+                $this->snapshotHorario($horario),
+                'Horario generado automáticamente'
+            );
+
             $horariosCreados[] = $horario;
         }
 
         return $horariosCreados;
+    }
+
+    private function snapshotHorario(Horario $horario): array
+    {
+        $horario->loadMissing(['profesor', 'curso', 'grado', 'aula']);
+
+        return array_merge($horario->toArray(), [
+            'modulo' => 'horarios',
+            'tipo_registro' => 'horario',
+            'profesor_nombre' => $horario->profesor?->nombre_completo,
+            'curso_nombre' => $horario->curso?->nombre,
+            'grado_nombre' => $horario->grado?->nombre_completo,
+            'aula_nombre' => $horario->aula?->nombre,
+        ]);
     }
 
     /**

@@ -126,9 +126,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function obtenerProfesor(registro) {
 
         const profesor = registro?.horario?.profesor;
+        const snapshot =
+            registro?.datos_nuevos ??
+            registro?.datos_anteriores ??
+            {};
 
         if (!profesor) {
-            return '—';
+            return snapshot.profesor_nombre ??
+                (
+                    snapshot.profesor_id
+                        ? `Profesor #${snapshot.profesor_id}`
+                        : '—'
+                );
         }
 
         if (profesor.nombre_completo) {
@@ -148,9 +157,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function obtenerCurso(registro) {
 
         const curso = registro?.horario?.curso;
+        const snapshot =
+            registro?.datos_nuevos ??
+            registro?.datos_anteriores ??
+            {};
 
         return curso?.nombre
             ?? curso?.name
+            ?? snapshot.curso_nombre
+            ?? (
+                snapshot.curso_id
+                    ? `Curso #${snapshot.curso_id}`
+                    : null
+            )
             ?? '—';
     }
 
@@ -158,9 +177,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function obtenerGrado(registro) {
 
         const grado = registro?.horario?.grado;
+        const snapshot =
+            registro?.datos_nuevos ??
+            registro?.datos_anteriores ??
+            {};
 
         if (!grado) {
-            return '—';
+            return snapshot.grado_nombre ??
+                (
+                    snapshot.grado_id
+                        ? `Grado #${snapshot.grado_id}`
+                        : '—'
+                );
         }
 
         if (grado.nombre) {
@@ -186,11 +214,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function obtenerAula(registro) {
 
         const aula = registro?.horario?.aula;
+        const snapshot =
+            registro?.datos_nuevos ??
+            registro?.datos_anteriores ??
+            {};
 
         return aula?.nombre
             ?? aula?.codigo
             ?? aula?.name
+            ?? snapshot.aula_nombre
+            ?? (
+                snapshot.aula_id
+                    ? `Aula #${snapshot.aula_id}`
+                    : null
+            )
             ?? '—';
+    }
+
+
+    function obtenerDatosHorario(registro) {
+
+        return registro?.horario ??
+            registro?.datos_nuevos ??
+            registro?.datos_anteriores ??
+            {};
+    }
+
+
+    function obtenerHorarioId(registro) {
+
+        return registro?.horario_id ??
+            registro?.datos_nuevos?.id ??
+            registro?.datos_anteriores?.id ??
+            '—';
     }
 
 
@@ -627,7 +683,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         body.innerHTML = registros.map(registro => {
 
-            const horario = registro.horario;
+            const horario = obtenerDatosHorario(registro);
 
             return `
                 <tr class="transition hover:bg-slate-50/80">
@@ -675,7 +731,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-5 py-4">
 
                         <p class="text-sm font-bold text-slate-700">
-                            #${escaparHtml(registro.horario_id ?? '—')}
+                            #${escaparHtml(obtenerHorarioId(registro))}
                         </p>
 
                         <p class="mt-1 text-xs text-slate-400">
@@ -800,10 +856,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderizarDetalle(registro) {
 
-        const horario = registro.horario ?? {};
+        const horario = obtenerDatosHorario(registro);
 
         modalTitulo.textContent =
-            `Horario #${registro.horario_id ?? '—'}`;
+            `Horario #${obtenerHorarioId(registro)}`;
 
         modalSubtitulo.textContent =
             `${capitalizar(registro.accion)} · ${formatearFecha(registro.created_at)}`;
