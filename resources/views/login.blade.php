@@ -1292,586 +1292,288 @@
 
     <script>
 
-        document.addEventListener(
-            'DOMContentLoaded',
-            () => {
+        // =============================================================
+        // CONSTANTES GLOBALES
+        // =============================================================
+
+        const TOKEN_KEY = 'nextlevel_token';
+        const USER_KEY = 'nextlevel_usuario';
+        const AUTH_KEY = 'nextlevel_auth';
+        const AUTH_NOTICE_KEY = 'nextlevel_auth_notice';
 
 
-                // =====================================================
-                // ELEMENTOS
-                // =====================================================
+        // =============================================================
+        // FUNCIONES GLOBALES (fuera del DOMContentLoaded)
+        // =============================================================
 
-                const form =
-                    document.getElementById(
-                        'login-form'
-                    );
+        function obtenerTokenSeguro(valor = localStorage.getItem(TOKEN_KEY)) {
+            const token = String(valor || '').trim();
 
-
-                const emailInput =
-                    document.getElementById(
-                        'email'
-                    );
-
-
-                const password =
-                    document.getElementById(
-                        'password'
-                    );
+            return (
+                token &&
+                token !== 'null' &&
+                token !== 'undefined'
+            )
+                ? token
+                : '';
+        }
 
 
-                const mensaje =
-                    document.getElementById(
-                        'login-mensaje'
-                    );
+        function haySesionActiva() {
+            return Boolean(obtenerTokenSeguro());
+        }
 
 
-                const btnVerPassword =
-                    document.getElementById(
-                        'btn-ver-password'
-                    );
+        function limpiarUsuarioParaSesion(user) {
+            const usuario = { ...(user || {}) };
+
+            delete usuario.password;
+            delete usuario.password_confirmation;
+            delete usuario.remember_token;
+
+            return usuario;
+        }
 
 
-                if (
-                    !form ||
-                    !emailInput ||
-                    !password ||
-                    !mensaje
-                ) {
+        function guardarSesionAutenticada(token, user) {
+            const tokenSeguro = obtenerTokenSeguro(token);
+
+            if (!tokenSeguro) {
+                throw new Error('El servidor no devolvió un token válido.');
+            }
+
+            localStorage.setItem(TOKEN_KEY, tokenSeguro);
+            localStorage.setItem(USER_KEY, JSON.stringify(limpiarUsuarioParaSesion(user)));
+            localStorage.setItem(AUTH_KEY, 'true');
+
+            window.axios.defaults.headers.common['Authorization'] =
+                `Bearer ${tokenSeguro}`;
+        }
+
+
+        // =============================================================
+        // DOMCONTENTLOADED (todo el resto del código)
+        // =============================================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // =====================================================
+            // ELEMENTOS
+            // =====================================================
+
+            const form = document.getElementById('login-form');
+            const emailInput = document.getElementById('email');
+            const password = document.getElementById('password');
+            const mensaje = document.getElementById('login-mensaje');
+            const btnVerPassword = document.getElementById('btn-ver-password');
+
+
+            if (!form || !emailInput || !password || !mensaje) {
+                return;
+            }
+
+
+            // =====================================================
+            // SI YA EXISTE TOKEN
+            // =====================================================
+
+            if (haySesionActiva()) {
+                window.location.replace('/');
+                return;
+            }
+
+
+            const avisoSesion = sessionStorage.getItem(AUTH_NOTICE_KEY);
+
+            if (avisoSesion) {
+                sessionStorage.removeItem(AUTH_NOTICE_KEY);
+                mostrarMensaje(avisoSesion, 'info');
+            }
+
+
+            // =====================================================
+            // MOSTRAR / OCULTAR CONTRASEÑA
+            // =====================================================
+
+            btnVerPassword?.addEventListener('click', () => {
+                password.type = password.type === 'password' ? 'text' : 'password';
+            });
+
+
+            // =====================================================
+            // MENSAJES
+            // =====================================================
+
+            function mostrarMensaje(texto, tipo = 'error') {
+
+                mensaje.classList.remove(
+                    'hidden',
+                    'border-red-200', 'bg-red-50', 'text-red-700',
+                    'border-emerald-200', 'bg-emerald-50', 'text-emerald-700',
+                    'border-blue-200', 'bg-blue-50', 'text-blue-700'
+                );
+
+
+                if (tipo === 'success') {
+                    mensaje.classList.add('border-emerald-200', 'bg-emerald-50', 'text-emerald-700');
+                } else if (tipo === 'info') {
+                    mensaje.classList.add('border-blue-200', 'bg-blue-50', 'text-blue-700');
+                } else {
+                    mensaje.classList.add('border-red-200', 'bg-red-50', 'text-red-700');
+                }
+
+
+                mensaje.textContent = texto;
+            }
+
+
+            function obtenerPrimerErrorValidacion(errores) {
+                return errores
+                    ? Object.values(errores).flat().find(Boolean)
+                    : null;
+            }
+
+
+            function obtenerMensajeError(error, mensajeGeneral) {
+
+                if (!error?.response) {
+                    return 'No se pudo conectar con el servidor. Revisa que MySQL, Apache y php artisan serve estén activos.';
+                }
+
+                const status = error.response.status;
+                const data = error.response.data || {};
+                const primerError = obtenerPrimerErrorValidacion(data.errors);
+
+                if (primerError) {
+                    return primerError;
+                }
+
+                if (status === 401) {
+                    return data.message || 'El correo electrónico o la contraseña son incorrectos.';
+                }
+
+                if (status === 419) {
+                    return 'La sesión de seguridad expiró. Recarga la página e inténtalo otra vez.';
+                }
+
+                if (status >= 500) {
+                    return 'El servidor tuvo un problema. Revisa que MySQL esté encendido y que la API esté respondiendo.';
+                }
+
+                return data.message || mensajeGeneral;
+            }
+
+
+            function activarCarga(submitButton, texto) {
+
+                if (!submitButton) {
+                    return null;
+                }
+
+                const textoOriginal = submitButton.innerHTML;
+
+                submitButton.disabled = true;
+                submitButton.classList.add('opacity-70', 'cursor-not-allowed');
+
+                submitButton.innerHTML = `
+                    <span class="inline-flex items-center justify-center gap-2">
+                        <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+                        ${texto}
+                    </span>
+                `;
+
+                return textoOriginal;
+            }
+
+
+            function desactivarCarga(submitButton, textoOriginal) {
+
+                if (!submitButton) {
                     return;
                 }
 
-                const TOKEN_KEY =
-                    'nextlevel_token';
+                submitButton.disabled = false;
+                submitButton.classList.remove('opacity-70', 'cursor-not-allowed');
 
-                const USER_KEY =
-                    'nextlevel_usuario';
-
-                const AUTH_KEY =
-                    'nextlevel_auth';
-
-                const AUTH_NOTICE_KEY =
-                    'nextlevel_auth_notice';
-
-
-                function haySesionActiva() {
-
-                    return Boolean(
-                        obtenerTokenSeguro()
-                    );
+                if (textoOriginal !== null) {
+                    submitButton.innerHTML = textoOriginal;
                 }
+            }
 
-                function obtenerTokenSeguro(
-                    valor = localStorage.getItem(
-                        TOKEN_KEY
-                    )
-                ) {
 
-                    const token =
-                        String(valor || '').trim();
+            // =====================================================
+            // LOGIN REAL
+            // =====================================================
 
-                    return (
-                        token &&
-                        token !== 'null' &&
-                        token !== 'undefined'
-                    )
-                        ? token
-                        : '';
+            form.addEventListener('submit', async event => {
+
+                event.preventDefault();
+
+                const email = emailInput.value.trim();
+                const pass = password.value;
+
+
+                if (!email || !pass) {
+                    mostrarMensaje('Completa el correo electrónico y la contraseña.', 'error');
+                    return;
                 }
 
 
-                function limpiarUsuarioParaSesion(
-                    user
-                ) {
-
-                    const usuario =
-                        {
-                            ...(user || {})
-                        };
-
-                    delete usuario.password;
-                    delete usuario.password_confirmation;
-                    delete usuario.remember_token;
-
-                    return usuario;
-                }
+                const submitButton = form.querySelector('button[type="submit"]');
+                const textoOriginal = activarCarga(submitButton, 'Ingresando...');
 
 
-                function guardarSesionAutenticada(
-                    token,
-                    user
-                ) {
+                try {
 
-                    const tokenSeguro =
-                        obtenerTokenSeguro(
-                            token
-                        );
+                    const response = await window.axios.post('/api/login', {
+                        email: email,
+                        password: pass
+                    });
 
-                    if (
-                        !tokenSeguro
-                    ) {
-                        throw new Error(
-                            'El servidor no devolvió un token válido.'
-                        );
+                    const data = response?.data?.data;
+                    const token = data?.token;
+                    const user = data?.user;
+
+
+                    if (!token) {
+                        throw new Error('El servidor no devolvió un token.');
                     }
 
-                    localStorage.setItem(
-                        TOKEN_KEY,
-                        tokenSeguro
-                    );
 
-                    localStorage.setItem(
-                        USER_KEY,
-                        JSON.stringify(
-                            limpiarUsuarioParaSesion(
-                                user
-                            )
-                        )
-                    );
+                    guardarSesionAutenticada(token, user);
 
-                    localStorage.setItem(
-                        AUTH_KEY,
-                        'true'
-                    );
-
-                    window.axios
-                        .defaults
-                        .headers
-                        .common[
-                            'Authorization'
-                        ] =
-                            `Bearer ${tokenSeguro}`;
-                }
+                    mostrarMensaje('Acceso correcto. Ingresando al sistema...', 'success');
 
 
-
-                // =====================================================
-                // SI YA EXISTE TOKEN
-                // =====================================================
-
-                if (
-                    haySesionActiva()
-                ) {
-
-                    window.location.replace(
-                        '/'
-                    );
-
-                    return;
-                }
+                    setTimeout(() => {
+                        window.location.replace('/');
+                    }, 400);
 
 
-                const avisoSesion =
-                    sessionStorage.getItem(
-                        AUTH_NOTICE_KEY
-                    );
-
-
-                if (
-                    avisoSesion
-                ) {
-
-                    sessionStorage.removeItem(
-                        AUTH_NOTICE_KEY
-                    );
+                } catch (error) {
 
                     mostrarMensaje(
-                        avisoSesion,
-                        'info'
-                    );
-                }
-
-
-
-                // =====================================================
-                // MOSTRAR / OCULTAR CONTRASEÑA
-                // =====================================================
-
-                btnVerPassword?.addEventListener(
-                    'click',
-                    () => {
-
-                        password.type =
-                            password.type ===
-                            'password'
-
-                                ? 'text'
-
-                                : 'password';
-                    }
-                );
-
-
-
-                // =====================================================
-                // MENSAJES
-                // =====================================================
-
-                function mostrarMensaje(
-                    texto,
-                    tipo = 'error'
-                ) {
-
-                    mensaje.classList.remove(
-                        'hidden',
-
-                        'border-red-200',
-                        'bg-red-50',
-                        'text-red-700',
-
-                        'border-emerald-200',
-                        'bg-emerald-50',
-                        'text-emerald-700',
-
-                        'border-blue-200',
-                        'bg-blue-50',
-                        'text-blue-700'
+                        obtenerMensajeError(error, 'No se pudo iniciar sesión.'),
+                        'error'
                     );
 
+                } finally {
 
-                    if (
-                        tipo ===
-                        'success'
-                    ) {
-
-                        mensaje.classList.add(
-                            'border-emerald-200',
-                            'bg-emerald-50',
-                            'text-emerald-700'
-                        );
-
-                    } else if (
-                        tipo ===
-                        'info'
-                    ) {
-
-                        mensaje.classList.add(
-                            'border-blue-200',
-                            'bg-blue-50',
-                            'text-blue-700'
-                        );
-
-                    } else {
-
-                        mensaje.classList.add(
-                            'border-red-200',
-                            'bg-red-50',
-                            'text-red-700'
-                        );
-                    }
-
-
-                    mensaje.textContent =
-                        texto;
+                    desactivarCarga(submitButton, textoOriginal);
                 }
-
-                function obtenerPrimerErrorValidacion(
-                    errores
-                ) {
-
-                    return errores
-                        ? Object.values(errores)
-                            .flat()
-                            .find(Boolean)
-                        : null;
-                }
-
-
-                function obtenerMensajeError(
-                    error,
-                    mensajeGeneral
-                ) {
-
-                    if (
-                        !error?.response
-                    ) {
-                        return 'No se pudo conectar con el servidor. Revisa que MySQL, Apache y php artisan serve estén activos.';
-                    }
-
-                    const status =
-                        error.response.status;
-
-                    const data =
-                        error.response.data || {};
-
-                    const primerError =
-                        obtenerPrimerErrorValidacion(
-                            data.errors
-                        );
-
-                    if (
-                        primerError
-                    ) {
-                        return primerError;
-                    }
-
-                    if (
-                        status ===
-                        401
-                    ) {
-                        return data.message ||
-                            'El correo electrónico o la contraseña son incorrectos.';
-                    }
-
-                    if (
-                        status ===
-                        419
-                    ) {
-                        return 'La sesión de seguridad expiró. Recarga la página e inténtalo otra vez.';
-                    }
-
-                    if (
-                        status >=
-                        500
-                    ) {
-                        return 'El servidor tuvo un problema. Revisa que MySQL esté encendido y que la API esté respondiendo.';
-                    }
-
-                    return data.message ||
-                        mensajeGeneral;
-                }
-
-
-                function activarCarga(
-                    submitButton,
-                    texto
-                ) {
-
-                    if (
-                        !submitButton
-                    ) {
-                        return null;
-                    }
-
-                    const textoOriginal =
-                        submitButton.innerHTML;
-
-                    submitButton.disabled =
-                        true;
-
-
-                    submitButton.classList.add(
-                        'opacity-70',
-                        'cursor-not-allowed'
-                    );
-
-
-                    submitButton.innerHTML =
-                        `<span class="inline-flex items-center justify-center gap-2">
-                            <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
-                            ${texto}
-                        </span>`;
-
-                    return textoOriginal;
-                }
-
-
-                function desactivarCarga(
-                    submitButton,
-                    textoOriginal
-                ) {
-
-                    if (
-                        !submitButton
-                    ) {
-                        return;
-                    }
-
-                    submitButton.disabled =
-                        false;
-
-
-                    submitButton.classList.remove(
-                        'opacity-70',
-                        'cursor-not-allowed'
-                    );
-
-
-                    if (
-                        textoOriginal !==
-                        null
-                    ) {
-
-                        submitButton.innerHTML =
-                            textoOriginal;
-                    }
-                }
-
-
-
-                // =====================================================
-                // LOGIN REAL
-                // =====================================================
-
-                form.addEventListener(
-                    'submit',
-                    async event => {
-
-
-                        event.preventDefault();
-
-
-                        const email =
-                            emailInput.value
-                                .trim();
-
-
-                        const pass =
-                            password.value;
-
-
-
-                        // =================================================
-                        // VALIDAR CAMPOS
-                        // =================================================
-
-                        if (
-                            !email ||
-                            !pass
-                        ) {
-
-                            mostrarMensaje(
-                                'Completa el correo electrónico y la contraseña.',
-                                'error'
-                            );
-
-                            return;
-                        }
-
-
-
-                        const submitButton =
-                            form.querySelector(
-                                'button[type="submit"]'
-                            );
-
-
-                        const textoOriginal =
-                            activarCarga(
-                                submitButton,
-                                'Ingresando...'
-                            );
-
-
-
-                        // =================================================
-                        // ESTADO CARGANDO
-                        // =================================================
-
-                        try {
-
-
-                            // =============================================
-                            // PETICIÓN REAL AL BACKEND
-                            // =============================================
-
-                            const response =
-                                await window.axios.post(
-                                    '/api/login',
-                                    {
-                                        email:
-                                            email,
-
-                                        password:
-                                            pass
-                                    }
-                                );
-
-
-                            const data =
-                                response?.data?.data;
-
-
-                            const token =
-                                data?.token;
-
-
-                            const user =
-                                data?.user;
-
-
-
-                            if (
-                                !token
-                            ) {
-
-                                throw new Error(
-                                    'El servidor no devolvió un token.'
-                                );
-                            }
-
-
-
-                            guardarSesionAutenticada(
-                                token,
-                                user
-                            );
-
-
-
-                            mostrarMensaje(
-                                'Acceso correcto. Ingresando al sistema...',
-                                'success'
-                            );
-
-
-
-                            setTimeout(
-                                () => {
-
-                                    window.location.replace(
-                                        '/'
-                                    );
-                                },
-                                400
-                            );
-
-
-                        } catch (
-                            error
-                        ) {
-
-                            mostrarMensaje(
-                                obtenerMensajeError(
-                                    error,
-                                    'No se pudo iniciar sesión.'
-                                ),
-                                'error'
-                            );
-
-
-                        } finally {
-
-
-                            desactivarCarga(
-                                submitButton,
-                                textoOriginal
-                            );
-                        }
-                    }
-                );
-            }
-        );
-
+            });
+        });
 
 
         // =============================================================
-        // PROTECCIÓN ATRÁS / ADELANTE
+        // PROTECCIÓN ATRÁS / ADELANTE (AHORA SÍ FUNCIONA)
         // =============================================================
 
-        window.addEventListener(
-            'pageshow',
-            () => {
-
-                if (
-                    haySesionActiva()
-                ) {
-
-                    window.location.replace(
-                        '/'
-                    );
-                }
+        window.addEventListener('pageshow', () => {
+            if (haySesionActiva()) {
+                window.location.replace('/');
             }
-        );
+        });
 
     </script>
 
