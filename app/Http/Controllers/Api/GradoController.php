@@ -7,11 +7,17 @@ use App\Http\Requests\GradoRequest;
 use App\Models\Grado;
 use App\Models\Horario;
 use App\Models\ProfesorCurso;
+use App\Services\HistorialService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class GradoController extends Controller
 {
+    public function __construct(
+        private HistorialService $historialService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $query = Grado::query();
@@ -76,6 +82,14 @@ class GradoController extends Controller
 
             DB::commit();
 
+            $this->historialService->registrarEvento(
+                'grados',
+                'crear',
+                null,
+                $this->snapshotGrado($grado),
+                'Grado creado'
+            );
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Grado creado exitosamente',
@@ -97,6 +111,7 @@ class GradoController extends Controller
             DB::beginTransaction();
 
             $grado = Grado::findOrFail($id);
+            $datosAnteriores = $this->snapshotGrado($grado);
 
             $data = $request->validated();
             $data['nombre_completo'] = $this->generarNombreCompleto($data);
@@ -112,6 +127,8 @@ class GradoController extends Controller
                     Horario::where('grado_id', $grado->id)->where('estado', 'activo')->exists()
                 )
             ) {
+                DB::rollBack();
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede cambiar el nivel o turno de un grado con asignaciones u horarios activos'
@@ -121,6 +138,14 @@ class GradoController extends Controller
             $grado->update($data);
 
             DB::commit();
+
+            $this->historialService->registrarEvento(
+                'grados',
+                'actualizar',
+                $datosAnteriores,
+                $this->snapshotGrado($grado),
+                'Grado actualizado'
+            );
 
             return response()->json([
                 'status' => 'success',
@@ -143,9 +168,12 @@ class GradoController extends Controller
             DB::beginTransaction();
 
             $grado = Grado::findOrFail($id);
+            $datosAnteriores = $this->snapshotGrado($grado);
 
             // Verificar si tiene alumnos
             if ($grado->alumnos()->count() > 0) {
+                DB::rollBack();
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el grado porque tiene alumnos asignados'
@@ -153,6 +181,8 @@ class GradoController extends Controller
             }
 
             if (ProfesorCurso::where('grado_id', $grado->id)->where('activo', true)->exists()) {
+                DB::rollBack();
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el grado porque tiene asignaciones activas'
@@ -160,6 +190,8 @@ class GradoController extends Controller
             }
 
             if (Horario::where('grado_id', $grado->id)->where('estado', 'activo')->exists()) {
+                DB::rollBack();
+
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el grado porque tiene horarios activos'
@@ -169,6 +201,14 @@ class GradoController extends Controller
             $grado->delete();
 
             DB::commit();
+
+            $this->historialService->registrarEvento(
+                'grados',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Grado eliminado'
+            );
 
             return response()->json([
                 'status' => 'success',
@@ -207,7 +247,17 @@ class GradoController extends Controller
     {
         try {
             $grado = Grado::withTrashed()->findOrFail($id);
+            $datosAnteriores = $this->snapshotGrado($grado);
+
             $grado->restore();
+
+            $this->historialService->registrarEvento(
+                'grados',
+                'restaurar',
+                $datosAnteriores,
+                $this->snapshotGrado($grado),
+                'Grado restaurado'
+            );
 
             return response()->json([
                 'status' => 'success',
@@ -226,5 +276,17 @@ class GradoController extends Controller
     private function generarNombreCompleto($data)
     {
         return "{$data['nivel']} - {$data['grado']} {$data['seccion']}";
+    }
+
+    /**
+     * Snapshot del grado para el historial.
+     */
+    private function snapshotGrado(Grado $grado): array
+    {
+        return array_merge($grado->toArray(), [
+            'modulo' => 'grados',
+            'tipo_registro' => 'grado',
+            'grado_nombre' => $grado->nombre_completo,
+        ]);
     }
 }

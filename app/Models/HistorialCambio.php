@@ -31,6 +31,10 @@ class HistorialCambio extends Model
         'updated_at' => 'datetime',
     ];
 
+    protected $appends = [
+        'puede_revertirse',
+    ];
+
     // ============ CONSTANTES DE ACCIONES ============
 
     public const ACCION_CREAR = 'crear';
@@ -383,6 +387,33 @@ class HistorialCambio extends Model
         }
 
         return $cambiados;
+    }
+
+    /**
+     * Indica si el registro se puede revertir desde el historial.
+     * Lo consume el frontend para mostrar u ocultar el botón.
+     */
+    public function getPuedeRevertirseAttribute(): bool
+    {
+        if (!in_array($this->accion, [self::ACCION_CREAR, self::ACCION_ACTUALIZAR, self::ACCION_ELIMINAR], true)) {
+            return false;
+        }
+
+        $modulo = $this->datos_nuevos['modulo']
+            ?? $this->datos_anteriores['modulo']
+            ?? null;
+
+        // Eventos de horarios: solo si el horario sigue existiendo.
+        if ($modulo === 'horarios' || $this->horario_id !== null) {
+            return $this->horario_id !== null;
+        }
+
+        if ($this->accion === self::ACCION_ACTUALIZAR) {
+            return !empty($this->datos_anteriores);
+        }
+
+        // De los demás módulos solo se revierten las eliminaciones.
+        return $this->accion === self::ACCION_ELIMINAR;
     }
 
     // ============ MÉTODOS DE UTILIDAD ============

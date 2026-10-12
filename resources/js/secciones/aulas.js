@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const capacidadInput = document.getElementById('aula-capacidad');
     const tipoInput = document.getElementById('aula-tipo');
     const nivelInput = document.getElementById('aula-nivel');
+    const institucionInput = document.getElementById('aula-institucion');
     const equipamientoInput = document.getElementById('aula-equipamiento');
     const estadoInput = document.getElementById('aula-estado');
     const observacionesInput = document.getElementById('aula-observaciones');
@@ -235,6 +236,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 >
                     <path d="m2 10 10-5 10 5-10 5Z"/>
                     <path d="M6 12v5c3 2 9 2 12 0v-5"/>
+                </svg>
+            `,
+
+            institucion: `
+                <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M3 21h18"/>
+                    <path d="M5 21V8l7-4 7 4v13"/>
+                    <path d="M9 21v-5h6v5"/>
+                    <path d="M9 11h.01M15 11h.01"/>
                 </svg>
             `
         };
@@ -679,6 +698,7 @@ document.addEventListener('DOMContentLoaded', () => {
             filtroNivel,
             tipoInput,
             nivelInput,
+            institucionInput,
             estadoInput
         ]
             .filter(Boolean)
@@ -838,6 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formulario.reset();
 
         nivelInput.value = 'todos';
+        institucionInput.value = 'ambos';
         estadoInput.value = '1';
 
         modalTitle.textContent =
@@ -946,6 +967,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 nivelInput.value ||
                 'todos';
 
+            const institucion =
+                institucionInput.value ||
+                'ambos';
+
             const equipamiento =
                 equipamientoInput.value.trim();
 
@@ -989,6 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 capacidad,
                 tipo,
                 nivel,
+                institucion,
                 equipamiento:
                     equipamiento || null,
                 activo,
@@ -1195,6 +1221,20 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
+    function labelInstitucion(institucion) {
+
+        const labels = {
+            colegio: 'Colegio',
+            academia: 'Academia',
+            ambos: 'Compartida'
+        };
+
+        return (
+            labels[institucion] ||
+            'Compartida'
+        );
+    }
+
     // =========================================================
     // FILA
     // =========================================================
@@ -1247,6 +1287,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         <p class="mt-0.5 text-xs text-slate-400">
                             ${esc(aula.codigo)}
+                            ·
+                            ${esc(labelInstitucion(aula.institucion))}
                         </p>
 
                     </div>
@@ -1711,6 +1753,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 nivelInput.value =
                     aula.nivel ?? 'todos';
 
+                institucionInput.value =
+                    aula.institucion ?? 'ambos';
+
                 equipamientoInput.value =
                     aula.equipamiento ?? '';
 
@@ -1928,6 +1973,7 @@ document.addEventListener('DOMContentLoaded', () => {
     [
         tipoInput,
         nivelInput,
+        institucionInput,
         estadoInput
     ]
         .filter(Boolean)

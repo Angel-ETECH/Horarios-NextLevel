@@ -1700,6 +1700,43 @@
                     </div>
 
 
+                    {{-- INSTITUCION --}}
+
+                    <div>
+
+                        <label class="mb-2 block text-sm font-semibold text-[#0F2749]">
+                            Institución
+                        </label>
+
+                        <select
+                            id="aula-institucion"
+                            class="aula-native-select"
+                        >
+                            <option value="ambos">
+                                Compartida (colegio y academia)
+                            </option>
+
+                            <option value="colegio">
+                                Colegio
+                            </option>
+
+                            <option value="academia">
+                                Academia
+                            </option>
+                        </select>
+
+                        <div
+                            class="aula-custom-select"
+                            data-aula-select="aula-institucion"
+                            data-label="Institución"
+                            data-placeholder="Compartida"
+                            data-icon="institucion"
+                            data-search="false"
+                        ></div>
+
+                    </div>
+
+
                     {{-- EQUIPAMIENTO --}}
 
                     <div>

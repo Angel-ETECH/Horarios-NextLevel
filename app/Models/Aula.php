@@ -19,6 +19,7 @@ class Aula extends Model
         'capacidad',
         'tipo',
         'nivel',
+        'institucion',
         'edificio',
         'piso',
         'equipamiento',

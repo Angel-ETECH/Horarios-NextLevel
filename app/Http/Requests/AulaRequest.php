@@ -21,6 +21,7 @@ class AulaRequest extends FormRequest
             'capacidad' => 'required|integer|min:1|max:200',
             'tipo' => ['required', Rule::in(['aula_normal', 'taller', 'auditorio', 'virtual'])],
             'nivel' => ['required', Rule::in(['primaria', 'secundaria', 'academia', 'todos'])],
+            'institucion' => ['nullable', Rule::in(['colegio', 'academia', 'ambos'])],
             'edificio' => 'nullable|string|max:50',
             'piso' => 'nullable|string|max:10',
             'equipamiento' => 'nullable|string',
@@ -35,6 +36,7 @@ class AulaRequest extends FormRequest
             $rules['capacidad'] = 'sometimes|integer|min:1|max:200';
             $rules['tipo'] = ['sometimes', Rule::in(['aula_normal', 'taller', 'auditorio', 'virtual'])];
             $rules['nivel'] = ['sometimes', Rule::in(['primaria', 'secundaria', 'academia', 'todos'])];
+            $rules['institucion'] = ['sometimes', Rule::in(['colegio', 'academia', 'ambos'])];
             $rules['activo'] = 'sometimes|boolean';
         }
 

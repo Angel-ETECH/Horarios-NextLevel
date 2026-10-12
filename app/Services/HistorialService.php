@@ -3,8 +3,15 @@
 
 namespace App\Services;
 
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\DisponibilidadProfesor;
+use App\Models\Grado;
 use App\Models\HistorialCambio;
 use App\Models\Horario;
+use App\Models\Profesor;
+use App\Models\ProfesorCurso;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -139,13 +146,44 @@ class HistorialService
     }
 
     /**
-     * Revertir un horario a una versión anterior
+     * Revertir un cambio registrado en el historial.
+     *
+     * Los eventos de horarios restauran la clase; los eventos de otros módulos
+     * (profesores, cursos, grados, aulas, disponibilidad y asignaciones)
+     * restauran los valores anteriores o reactivan el registro.
      */
-    public function revertirCambio(int $historialId, ?string $motivo = null): Horario
+    public function revertirCambio(int $historialId, ?string $motivo = null): object
     {
         return DB::transaction(function () use ($historialId, $motivo) {
+
             $registro = HistorialCambio::findOrFail($historialId);
-            $horario = Horario::withTrashed()->findOrFail($registro->horario_id);
+
+            $modulo = $registro->datos_nuevos['modulo']
+                ?? $registro->datos_anteriores['modulo']
+                ?? null;
+
+            if ($modulo === 'horarios' || $registro->horario_id !== null) {
+                return $this->revertirHorario($registro, $motivo);
+            }
+
+            return $this->revertirEventoModulo($registro, $modulo, $motivo);
+        });
+    }
+
+    /**
+     * Revertir un evento de horario (restaura la clase).
+     */
+    private function revertirHorario(HistorialCambio $registro, ?string $motivo): Horario
+    {
+        $horario = $registro->horario_id
+            ? Horario::withTrashed()->find($registro->horario_id)
+            : null;
+
+        if (!$horario) {
+            throw ValidationException::withMessages([
+                'historial' => 'El horario de este registro ya no existe, así que no hay nada que revertir.'
+            ]);
+        }
 
             // Guardar el estado actual antes de revertir
             $estadoActual = $horario->toArray();
@@ -216,7 +254,136 @@ class HistorialService
             throw ValidationException::withMessages([
                 'historial' => 'No se puede revertir esta acción'
             ]);
-        });
+    }
+
+    /**
+     * Revertir un evento de los módulos de catálogo.
+     */
+    private function revertirEventoModulo(HistorialCambio $registro, ?string $modulo, ?string $motivo): object
+    {
+        $clase = $this->modeloDelModulo($modulo);
+
+        if (!$clase) {
+            throw ValidationException::withMessages([
+                'historial' => 'Este registro no se puede revertir desde el historial.'
+            ]);
+        }
+
+        if ($registro->accion === HistorialCambio::ACCION_CREAR) {
+            throw ValidationException::withMessages([
+                'historial' => 'Una creación de este módulo se deshace desde su propia pantalla, no desde el historial.'
+            ]);
+        }
+
+        $id = $registro->datos_nuevos['id']
+            ?? $registro->datos_anteriores['id']
+            ?? null;
+
+        $modelo = $id ? $this->buscarRegistro($clase, (int) $id) : null;
+
+        if (!$modelo) {
+            throw ValidationException::withMessages([
+                'historial' => 'El registro original ya no existe, así que no hay nada que revertir.'
+            ]);
+        }
+
+        $estadoActual = $modelo->toArray();
+
+        if ($registro->accion === HistorialCambio::ACCION_ACTUALIZAR && $registro->datos_anteriores) {
+
+            $modelo->update($this->datosRestaurables($registro->datos_anteriores));
+
+        } elseif ($registro->accion === HistorialCambio::ACCION_ELIMINAR) {
+
+            $this->reactivarRegistro($modelo);
+
+        } else {
+
+            throw ValidationException::withMessages([
+                'historial' => 'No se puede revertir esta acción.'
+            ]);
+        }
+
+        $modelo->refresh();
+
+        $this->registrarEvento(
+            (string) $modulo,
+            HistorialCambio::ACCION_REVERTIR,
+            $estadoActual,
+            $modelo->toArray(),
+            $motivo ?? 'Revertido desde historial'
+        );
+
+        return $modelo;
+    }
+
+    /**
+     * Modelo Eloquent asociado a cada módulo del historial.
+     */
+    private function modeloDelModulo(?string $modulo): ?string
+    {
+        return match ($modulo) {
+            'profesores' => Profesor::class,
+            'cursos' => Curso::class,
+            'grados' => Grado::class,
+            'aulas' => Aula::class,
+            'asignaciones' => ProfesorCurso::class,
+            'disponibilidad' => DisponibilidadProfesor::class,
+            default => null,
+        };
+    }
+
+    /**
+     * Buscar el registro incluso si está eliminado (soft delete).
+     */
+    private function buscarRegistro(string $clase, int $id): ?object
+    {
+        $consulta = in_array(SoftDeletes::class, class_uses_recursive($clase), true)
+            ? $clase::withTrashed()
+            : $clase::query();
+
+        return $consulta->find($id);
+    }
+
+    /**
+     * Campos del snapshot que sí se pueden volver a escribir.
+     */
+    private function datosRestaurables(array $datos): array
+    {
+        $excluidos = [
+            'id',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+            'modulo',
+            'tipo_registro',
+            'profesor_nombre',
+            'curso_nombre',
+            'grado_nombre',
+            'aula_nombre',
+            'aula_codigo',
+            'carga_horaria_actual',
+        ];
+
+        return array_diff_key($datos, array_flip($excluidos));
+    }
+
+    /**
+     * Reactivar un registro eliminado o desactivado.
+     */
+    private function reactivarRegistro(object $modelo): void
+    {
+        if (method_exists($modelo, 'trashed') && $modelo->trashed()) {
+            $modelo->restore();
+        }
+
+        if (array_key_exists('activo', $modelo->getAttributes())) {
+            $modelo->activo = true;
+        }
+
+        if ($modelo->isDirty()) {
+            $modelo->save();
+        }
     }
 
     /**
