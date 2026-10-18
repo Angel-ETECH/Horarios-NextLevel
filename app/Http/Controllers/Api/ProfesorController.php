@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProfesorRequest;
 use App\Models\Profesor;
+use App\Services\AsignacionService;
+use App\Services\HistorialService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -100,7 +102,29 @@ class ProfesorController extends Controller
             DB::beginTransaction();
 
             $profesor = Profesor::findOrFail($id);
+            $datosAnteriores = $profesor->toArray();
+            $institucionNueva = $request->validated()['institucion'];
+            if ($institucionNueva !== 'ambos' && \App\Models\ProfesorCurso::where('profesor_id', $id)
+                ->where('activo', true)->where('institucion', '!=', $institucionNueva)->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Desactiva primero las asignaciones de la otra institucion antes de cambiar al profesor.',
+                ], 422);
+            }
             $profesor->update($request->validated());
+
+            if ($profesor->estado !== 'activo') {
+                app(AsignacionService::class)->deleteByProfesor($profesor->id);
+            }
+
+            app(HistorialService::class)->registrarEvento(
+                'profesores',
+                'actualizar',
+                $datosAnteriores,
+                $profesor->fresh()->toArray(),
+                'Profesor actualizado'
+            );
 
             DB::commit();
 
@@ -131,6 +155,7 @@ class ProfesorController extends Controller
 
             // Verificar si tiene horarios activos
             if ($profesor->horarios()->where('estado', 'activo')->count() > 0) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el profesor porque tiene horarios activos'

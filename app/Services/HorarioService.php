@@ -43,6 +43,7 @@ class HorarioService
         $horaInicio = $data['hora_inicio'];
         $horaFin = $data['hora_fin'];
         $institucion = $data['institucion'];
+        $periodoAcademico = $data['periodo_academico'];
 
         // 0. VALIDAR RANGO HORARIO BÁSICO
         $this->validarRangoHorarioBasico($horaInicio, $horaFin);
@@ -58,13 +59,13 @@ class HorarioService
         );
 
         // 2. VALIDAR QUE EL PROFESOR NO TENGA CONFLICTO CON OTRO HORARIO
-        $this->validarConflictoProfesor($profesorId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
+        $this->validarConflictoProfesor($profesorId, $dia, $horaInicio, $horaFin, $institucion, $periodoAcademico, $excludeId);
 
         // 3. VALIDAR QUE EL AULA ESTÉ DISPONIBLE (sin conflictos)
-        $this->validarConflictoAula($aulaId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
+        $this->validarConflictoAula($aulaId, $dia, $horaInicio, $horaFin, $institucion, $periodoAcademico, $excludeId);
 
         // 4. VALIDAR QUE EL GRADO ESTÉ DISPONIBLE (sin conflictos)
-        $this->validarConflictoGrado($gradoId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
+        $this->validarConflictoGrado($gradoId, $dia, $horaInicio, $horaFin, $institucion, $periodoAcademico, $excludeId);
 
         // 5. VALIDAR QUE EL CURSO EXISTA Y ESTÉ ACTIVO
         $curso = Curso::findOrFail($cursoId);
@@ -125,8 +126,14 @@ class HorarioService
         // 14. VALIDAR QUE EXISTA UNA ASIGNACIÓN ACTIVA PARA ESTE HORARIO
         $asignacion = $this->obtenerAsignacionActiva($profesorId, $cursoId, $gradoId, $institucion);
 
+        if ((int) $asignacion->aula_id !== (int) $aulaId) {
+            throw ValidationException::withMessages([
+                'aula_id' => 'El aula debe coincidir con la seleccionada en la asignacion.',
+            ]);
+        }
+
         // 15. VALIDAR QUE NO SE PROGRAMEN MÁS CLASES QUE LAS ASIGNADAS
-        $this->validarLimiteHorasAsignadas($asignacion, $excludeId);
+        $this->validarLimiteHorasAsignadas($asignacion, $periodoAcademico, $excludeId);
     }
 
     /**
@@ -243,9 +250,10 @@ class HorarioService
     /**
      * Evitar que se creen más bloques que las horas asignadas.
      */
-    private function validarLimiteHorasAsignadas(ProfesorCurso $asignacion, ?int $excludeId = null): void
+    private function validarLimiteHorasAsignadas(ProfesorCurso $asignacion, string $periodoAcademico, ?int $excludeId = null): void
     {
         $query = Horario::where('profesor_id', $asignacion->profesor_id)
+            ->where('periodo_academico', $periodoAcademico)
             ->where('curso_id', $asignacion->curso_id)
             ->where('grado_id', $asignacion->grado_id)
             ->where('institucion', $asignacion->institucion ?? 'colegio')
@@ -265,9 +273,10 @@ class HorarioService
     /**
      * Validar que el profesor no tenga conflicto con otro horario
      */
-    private function validarConflictoProfesor(int $profesorId, string $dia, string $horaInicio, string $horaFin, string $institucion, ?int $excludeId = null): void
+    private function validarConflictoProfesor(int $profesorId, string $dia, string $horaInicio, string $horaFin, string $institucion, string $periodoAcademico, ?int $excludeId = null): void
     {
         $query = Horario::where('profesor_id', $profesorId)
+            ->where('periodo_academico', $periodoAcademico)
             ->where('dia_semana', $dia)
             ->where('estado', 'activo');
 
@@ -296,9 +305,10 @@ class HorarioService
     /**
      * Validar que el aula no tenga conflicto con otro horario
      */
-    private function validarConflictoAula(int $aulaId, string $dia, string $horaInicio, string $horaFin, string $institucion, ?int $excludeId = null): void
+    private function validarConflictoAula(int $aulaId, string $dia, string $horaInicio, string $horaFin, string $institucion, string $periodoAcademico, ?int $excludeId = null): void
     {
         $query = Horario::where('aula_id', $aulaId)
+            ->where('periodo_academico', $periodoAcademico)
             ->where('dia_semana', $dia)
             ->where('estado', 'activo');
 
@@ -327,9 +337,10 @@ class HorarioService
     /**
      * Validar que el grado no tenga conflicto con otro horario
      */
-    private function validarConflictoGrado(int $gradoId, string $dia, string $horaInicio, string $horaFin, string $institucion, ?int $excludeId = null): void
+    private function validarConflictoGrado(int $gradoId, string $dia, string $horaInicio, string $horaFin, string $institucion, string $periodoAcademico, ?int $excludeId = null): void
     {
         $query = Horario::where('grado_id', $gradoId)
+            ->where('periodo_academico', $periodoAcademico)
             ->where('dia_semana', $dia)
             ->where('institucion', $institucion)
             ->where('estado', 'activo');
@@ -382,6 +393,13 @@ class HorarioService
     /**
      * Crear un nuevo horario
      */
+    public function validarParaRestaurar(array $data, ?int $excludeId = null): void
+    {
+        $data['hora_inicio'] = Carbon::parse($data['hora_inicio'])->format('H:i');
+        $data['hora_fin'] = Carbon::parse($data['hora_fin'])->format('H:i');
+        $this->validarHorarioCompleto($data, $excludeId);
+    }
+
     public function create(array $data): Horario
     {
         return DB::transaction(function () use ($data) {
@@ -411,6 +429,8 @@ class HorarioService
 
             // Fusionar datos existentes con los nuevos para validación
             $mergedData = array_merge($horario->toArray(), $data);
+            $mergedData['hora_inicio'] = $data['hora_inicio'] ?? $horario->hora_inicio->format('H:i');
+            $mergedData['hora_fin'] = $data['hora_fin'] ?? $horario->hora_fin->format('H:i');
 
             // Validación completa (excluyendo el horario actual)
             $this->validarHorarioCompleto($mergedData, $id);

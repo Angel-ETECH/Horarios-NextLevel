@@ -206,6 +206,15 @@ class AulaService
         return DB::transaction(function () use ($id, $data) {
             $aula = Aula::findOrFail($id);
 
+            if (array_key_exists('activo', $data) && !$data['activo'] && (
+                $aula->horarios()->where('estado', 'activo')->exists() ||
+                \App\Models\ProfesorCurso::where('aula_id', $id)->where('activo', true)->exists()
+            )) {
+                throw ValidationException::withMessages([
+                    'activo' => 'Desactiva primero las asignaciones que utilizan esta aula.',
+                ]);
+            }
+
             // Validar código único (si cambia)
             if (isset($data['codigo']) && $data['codigo'] !== $aula->codigo) {
                 if (Aula::where('codigo', $data['codigo'])
@@ -254,6 +263,12 @@ class AulaService
     public function delete(int $id): bool
     {
         $aula = Aula::findOrFail($id);
+
+        if (\App\Models\ProfesorCurso::where('aula_id', $id)->where('activo', true)->exists()) {
+            throw ValidationException::withMessages([
+                'aula' => 'No se puede eliminar el aula porque tiene asignaciones activas.',
+            ]);
+        }
 
         // Verificar si tiene horarios activos
         if ($aula->horarios()->where('estado', 'activo')->exists()) {

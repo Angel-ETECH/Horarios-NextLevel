@@ -297,6 +297,13 @@ class AsignacionService
                 'profesor_id' => 'El profesor no está activo'
             ]);
         }
+
+        $institucion = $data['institucion'] ?? null;
+        if ($institucion && !in_array($profesor->institucion, [$institucion, 'ambos'], true)) {
+            throw ValidationException::withMessages([
+                'institucion' => 'El profesor no pertenece a la institucion seleccionada.',
+            ]);
+        }
     }
 
     private function validateConfiguracionRecesos(int $gradoId, string $institucion): void
@@ -407,11 +414,15 @@ class AsignacionService
             $nuevasHoras = $data['horas_asignadas'] ?? $horasActuales;
             $nuevaInstitucion = $data['institucion'] ?? $institucionActual;
 
-            // 1. Validar que los IDs existan (si cambiaron)
-            if (isset($data['profesor_id']) && $data['profesor_id'] != $profesorIdActual) {
-                $this->validateProfesorCurso($data);
+            if ((bool) ($data['activo'] ?? $asignacion->activo)) {
+                $this->validateProfesorCurso([
+                    'profesor_id' => $nuevoProfesorId,
+                    'curso_id' => $nuevoCursoId,
+                    'institucion' => $nuevaInstitucion,
+                ]);
             }
 
+            // 1. Validar que los IDs existan (si cambiaron)
             if (isset($data['curso_id']) || isset($data['grado_id'])) {
                 $this->validateCursoYGrado(
                     $data['curso_id'] ?? $cursoIdActual,
@@ -606,6 +617,17 @@ class AsignacionService
         return DB::transaction(function () use ($id) {
             $asignacion = ProfesorCurso::findOrFail($id);
             $datosAnteriores = $this->snapshotAsignacion($asignacion);
+
+            $this->validateProfesorCurso([
+                'profesor_id' => $asignacion->profesor_id,
+                'curso_id' => $asignacion->curso_id,
+                'institucion' => $asignacion->institucion ?? 'colegio',
+            ]);
+            $this->validateCursoYGrado(
+                $asignacion->curso_id,
+                $asignacion->grado_id,
+                $asignacion->institucion ?? 'colegio'
+            );
 
             // Verificar que no haya duplicado al activar
             $this->validateUnique([

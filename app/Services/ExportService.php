@@ -122,14 +122,10 @@ class ExportService
         }
 
         if ($sortBy === 'dia_semana') {
-            $query->orderByRaw(
-                "FIELD(dia_semana, 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado') {$sortOrder}"
-            );
+            $query->ordenSemanal($sortOrder);
         } else {
             $query->orderBy($sortBy, $sortOrder);
-            $query->orderByRaw(
-                "FIELD(dia_semana, 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado') asc"
-            );
+            $query->ordenSemanal();
         }
 
         $query->orderBy('hora_inicio', 'asc');
@@ -172,7 +168,7 @@ class ExportService
 
         Excel::store($export, $ruta, 'public');
 
-        return Storage::url($ruta);
+        return Storage::disk('public')->url($ruta);
     }
 
     /**
@@ -200,9 +196,9 @@ class ExportService
         $nombre = 'horario_' . now()->format('Y-m-d_H-i-s') . '.pdf';
         $ruta = $this->path . $nombre;
 
-        Storage::put('public/' . $ruta, $pdf->output());
+        Storage::disk('public')->put($ruta, $pdf->output());
 
-        return Storage::url($ruta);
+        return Storage::disk('public')->url($ruta);
     }
 
     /**
@@ -273,7 +269,7 @@ class ExportService
 
         fclose($handle);
 
-        return Storage::url($ruta);
+        return Storage::disk('public')->url($ruta);
     }
 
     private function formatearHora($valor): string

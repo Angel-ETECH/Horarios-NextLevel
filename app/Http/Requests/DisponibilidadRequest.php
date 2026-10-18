@@ -38,7 +38,6 @@ class DisponibilidadRequest extends FormRequest
                     'viernes',
                     'sábado',
                     'sabado',
-                    'domingo',
                 ]),
             ],
 

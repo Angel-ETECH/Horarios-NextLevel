@@ -20,6 +20,20 @@ class DisponibilidadController extends Controller
         $this->disponibilidadService = $disponibilidadService;
     }
 
+    public function reemplazar(Request $request, int $profesorId, string $institucion): JsonResponse
+    {
+        abort_unless(in_array($institucion, ['colegio', 'academia'], true), 404);
+        $data = $request->validate([
+            'franjas' => 'present|array|max:100',
+            'franjas.*.dia_semana' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado',
+            'franjas.*.hora_inicio' => 'required|date_format:H:i',
+            'franjas.*.hora_fin' => 'required|date_format:H:i',
+            'franjas.*.turno' => 'nullable|in:mañana,tarde,noche',
+        ]);
+        $disponibilidades = $this->disponibilidadService->reemplazar($profesorId, $institucion, $data['franjas']);
+        return response()->json(['success' => true, 'data' => $disponibilidades]);
+    }
+
     private function normalizarDia(?string $dia): ?string
     {
         if ($dia === null || $dia === '') {

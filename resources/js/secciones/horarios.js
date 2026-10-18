@@ -336,6 +336,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let cargando =
         false;
 
+    let recargaDatosPendiente = false;
+
     // =========================================================
     // UTILIDADES
     // =========================================================
@@ -2873,8 +2875,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (
             cargando
         ) {
+            recargaDatosPendiente = true;
             return;
         }
+
+        const institucionConsulta = institucionActiva;
+        recargaDatosPendiente = false;
 
         cargando =
             true;
@@ -2891,7 +2897,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         API.horarios,
                         {
                             institucion:
-                                institucionActiva,
+                                institucionConsulta,
                         }
                     ),
 
@@ -2910,7 +2916,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         API.disponibilidades,
                         {
                             institucion:
-                                institucionActiva,
+                                institucionConsulta,
                         }
                     )
                         .catch(
@@ -2921,13 +2927,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         API.configuraciones,
                         {
                             institucion:
-                                institucionActiva,
+                                institucionConsulta,
                         }
                     )
                         .catch(
                             () => []
                         ),
                 ]);
+
+            if (institucionConsulta !== institucionActiva) {
+                return;
+            }
 
             horariosCache =
                 horarios.map(
@@ -2945,6 +2955,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             render();
         } catch (error) {
+            if (institucionConsulta !== institucionActiva) {
+                return;
+            }
+
             console.error(
                 'Error cargando horarios:',
                 error
@@ -2975,6 +2989,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             cargando =
                 false;
+
+            if (recargaDatosPendiente || institucionConsulta !== institucionActiva) {
+                await cargarDatos({ silencioso });
+            }
         }
     }
 
@@ -7097,80 +7115,32 @@ document.addEventListener('DOMContentLoaded', () => {
     // EXPORTACIONES REALES
     // =========================================================
 
-    function obtenerFiltrosExportacion(
-        grupo = null
-    ) {
+    function obtenerFiltrosExportacion(grupo = null) {
         const params = {
-            institucion:
-                institucionActiva,
+            institucion: institucionActiva,
         };
 
-        if (
-            grupo
-        ) {
-            if (
-                grupo.tipo ===
-                'profesor'
-            ) {
-                params.profesor_id =
-                    grupo.id;
-            }
+        const filtros = {
+            profesor_id: filtroProfesor,
+            aula_id: filtroAula,
+            grado_id: filtroGrado,
+            curso_id: filtroCurso,
+        };
 
-            if (
-                grupo.tipo ===
-                'aula'
-            ) {
-                params.aula_id =
-                    grupo.id;
+        Object.entries(filtros).forEach(([campo, select]) => {
+            if (select?.value && select.value !== 'todos') {
+                params[campo] = select.value;
             }
+        });
 
-            if (
-                grupo.tipo ===
-                'grado'
-            ) {
-                params.grado_id =
-                    grupo.id;
-            }
-        } else {
-            if (
-                filtroProfesor?.value
-                &&
-                filtroProfesor.value !==
-                'todos'
-            ) {
-                params.profesor_id =
-                    filtroProfesor.value;
-            }
+        const campoGrupo = {
+            profesor: 'profesor_id',
+            aula: 'aula_id',
+            grado: 'grado_id',
+        }[grupo?.tipo];
 
-            if (
-                filtroAula?.value
-                &&
-                filtroAula.value !==
-                'todos'
-            ) {
-                params.aula_id =
-                    filtroAula.value;
-            }
-
-            if (
-                filtroGrado?.value
-                &&
-                filtroGrado.value !==
-                'todos'
-            ) {
-                params.grado_id =
-                    filtroGrado.value;
-            }
-        }
-
-        if (
-            filtroCurso?.value
-            &&
-            filtroCurso.value !==
-            'todos'
-        ) {
-            params.curso_id =
-                filtroCurso.value;
+        if (campoGrupo) {
+            params[campoGrupo] = grupo.id;
         }
 
         return params;

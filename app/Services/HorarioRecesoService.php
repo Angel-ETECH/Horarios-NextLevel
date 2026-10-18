@@ -68,11 +68,24 @@ class HorarioRecesoService
             ->values();
     }
 
-    public function validarBloques(array $bloques, string $turno): void
+    public function validarBloques(array $bloques, string $turno, ?string $inicio = null, ?string $fin = null): void
     {
         $bloquesOrdenados = collect($bloques)
             ->sortBy(fn ($bloque) => $this->minutos($bloque['hora_inicio']))
             ->values();
+
+        if ($bloquesOrdenados->isEmpty()) {
+            throw ValidationException::withMessages(['bloques' => 'La configuracion debe contener bloques.']);
+        }
+        foreach ($bloquesOrdenados as $bloque) {
+            if ($this->minutos($bloque['hora_inicio']) >= $this->minutos($bloque['hora_fin'])) {
+                throw ValidationException::withMessages(['bloques' => 'Cada bloque debe terminar despues de su inicio.']);
+            }
+        }
+        if (($inicio !== null && $this->minutos($bloquesOrdenados->first()['hora_inicio']) !== $this->minutos($inicio))
+            || ($fin !== null && $this->minutos($bloquesOrdenados->last()['hora_fin']) !== $this->minutos($fin))) {
+            throw ValidationException::withMessages(['bloques' => 'Los bloques deben cubrir toda la jornada configurada.']);
+        }
 
         for ($index = 1; $index < $bloquesOrdenados->count(); $index++) {
             $anterior = $bloquesOrdenados[$index - 1];
@@ -119,7 +132,8 @@ class HorarioRecesoService
             ]);
         }
 
-        $this->validarBloques($config->bloques->toArray(), $config->turno);
+        $this->validarBloques($config->bloques->toArray(), $config->turno,
+            $this->hora($config->hora_inicio), $this->hora($config->hora_fin));
     }
 
     public function validarNoChocaConReceso(string $institucion, string $nivel, string $turno, string $horaInicio, string $horaFin): void

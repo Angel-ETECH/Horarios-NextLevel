@@ -9,6 +9,7 @@ use App\Services\AsignacionService;
 use App\Services\HorarioGeneratorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AsignacionController extends Controller
@@ -31,11 +32,19 @@ class AsignacionController extends Controller
             return null;
         }
 
-        return $this->horarioGeneratorService->generarHorarios([
+        $resultado = $this->horarioGeneratorService->generarHorarios([
             'profesor_id' => $asignacion->profesor_id,
             'institucion' => $asignacion->institucion ?? 'colegio',
             'respetar_existentes' => true,
         ]);
+
+        if (!($resultado['success'] ?? false)) {
+            throw ValidationException::withMessages([
+                'horarios' => 'No se pudo generar el horario. No se guardaron los cambios de la asignacion.',
+            ]);
+        }
+
+        return $resultado;
     }
 
     /**
@@ -161,8 +170,10 @@ class AsignacionController extends Controller
     public function store(AsignacionRequest $request): JsonResponse
     {
         try {
-            $asignacion = $this->asignacionService->create($request->validated());
-            $generacion = $this->generarHorarioDeAsignacion($asignacion);
+            [$asignacion, $generacion] = DB::transaction(function () use ($request) {
+                $asignacion = $this->asignacionService->create($request->validated());
+                return [$asignacion, $this->generarHorarioDeAsignacion($asignacion)];
+            });
 
             return response()->json([
                 'success' => true,
@@ -192,8 +203,10 @@ class AsignacionController extends Controller
     public function update(AsignacionRequest $request, int $id): JsonResponse
     {
         try {
-            $asignacion = $this->asignacionService->update($id, $request->validated());
-            $generacion = $this->generarHorarioDeAsignacion($asignacion);
+            [$asignacion, $generacion] = DB::transaction(function () use ($request, $id) {
+                $asignacion = $this->asignacionService->update($id, $request->validated());
+                return [$asignacion, $this->generarHorarioDeAsignacion($asignacion)];
+            });
 
             return response()->json([
                 'success' => true,
@@ -296,8 +309,12 @@ class AsignacionController extends Controller
     public function activar(int $id): JsonResponse
     {
         try {
-            $asignacion = $this->asignacionService->activar($id);
-            $generacion = $this->generarHorarioDeAsignacion($asignacion);
+            [$asignacion, $generacion] = DB::transaction(function () use ($id) {
+                $asignacion = $this->asignacionService->activar($id);
+                $generacion = $this->generarHorarioDeAsignacion($asignacion);
+
+                return [$asignacion, $generacion];
+            });
 
             return response()->json([
                 'success' => true,

@@ -72,6 +72,16 @@ class Horario extends Model
         return $query->where('estado', 'activo');
     }
 
+    public function scopeOrdenSemanal($query, string $direccion = 'asc')
+    {
+        $direccion = $direccion === 'desc' ? 'desc' : 'asc';
+        return $query->orderByRaw("CASE dia_semana
+            WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2
+            WHEN 'miércoles' THEN 3 WHEN 'miercoles' THEN 3
+            WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5
+            WHEN 'sábado' THEN 6 WHEN 'sabado' THEN 6 ELSE 7 END {$direccion}");
+    }
+
     public function scopePeriodo($query, $periodo)
     {
         return $query->where('periodo_academico', $periodo);

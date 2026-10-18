@@ -84,7 +84,19 @@ class CursoController extends Controller
             DB::beginTransaction();
 
             $curso = Curso::findOrFail($id);
-            $curso->update($request->validated());
+            $data = $request->validated();
+            $tieneAsignaciones = $curso->profesores()->wherePivot('activo', true)->exists();
+            if ($tieneAsignaciones && (
+                (array_key_exists('activo', $data) && !$data['activo']) ||
+                ($data['nivel'] ?? $curso->nivel) !== $curso->nivel
+            )) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Desactiva primero las asignaciones antes de desactivar el curso o cambiar su nivel.',
+                ], 422);
+            }
+            $curso->update($data);
 
             DB::commit();
 
@@ -112,6 +124,7 @@ class CursoController extends Controller
 
             // Verificar si tiene asignaciones activas
             if ($curso->profesores()->wherePivot('activo', true)->count() > 0) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el curso porque tiene asignaciones activas'

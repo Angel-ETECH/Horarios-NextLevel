@@ -2424,6 +2424,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // =============================================================
 
     async function consultarHorario() {
+        const contexto = `${institucionSeleccionada}|${tipoSeleccionado}|${selector.value}`;
+        const consultaSigueVigente = () => contexto === `${institucionSeleccionada}|${tipoSeleccionado}|${selector.value}`;
 
         mensaje?.classList.add(
             'hidden'
@@ -2526,6 +2528,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 respuesta?.data ||
                 {};
 
+            if (!consultaSigueVigente()) {
+                return;
+            }
+
 
             const registro =
                 resultado.info ||
@@ -2583,6 +2589,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Error consultando horario:',
                 error
             );
+
+            if (!consultaSigueVigente()) {
+                return;
+            }
 
 
             mostrarMensaje(

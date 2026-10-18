@@ -150,6 +150,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::prefix('disponibilidades')->group(function () {
+        Route::put('/profesor/{profesorId}/institucion/{institucion}', [DisponibilidadController::class, 'reemplazar']);
         Route::get('/', [DisponibilidadController::class, 'index']);
         Route::get('/estadisticas', [DisponibilidadController::class, 'getEstadisticas']);
         Route::get('/agrupadas/{profesorId}', [DisponibilidadController::class, 'getAgrupadasPorDia']);

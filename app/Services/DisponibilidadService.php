@@ -12,6 +12,58 @@ use Illuminate\Validation\ValidationException;
 
 class DisponibilidadService
 {
+    public function reemplazar(int $profesorId, string $institucion, array $franjas): Collection
+    {
+        return DB::transaction(function () use ($profesorId, $institucion, $franjas) {
+            $profesor = Profesor::lockForUpdate()->findOrFail($profesorId);
+            if (!in_array($profesor->institucion, [$institucion, 'ambos'], true)) {
+                throw ValidationException::withMessages([
+                    'institucion' => 'El profesor no pertenece a esta institucion.',
+                ]);
+            }
+            $this->deleteByInstitucion($profesorId, $institucion, false);
+            foreach ($franjas as $franja) {
+                $this->create(array_merge($franja, [
+                    'profesor_id' => $profesorId, 'institucion' => $institucion, 'tipo' => 'disponible',
+                ]));
+            }
+            $this->validarHorariosGuardados($profesorId, $institucion);
+            return $this->getByProfesorEInstitucion($profesorId, $institucion);
+        });
+    }
+
+    public function rangoEstaCubierto(\Illuminate\Support\Collection $rangos, string $inicio, string $fin): bool
+    {
+        $cursor = Carbon::parse($inicio);
+        $limite = Carbon::parse($fin);
+        foreach ($rangos->sortBy(fn ($rango) => Carbon::parse($rango->hora_inicio)->format('H:i')) as $rango) {
+            $desde = Carbon::parse($rango->hora_inicio);
+            $hasta = Carbon::parse($rango->hora_fin);
+            if ($hasta->lte($cursor)) {
+                continue;
+            }
+            if ($desde->gt($cursor)) {
+                return false;
+            }
+            $cursor = $hasta;
+            if ($cursor->gte($limite)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function validarHorariosGuardados(int $profesorId, ?string $institucion = null): void
+    {
+        $query = \App\Models\Horario::where('profesor_id', $profesorId)->where('estado', 'activo');
+        if ($institucion !== null) {
+            $query->where('institucion', $institucion);
+        }
+        foreach ($query->get() as $horario) {
+            $this->validarRangoEnDisponibilidad($profesorId, $horario->dia_semana,
+                $horario->hora_inicio->format('H:i'), $horario->hora_fin->format('H:i'), $horario->institucion);
+        }
+    }
     public function __construct(
         private HorarioRecesoService $recesoService,
         private HistorialService $historialService
@@ -196,49 +248,7 @@ class DisponibilidadService
             ]);
         }
 
-        $horaInicioCarbon =
-            Carbon::parse(
-                $horaInicio
-            );
-
-        $horaFinCarbon =
-            Carbon::parse(
-                $horaFin
-            );
-
-        $rangoValido =
-            false;
-
-        foreach (
-            $disponibilidades
-            as $disponibilidad
-        ) {
-
-            $dispInicio =
-                Carbon::parse(
-                    $disponibilidad
-                        ->hora_inicio
-                );
-
-            $dispFin =
-                Carbon::parse(
-                    $disponibilidad
-                        ->hora_fin
-                );
-
-            if (
-                $horaInicioCarbon >=
-                    $dispInicio &&
-                $horaFinCarbon <=
-                    $dispFin
-            ) {
-
-                $rangoValido =
-                    true;
-
-                break;
-            }
-        }
+        $rangoValido = $this->rangoEstaCubierto($disponibilidades, $horaInicio, $horaFin);
 
         if (
             !$rangoValido
@@ -676,6 +686,13 @@ class DisponibilidadService
                             'profesor'
                         );
 
+                    $this->registrarAuditoriaDisponibilidad(
+                        'restaurar',
+                        null,
+                        $registroEliminado,
+                        'Disponibilidad restaurada'
+                    );
+
 
                     return
                         $registroEliminado;
@@ -792,6 +809,8 @@ class DisponibilidadService
                         $data
                     );
 
+                $this->validarHorariosGuardados((int) $datosAnteriores['profesor_id'], $datosAnteriores['institucion']);
+
 
                 $disponibilidad
                     ->load(
@@ -834,6 +853,8 @@ class DisponibilidadService
             $resultado =
                 $disponibilidad
                     ->delete();
+
+            $this->validarHorariosGuardados($disponibilidad->profesor_id, $disponibilidad->institucion);
 
             $this->historialService->registrarEvento(
                 'disponibilidad',
@@ -886,6 +907,7 @@ class DisponibilidadService
                 );
             }
 
+            $this->validarHorariosGuardados($profesor->id);
             return
                 $disponibilidades->count();
         });
@@ -896,12 +918,14 @@ class DisponibilidadService
      */
     public function deleteByInstitucion(
         int $profesorId,
-        string $institucion
+        string $institucion,
+        bool $validarHorarios = true
     ): int {
 
         return DB::transaction(function () use (
             $profesorId,
-            $institucion
+            $institucion,
+            $validarHorarios
         ) {
             $disponibilidades =
                 DisponibilidadProfesor::where(
@@ -934,6 +958,9 @@ class DisponibilidadService
                 );
             }
 
+            if ($validarHorarios) {
+                $this->validarHorariosGuardados($profesorId, $institucion);
+            }
             return
                 $disponibilidades->count();
         });

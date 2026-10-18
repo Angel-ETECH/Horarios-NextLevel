@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ConfiguracionHorarioController extends Controller
 {
@@ -96,25 +97,29 @@ class ConfiguracionHorarioController extends Controller
 
         $this->recesoService->validarBloques(
             $request->input('bloques', []),
-            $request->input('turno')
+            $request->input('turno'),
+            $request->input('hora_inicio'),
+            $request->input('hora_fin')
         );
 
-        $config = ConfiguracionHorario::create($request->except('bloques'));
+        return DB::transaction(function () use ($request): JsonResponse {
+            $config = ConfiguracionHorario::create($request->except('bloques'));
 
-        foreach ($request->bloques as $bloque) {
-            $config->bloques()->create($bloque);
-        }
+            foreach ($request->bloques as $bloque) {
+                $config->bloques()->create($bloque);
+            }
 
-        $reprogramacion = $this->reprogramarHorariosAfectados(
-            $config->fresh()->load('bloques')
-        );
+            $reprogramacion = $this->reprogramarHorariosAfectados(
+                $config->fresh()->load('bloques')
+            );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Configuración creada exitosamente',
-            'data' => $config->load('bloques'),
-            'reprogramacion_horarios' => $reprogramacion,
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Configuración creada exitosamente',
+                'data' => $config->load('bloques'),
+                'reprogramacion_horarios' => $reprogramacion,
+            ], 201);
+        });
     }
 
     /**
@@ -122,8 +127,6 @@ class ConfiguracionHorarioController extends Controller
      */
     public function update(Request $request, int $id): JsonResponse
     {
-        $config = ConfiguracionHorario::findOrFail($id);
-
         $request->validate([
             'institucion' => 'sometimes|in:colegio,academia',
             'nivel' => 'sometimes|in:primaria,secundaria,academia',
@@ -140,31 +143,38 @@ class ConfiguracionHorarioController extends Controller
             'bloques.*.tipo' => 'required_with:bloques|in:clase,receso',
         ]);
 
-        $turnoFinal = $request->input('turno', $config->turno);
-        $bloquesFinales = $request->input('bloques');
+        return DB::transaction(function () use ($request, $id): JsonResponse {
+            $config = ConfiguracionHorario::lockForUpdate()->findOrFail($id);
+            $turnoFinal = $request->input('turno', $config->turno);
+            $bloquesFinales = $request->input('bloques');
 
-        if ($bloquesFinales !== null) {
-            $this->recesoService->validarBloques($bloquesFinales, $turnoFinal);
-        }
-
-        $config->update($request->except('bloques'));
-
-        if ($request->has('bloques')) {
-            $config->bloques()->delete();
-            foreach ($request->bloques as $bloque) {
-                $config->bloques()->create($bloque);
+            if ($bloquesFinales !== null || $request->hasAny(['hora_inicio', 'hora_fin', 'turno'])) {
+                $this->recesoService->validarBloques(
+                    $bloquesFinales ?? $config->bloques->toArray(), $turnoFinal,
+                    $request->input('hora_inicio', $config->hora_inicio->format('H:i')),
+                    $request->input('hora_fin', $config->hora_fin->format('H:i'))
+                );
             }
-        }
 
-        $configActualizada = $config->fresh()->load('bloques');
-        $reprogramacion = $this->reprogramarHorariosAfectados($configActualizada);
+            $config->update($request->except('bloques'));
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Configuración actualizada exitosamente',
-            'data' => $configActualizada,
-            'reprogramacion_horarios' => $reprogramacion,
-        ]);
+            if ($request->has('bloques')) {
+                $config->bloques()->delete();
+                foreach ($request->bloques as $bloque) {
+                    $config->bloques()->create($bloque);
+                }
+            }
+
+            $configActualizada = $config->fresh()->load('bloques');
+            $reprogramacion = $this->reprogramarHorariosAfectados($configActualizada);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Configuración actualizada exitosamente',
+                'data' => $configActualizada,
+                'reprogramacion_horarios' => $reprogramacion,
+            ]);
+        });
     }
 
     /**
@@ -173,6 +183,19 @@ class ConfiguracionHorarioController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $config = ConfiguracionHorario::findOrFail($id);
+
+        $asignaciones = ProfesorCurso::where('institucion', $config->institucion)
+            ->where('activo', true)->whereHas('grado', function ($query) use ($config) {
+                $query->where('nivel', $config->nivel);
+                if ($config->turno !== 'completo') {
+                    $query->where('turno', $config->turno);
+                }
+            });
+        if ($asignaciones->exists()) {
+            throw ValidationException::withMessages([
+                'configuracion' => 'No se puede eliminar una configuracion utilizada por asignaciones activas.',
+            ]);
+        }
 
         // Verificar que no tenga horarios generados
         // (opcional: podrías bloquear la eliminación si hay horarios asociados)
@@ -271,7 +294,7 @@ class ConfiguracionHorarioController extends Controller
             ->unique()
             ->values();
 
-        $this->sincronizarAulasAsignacionDesdeHorarios($horarios);
+        $this->validarAulasAsignadas($horarios);
 
         DB::transaction(function () use ($horarios): void {
             foreach ($horarios as $horario) {
@@ -289,6 +312,7 @@ class ConfiguracionHorarioController extends Controller
 
         $horariosCreados = 0;
         $errores = [];
+        $incompletas = [];
 
         foreach ($gradoIds as $gradoId) {
             $resultado = $this->generatorService->generarHorarios([
@@ -297,6 +321,10 @@ class ConfiguracionHorarioController extends Controller
                 'periodo_academico' => $periodoAcademico,
                 'respetar_existentes' => true,
             ]);
+
+            foreach ($resultado['asignaciones_incompletas'] ?? [] as $incompleta) {
+                $incompletas[] = array_merge($incompleta, ['grado_id' => $gradoId]);
+            }
 
             if (($resultado['success'] ?? false) !== true) {
                 $errores[] = [
@@ -310,7 +338,26 @@ class ConfiguracionHorarioController extends Controller
             $horariosCreados += (int) ($resultado['horarios_creados'] ?? 0);
         }
 
-        $incompletas = $this->generatorService->obtenerAsignacionesIncompletas();
+        if (!empty($errores) || !empty($incompletas)) {
+            $mensajes = [];
+
+            foreach ($errores as $error) {
+                $mensajes[] = "Grado {$error['grado_id']}: {$error['motivo']}";
+            }
+
+            foreach ($incompletas as $incompleta) {
+                $pendientes = $incompleta['horas_pendientes'] ?? '?';
+                $motivo = $incompleta['motivo'] ?? 'No se pudieron asignar todas las horas.';
+                $mensajes[] = "Grado {$incompleta['grado_id']}: {$pendientes} horas pendientes. {$motivo}";
+            }
+
+            throw ValidationException::withMessages([
+                'reprogramacion_horarios' => array_merge(
+                    ['No se guardaron los cambios porque la reprogramacion no se completo.'],
+                    $mensajes
+                ),
+            ]);
+        }
 
         return [
             'total_eliminados' => $horarios->count(),
@@ -323,7 +370,7 @@ class ConfiguracionHorarioController extends Controller
         ];
     }
 
-    private function sincronizarAulasAsignacionDesdeHorarios($horarios): void
+    private function validarAulasAsignadas($horarios): void
     {
         $horarios
             ->groupBy(
@@ -331,29 +378,18 @@ class ConfiguracionHorarioController extends Controller
                     "{$horario->profesor_id}-{$horario->curso_id}-{$horario->grado_id}-{$horario->institucion}"
             )
             ->each(function ($grupo): void {
-                $aulaId = $grupo
-                    ->pluck('aula_id')
-                    ->filter()
-                    ->countBy()
-                    ->sortDesc()
-                    ->keys()
-                    ->first();
-
-                if (!$aulaId) {
-                    return;
-                }
-
                 $primero = $grupo->first();
-
-                ProfesorCurso::where('profesor_id', $primero->profesor_id)
+                $pendiente = ProfesorCurso::where('profesor_id', $primero->profesor_id)
                     ->where('curso_id', $primero->curso_id)
                     ->where('grado_id', $primero->grado_id)
                     ->where('institucion', $primero->institucion)
                     ->where('activo', true)
-                    ->whereNull('aula_id')
-                    ->update([
-                        'aula_id' => $aulaId,
+                    ->whereNull('aula_id')->exists();
+                if ($pendiente) {
+                    throw ValidationException::withMessages([
+                        'aula_id' => 'Selecciona el aula de las asignaciones pendientes antes de cambiar los recesos.',
                     ]);
+                }
             });
     }
 

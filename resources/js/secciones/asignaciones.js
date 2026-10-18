@@ -95,7 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let grados = [];
     let aulas = [];
     let asignaciones = [];
-    let disponibilidadesProfesor = {};
+    let consultaDisponibilidad = 0;
+    let consultaRecesos = 0;
 
     let asignacionEditandoId = null;
     let cargando = false;
@@ -151,11 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
-        if (response.message) {
-            return response.message;
-        }
-
-
         if (response.errors) {
 
             const mensajes =
@@ -165,6 +161,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mensajes.length) {
                 return mensajes[0];
             }
+        }
+
+        if (response.message) {
+            return response.message;
         }
 
 
@@ -564,15 +564,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function obtenerGradoSeleccionado() {
-        return grados.find(
-            grado =>
-                String(
-                    grado.id
-                ) ===
-                String(
-                    gradoSelect.value
-                )
-        ) || null;
+        return grados.find(item => String(item.id) === String(gradoSelect.value)) ||
+            asignaciones.find(item =>
+                String(item.id) === String(asignacionEditandoId) &&
+                String(item.grado_id) === String(gradoSelect.value)
+            )?.grado;
     }
 
     function turnoConfigurable(valor) {
@@ -632,6 +628,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function actualizarResumenRecesos() {
+        const consulta = ++consultaRecesos;
         configuracionRecesosLista =
             false;
 
@@ -672,6 +669,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 );
+
+            if (consulta !== consultaRecesos) {
+                return;
+            }
 
             const recesos =
                 response?.data?.data ??
@@ -725,6 +726,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 'error'
             );
         } catch (error) {
+            if (consulta !== consultaRecesos) {
+                return;
+            }
+
             console.error(
                 'Error validando recesos:',
                 error
@@ -739,42 +744,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function obtenerDisponibilidadProfesor(profesorId) {
-
         if (!profesorId) {
             return [];
         }
 
+        const response = await window.axios.get(
+            `/api/disponibilidades/profesor/${profesorId}`
+        );
 
-        if (
-            disponibilidadesProfesor[
-                profesorId
-            ]
-        ) {
-            return disponibilidadesProfesor[
-                profesorId
-            ];
-        }
-
-
-        const response =
-            await window.axios.get(
-                `/api/disponibilidades/profesor/${profesorId}`
-            );
-
-
-        const registros =
-            extraerColeccion(
-                response
-            );
-
-
-        disponibilidadesProfesor[
-            profesorId
-        ] =
-            registros;
-
-
-        return registros;
+        return extraerColeccion(response);
     }
 
 
@@ -922,6 +900,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     async function actualizarResumenDisponibilidad() {
+        const consulta = ++consultaDisponibilidad;
 
         const profesorId =
             profesorSelect.value;
@@ -965,6 +944,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     profesorId
                 );
 
+
+            if (consulta !== consultaDisponibilidad) {
+                return;
+            }
 
             const resumen =
                 resumirDisponibilidad(
@@ -1011,6 +994,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
+            if (consulta !== consultaDisponibilidad) {
+                return;
+            }
+
 
             console.error(
                 'Error cargando disponibilidad del profesor:',
@@ -1787,58 +1774,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function obtenerAvisoGeneracion(response) {
+    function obtenerAvisoGeneracion(response, estado = 'guardada') {
+        const generacion = response?.data?.generacion_horarios;
 
-        const generacion =
-            response?.data?.generacion_horarios;
-
-
-        if (
-            !generacion ||
-            generacion.success === false
-        ) {
+        if (!generacion) {
             return null;
         }
 
+        if (generacion.success === false) {
+            return 'No se pudo completar la generacion del horario. ' +
+                (generacion.error || generacion.message || 'Revisa la disponibilidad y los conflictos.');
+        }
 
-        const incompletas =
-            Array.isArray(
-                generacion.asignaciones_incompletas
+        const pendientes = Array.isArray(generacion.asignaciones_incompletas)
+            ? generacion.asignaciones_incompletas.filter(
+                item => Number(item.horas_pendientes) > 0
             )
-                ? generacion.asignaciones_incompletas
-                : [];
+            : [];
 
-
-        if (incompletas.length === 0) {
+        if (!pendientes.length) {
             return null;
         }
 
+        const actual = pendientes.find(
+            item => String(item.asignacion_id) === String(response?.data?.data?.id)
+        );
+        const otras = pendientes.filter(item => item !== actual);
+        const horasOtras = otras.reduce(
+            (total, item) => total + Number(item.horas_pendientes),
+            0
+        );
+        const motivo = actual?.motivo || 'No se encontraron bloques disponibles.';
+        const avisoActual = actual
+            ? `Asignacion ${estado}, pero faltan ${Number(actual.horas_pendientes)} hora(s) por programar. ${motivo}`
+            : `Asignacion ${estado}.`;
+        const avisoOtras = otras.length
+            ? ` La generacion dejo ${horasOtras} hora(s) pendientes en ${otras.length} otra(s) asignacion(es).`
+            : '';
 
-        const actual =
-            incompletas.find(
-                item =>
-                    String(item.asignacion_id) ===
-                    String(
-                        response?.data?.data?.id
-                    )
-            ) ||
-            incompletas[0];
-
-
-        const pendientes =
-            Number(
-                actual?.horas_pendientes
-            ) || 0;
-
-
-        const motivo =
-            actual?.motivo ||
-            'No se encontraron bloques disponibles.';
-
-
-        return pendientes > 0
-            ? `Asignación guardada, pero faltan ${pendientes} hora(s) por programar. ${motivo} Revisa la disponibilidad del profesor, conflictos de aula/grado o aumenta su rango horario.`
-            : null;
+        return `${avisoActual}${avisoOtras} Revisa la disponibilidad del profesor y los conflictos de aula/grado.`;
     }
 
 
@@ -2133,7 +2107,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 item =>
                     String(item.id) ===
                     String(cursoSelect.value)
-            );
+            ) || asignaciones.find(item =>
+                String(item.id) === String(asignacionEditandoId) &&
+                String(item.curso_id) === String(cursoSelect.value)
+            )?.curso;
 
 
         const nivelCurso =
@@ -2815,7 +2792,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 const estadoHTML =
-                    activo
+                    !asignacion.aula_id
+                        ? `<span class="inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">${activo ? 'Aula pendiente' : 'Inactivo - Aula pendiente'}</span>`
+                        : activo
 
                         ? `
                             <span
@@ -2983,7 +2962,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         "
                     >
                         ${escaparHTML(
-                            nombreAula(aula)
+                            asignacion.aula_id ? nombreAula(aula) : 'Aula pendiente'
                         )}
                     </td>
 
@@ -3294,6 +3273,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
 
+        if (horasDisponiblesActuales === null) {
+            alert('Espera a que se valide la disponibilidad del profesor. Si la consulta fallo, vuelve a seleccionar el profesor.');
+            return false;
+        }
+
+        if (estadoSelect.value === '1') {
+            const noDisponible = [profesorSelect, cursoSelect, gradoSelect, aulaSelect]
+                .find(select => select.selectedOptions?.[0]?.dataset.noDisponible === '1');
+
+            if (noDisponible) {
+                alert('La seleccion original no esta disponible. Selecciona un profesor, curso, grado y aula vigentes antes de activar la asignacion.');
+                return false;
+            }
+        }
+
         const horas =
             Number(
                 horasInput.value
@@ -3398,6 +3392,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function limpiarFormulario() {
+        ++consultaDisponibilidad;
+        ++consultaRecesos;
 
         asignacionEditandoId =
             null;
@@ -3638,6 +3634,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // EDITAR
     // =========================================================
 
+    function seleccionarReferenciaAsignada(select, id, registro, nombre) {
+        if (!id) {
+            select.value = '';
+            return;
+        }
+
+        const valor = String(id);
+        if (!Array.from(select.options).some(option => String(option.value) === valor)) {
+            const option = document.createElement('option');
+            option.value = valor;
+            option.textContent = `${registro ? nombre(registro) : 'Registro #' + valor} - No disponible`;
+            option.dataset.noDisponible = '1';
+            option.disabled = true;
+            select.appendChild(option);
+            select.disabled = false;
+        }
+
+        select.value = valor;
+    }
+
     function editarAsignacion(id) {
 
         const asignacion =
@@ -3672,35 +3688,21 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarSelectCursos();
 
 
-        profesorSelect.value =
-            String(
-                asignacion.profesor_id
-            );
+        seleccionarReferenciaAsignada(profesorSelect, asignacion.profesor_id, asignacion.profesor, nombreProfesor);
 
 
-        cursoSelect.value =
-            String(
-                asignacion.curso_id
-            );
+        seleccionarReferenciaAsignada(cursoSelect, asignacion.curso_id, asignacion.curso, nombreCurso);
 
 
         cargarSelectGrados();
 
 
-        gradoSelect.value =
-            String(
-                asignacion.grado_id
-            );
+        seleccionarReferenciaAsignada(gradoSelect, asignacion.grado_id, asignacion.grado, nombreGrado);
 
         cargarSelectAulas();
 
 
-        aulaSelect.value =
-            asignacion.aula_id
-                ? String(
-                    asignacion.aula_id
-                )
-                : '';
+        seleccionarReferenciaAsignada(aulaSelect, asignacion.aula_id, asignacion.aula, nombreAula);
 
 
         horasInput.value =
@@ -3766,6 +3768,16 @@ document.addEventListener('DOMContentLoaded', () => {
         id,
         activar
     ) {
+        const asignacion = asignaciones.find(item => String(item.id) === String(id));
+        if (activar && asignacion?.profesor?.estado !== 'activo') {
+            alert('Activa primero al profesor en Profesores para poder activar su asignacion.');
+            return;
+        }
+        if (activar && !asignacion?.aula_id) {
+            editarAsignacion(id);
+            alert('Selecciona el aula y el estado Activo, y guarda la asignacion.');
+            return;
+        }
 
         const accion =
             activar
@@ -3794,7 +3806,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
 
 
+            const avisoGeneracion = obtenerAvisoGeneracion(response, 'activada');
             alert(
+                avisoGeneracion ||
                 response?.data?.message ||
                 (
                     activar
@@ -3811,6 +3825,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 limpiarFormulario();
             }
 
+
+            mostrarEstado(
+                !avisoGeneracion,
+                avisoGeneracion || response?.data?.message || 'Estado actualizado correctamente.',
+                avisoGeneracion ? 'warning' : null
+            );
 
             await cargarAsignaciones();
 
@@ -4177,6 +4197,16 @@ document.addEventListener('DOMContentLoaded', () => {
         await cargarAsignaciones();
     }
 
+
+    window.addEventListener('focus', () => {
+        if (cargando) {
+            return;
+        }
+
+        void cargarAsignaciones();
+        void actualizarResumenDisponibilidad();
+        void actualizarResumenRecesos();
+    });
 
     iniciar();
 

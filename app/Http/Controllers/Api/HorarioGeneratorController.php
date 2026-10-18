@@ -121,7 +121,7 @@ class HorarioGeneratorController extends Controller
 
             $opciones = [
                 'profesor_id' => $profesorId,
-                'institucion' => $request->institucion ?? $profesor->institucion,
+                'institucion' => $request->institucion ?? ($profesor->institucion === 'ambos' ? null : $profesor->institucion),
                 'periodo_academico' => $request->periodo_academico ?? $this->obtenerPeriodoActual(),
                 'respetar_existentes' => $request->respetar_existentes ?? true,
             ];

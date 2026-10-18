@@ -11,6 +11,7 @@ use App\Services\HistorialService;
 use App\Services\HorarioService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class HorarioController extends Controller
@@ -116,9 +117,7 @@ class HorarioController extends Controller
         }
 
         if ($sortBy === 'dia_semana') {
-            $query->orderByRaw(
-                "FIELD(dia_semana, 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado') {$sortOrder}"
-            )->orderBy('hora_inicio');
+            $query->ordenSemanal($sortOrder)->orderBy('hora_inicio');
         } else {
             $query->orderBy($sortBy, $sortOrder);
         }
@@ -300,17 +299,18 @@ class HorarioController extends Controller
             // Guardar estado anterior
             $datosAnteriores = $this->crearSnapshotHistorial($horario);
 
-            $horarioActualizado = $this->horarioService->update($id, $request->except('motivo'));
-
-            // Registrar cambio
-            $this->historialService->registrarCambio(
-                $horarioActualizado->id,
-                'actualizar',
-                $datosAnteriores,
-                $this->crearSnapshotHistorial($horarioActualizado),
-                $request->motivo ?? 'Actualización manual',
-                auth()->id()
-            );
+            $horarioActualizado = DB::transaction(function () use ($id, $request, $datosAnteriores) {
+                $actualizado = $this->horarioService->update($id, $request->except('motivo'));
+                $this->historialService->registrarCambio(
+                    $actualizado->id,
+                    'actualizar',
+                    $datosAnteriores,
+                    $this->crearSnapshotHistorial($actualizado),
+                    $request->motivo ?? 'Actualización manual',
+                    auth()->id()
+                );
+                return $actualizado;
+            });
 
             return response()->json([
                 'success' => true,
@@ -345,17 +345,17 @@ class HorarioController extends Controller
             // Guardar datos antes de eliminar
             $datos = $this->crearSnapshotHistorial($horario);
 
-            // Registrar cambio
-            $this->historialService->registrarCambio(
-                $id,
-                'eliminar',
-                $datos,
-                null,
-                $request->motivo ?? 'Eliminación manual',
-                auth()->id()
-            );
-
-            $horario->forceDelete();
+            DB::transaction(function () use ($id, $datos, $request, $horario) {
+                $this->historialService->registrarCambio(
+                    $id,
+                    'eliminar',
+                    $datos,
+                    null,
+                    $request->motivo ?? 'Eliminación manual',
+                    auth()->id()
+                );
+                $horario->forceDelete();
+            });
 
             return response()->json([
                 'success' => true,

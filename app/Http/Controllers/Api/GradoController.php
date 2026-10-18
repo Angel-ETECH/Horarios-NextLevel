@@ -102,6 +102,7 @@ class GradoController extends Controller
             $data['nombre_completo'] = $this->generarNombreCompleto($data);
 
             $cambiaBaseAcademica =
+                (array_key_exists('activo', $data) && !$data['activo']) ||
                 ($data['nivel'] ?? $grado->nivel) !== $grado->nivel ||
                 ($data['turno'] ?? $grado->turno) !== $grado->turno;
 
@@ -112,6 +113,7 @@ class GradoController extends Controller
                     Horario::where('grado_id', $grado->id)->where('estado', 'activo')->exists()
                 )
             ) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede cambiar el nivel o turno de un grado con asignaciones u horarios activos'
@@ -146,6 +148,7 @@ class GradoController extends Controller
 
             // Verificar si tiene alumnos
             if ($grado->alumnos()->count() > 0) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el grado porque tiene alumnos asignados'
@@ -153,6 +156,7 @@ class GradoController extends Controller
             }
 
             if (ProfesorCurso::where('grado_id', $grado->id)->where('activo', true)->exists()) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el grado porque tiene asignaciones activas'
@@ -160,6 +164,7 @@ class GradoController extends Controller
             }
 
             if (Horario::where('grado_id', $grado->id)->where('estado', 'activo')->exists()) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el grado porque tiene horarios activos'

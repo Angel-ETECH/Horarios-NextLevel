@@ -22,9 +22,11 @@ class HorarioGeneratorService
     protected array $asignacionesIncompletas = [];
     protected array $estadisticas = [];
     protected array $configuracionesCache = [];
+    protected string $periodoAcademico;
 
     public function __construct(
-        private HistorialService $historialService
+        private HistorialService $historialService,
+        private DisponibilidadService $disponibilidadService
     ) {
     }
 
@@ -35,6 +37,15 @@ class HorarioGeneratorService
      */
     public function generarHorarios(array $opciones = []): array
     {
+        $this->aulasOcupadas = [];
+        $this->profesoresOcupados = [];
+        $this->gradosOcupados = [];
+        $this->conflictos = [];
+        $this->asignacionesIncompletas = [];
+        $this->estadisticas = [];
+        $this->configuracionesCache = [];
+        $this->periodoAcademico = $opciones['periodo_academico'] ?? (date('Y') . '-' . (date('Y') + 1));
+        $opciones['periodo_academico'] = $this->periodoAcademico;
         DB::beginTransaction();
 
         try {
@@ -148,6 +159,7 @@ class HorarioGeneratorService
         $institucion = $asignacion->institucion ?? 'colegio';
         $horasRequeridas = $asignacion->horas_asignadas;
         $horasExistentes = Horario::where('estado', 'activo')
+            ->where('periodo_academico', $this->periodoAcademico)
             ->where('profesor_id', $profesorId)
             ->where('curso_id', $asignacion->curso_id)
             ->where('grado_id', $gradoId)
@@ -288,7 +300,7 @@ class HorarioGeneratorService
             ->orderBy('año_academico', 'desc')
             ->get()
             ->sortBy(fn ($config) => $prioridadTurnos->search($config->turno))
-            ->unique('id')
+            ->unique('turno')
             ->values();
 
         $this->configuracionesCache[$key] = $configuraciones;
@@ -315,7 +327,8 @@ class HorarioGeneratorService
         $bloquesClase = $this->obtenerBloquesClaseContinuos($config);
 
         // Días disponibles del profesor
-        $diasDisponibles = $disponibilidades->pluck('dia_semana')->unique()->values();
+        $diasDisponibles = $disponibilidades->pluck('dia_semana')->unique()
+            ->intersect(['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'])->values();
 
         foreach ($diasDisponibles as $dia) {
             if ($horasRestantes <= 0) break;
@@ -507,18 +520,7 @@ class HorarioGeneratorService
     ): bool {
         $bloquesDia = $disponibilidades->where('dia_semana', $dia);
 
-        foreach ($bloquesDia as $disp) {
-            $dispInicio = Carbon::parse($disp->hora_inicio);
-            $dispFin = Carbon::parse($disp->hora_fin);
-            $bloqueInicio = Carbon::parse($horaInicio);
-            $bloqueFin = Carbon::parse($horaFin);
-
-            if ($bloqueInicio >= $dispInicio && $bloqueFin <= $dispFin) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->disponibilidadService->rangoEstaCubierto($bloquesDia, $horaInicio, $horaFin);
     }
 
     /**
@@ -540,7 +542,10 @@ class HorarioGeneratorService
     protected function obtenerAsignaciones(array $opciones = []): Collection
     {
         $query = ProfesorCurso::with(['profesor', 'curso', 'grado', 'aula'])
-            ->where('activo', true);
+            ->where('activo', true)
+            ->whereHas('profesor', fn ($query) => $query->where('estado', 'activo'))
+            ->whereHas('curso', fn ($query) => $query->where('activo', true))
+            ->whereHas('grado', fn ($query) => $query->where('activo', true));
 
         if (!empty($opciones['profesor_id'])) {
             $query->where('profesor_id', $opciones['profesor_id']);
@@ -673,7 +678,7 @@ class HorarioGeneratorService
     protected function crearRegistrosHorario($asignacion, array $bloquesAsignados): array
     {
         $horariosCreados = [];
-        $periodoAcademico = date('Y') . '-' . (date('Y') + 1);
+        $periodoAcademico = $this->periodoAcademico;
 
         foreach ($bloquesAsignados as $bloque) {
             $horario = Horario::create([

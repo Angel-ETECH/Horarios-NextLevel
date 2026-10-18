@@ -3532,6 +3532,8 @@ document.addEventListener('DOMContentLoaded', () => {
             guardando =
                 true;
 
+            bloquearInterfaz(true);
+
 
             saveButton.disabled =
                 true;
@@ -3560,9 +3562,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 |
                 */
 
-                await eliminarDisponibilidadesActuales(
-                    profesorId,
-                    institucion
+                await window.axios.put(
+                    `${API_DISPONIBILIDADES}/profesor/${profesorId}/institucion/${institucion}`,
+                    { franjas: todasLasFranjas.map(franja => ({
+                        dia_semana: diasBackend[Number(franja.dia_semana)],
+                        hora_inicio: franja.hora_inicio,
+                        hora_fin: franja.hora_fin,
+                        turno: obtenerTurno(franja.hora_inicio)
+                    })) }
                 );
 
 
@@ -3572,17 +3579,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 |--------------------------------------------------------------------------
                 */
 
-                if (
-                    todasLasFranjas.length >
-                    0
-                ) {
-
-                    await crearDisponibilidades(
-                        profesorId,
-                        institucion,
-                        todasLasFranjas
-                    );
-                }
 
 
                 /*
@@ -3667,6 +3663,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 guardando =
                     false;
+
+                bloquearInterfaz(false);
 
 
                 saveButton.disabled =
