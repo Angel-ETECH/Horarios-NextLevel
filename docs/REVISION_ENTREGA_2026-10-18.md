@@ -2,7 +2,7 @@
 
 ## Codigo preparado
 
-- Rama de trabajo: `frontend`. No se ha fusionado con `main` ni publicado esta entrega.
+- Rama de trabajo: `frontend`. No se ha fusionado con `main`.
 - Commit de respaldo del trabajo previo: `cada705`.
 - Autenticacion: `/api/auth/user` apunta a `me`; se habilitaron `/api/auth/me`
   y `/api/auth/refresh`, conservando los endpoints de acceso existentes.
@@ -85,3 +85,24 @@ Si faltan horarios historicos o no hay aula fija libre, no modifica nada.
 
 Las pruebas cubren los escenarios descritos; no constituyen una garantia de
 ausencia total de errores en cualquier dato o entorno.
+
+## Integracion con la rama remota
+
+Tras el rechazo de push por divergencia, se incorporaron los commits remotos
+`ef5ddf0`, `17ed325` y `dad90b1` mediante merge, conservando `cada705` y
+`52e6365`. No se uso rebase ni push forzado.
+
+Se combinaron los cuatro archivos con conflictos, se evito duplicar el evento
+de actualizacion de profesor y se conservaron las validaciones de horarios.
+La reversion ampliada de historial utiliza servicios para asignaciones,
+disponibilidad y aulas, valida cambios academicos con uso activo y sincroniza
+las asignaciones al desactivar un profesor. Tambien se conserva la opcion de
+recuperar horarios eliminados fisicamente desde sus snapshots.
+
+Verificacion de la combinacion: **72 pruebas PHP / 342 aserciones**, **15
+pruebas JS**, compilacion correcta y **48 comprobaciones MySQL**. La nueva
+migracion `2026_10_12_000001_add_institucion_to_aulas_table` se verifico en la
+base MySQL aislada: agrega `institucion` a aulas. En otras instalaciones,
+respaldar y ejecutar `php artisan migrate` antes de usar el codigo actualizado.
+No se importo el SQL que ya estaba versionado en la rama remota. La revision
+visual y SMTP siguen pendientes como se indica arriba.

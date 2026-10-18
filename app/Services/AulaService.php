@@ -191,7 +191,7 @@ class AulaService
 
             // Normalizar institución por defecto
             if (!isset($data['institucion'])) {
-                $data['institucion'] = 'colegio';
+                $data['institucion'] = 'ambos';
             }
 
             return Aula::create($data);

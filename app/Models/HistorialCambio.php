@@ -31,6 +31,10 @@ class HistorialCambio extends Model
         'updated_at' => 'datetime',
     ];
 
+    protected $appends = [
+        'puede_revertirse',
+    ];
+
     // ============ CONSTANTES DE ACCIONES ============
 
     public const ACCION_CREAR = 'crear';
@@ -383,6 +387,37 @@ class HistorialCambio extends Model
         }
 
         return $cambiados;
+    }
+
+    /**
+     * Indica si el registro se puede revertir desde el historial.
+     * Lo consume el frontend para mostrar u ocultar el botón.
+     */
+    public function getPuedeRevertirseAttribute(): bool
+    {
+        if (!in_array($this->accion, [self::ACCION_CREAR, self::ACCION_ACTUALIZAR, self::ACCION_ELIMINAR], true)) {
+            return false;
+        }
+
+        $modulo = $this->datos_nuevos['modulo']
+            ?? $this->datos_anteriores['modulo']
+            ?? null;
+
+        $snapshot = $this->datos_anteriores ?? $this->datos_nuevos;
+        $esHorario = $modulo === 'horarios' || $this->horario_id !== null
+            || ($modulo === null && isset($snapshot['profesor_id'], $snapshot['curso_id'],
+                $snapshot['grado_id'], $snapshot['dia_semana'], $snapshot['hora_inicio']));
+        if ($esHorario) {
+            return $this->horario_id !== null || isset($snapshot['id'], $snapshot['aula_id'],
+                $snapshot['periodo_academico'], $snapshot['institucion'], $snapshot['turno']);
+        }
+
+        if ($this->accion === self::ACCION_ACTUALIZAR) {
+            return !empty($this->datos_anteriores);
+        }
+
+        // De los demás módulos solo se revierten las eliminaciones.
+        return $this->accion === self::ACCION_ELIMINAR;
     }
 
     // ============ MÉTODOS DE UTILIDAD ============

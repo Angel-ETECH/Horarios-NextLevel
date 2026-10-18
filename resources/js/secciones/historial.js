@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCerrar = document.getElementById('historial-modal-cerrar');
     const modalCerrarFooter = document.getElementById('historial-modal-cerrar-footer');
     const modalRevertir = document.getElementById('historial-modal-revertir');
+    const modalAviso = document.getElementById('historial-modal-aviso');
 
     const modalConfirmacion = document.getElementById('historial-modal-confirmacion');
     const motivoReversion = document.getElementById('historial-motivo-reversion');
@@ -247,6 +248,47 @@ document.addEventListener('DOMContentLoaded', () => {
             registro?.datos_nuevos?.id ??
             registro?.datos_anteriores?.id ??
             '—';
+    }
+
+
+    function obtenerModulo(registro) {
+
+        return registro?.datos_nuevos?.modulo
+            ?? registro?.datos_anteriores?.modulo
+            ?? registro?.horario?.modulo
+            ?? (registro?.horario_id ? 'horarios' : null);
+    }
+
+
+    function etiquetaRegistro(registro) {
+
+        const etiquetas = {
+            horarios: 'Horario',
+            profesores: 'Profesor',
+            cursos: 'Curso',
+            grados: 'Grado',
+            aulas: 'Aula',
+            asignaciones: 'Asignación',
+            disponibilidad: 'Disponibilidad',
+        };
+
+        const etiqueta =
+            etiquetas[obtenerModulo(registro)] ?? 'Registro';
+
+        return `${etiqueta} #${obtenerHorarioId(registro)}`;
+    }
+
+
+    function obtenerAvisoNoRevertible(registro) {
+
+        if (registro?.accion === 'crear') {
+
+            return obtenerModulo(registro) === 'horarios'
+                ? 'El horario de este registro ya no existe: no hay nada que revertir.'
+                : 'Una creación de este módulo se deshace desde su propia pantalla.';
+        }
+
+        return 'Este registro no se puede revertir desde el historial.';
     }
 
 
@@ -731,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="px-5 py-4">
 
                         <p class="text-sm font-bold text-slate-700">
-                            #${escaparHtml(obtenerHorarioId(registro))}
+                            ${escaparHtml(etiquetaRegistro(registro))}
                         </p>
 
                         <p class="mt-1 text-xs text-slate-400">
@@ -859,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const horario = obtenerDatosHorario(registro);
 
         modalTitulo.textContent =
-            `Horario #${obtenerHorarioId(registro)}`;
+            etiquetaRegistro(registro);
 
         modalSubtitulo.textContent =
             `${capitalizar(registro.accion)} · ${formatearFecha(registro.created_at)}`;
@@ -975,18 +1017,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         `;
 
-        const accionesRevertibles = [
-            'crear',
-            'actualizar',
-            'eliminar',
-        ];
+        const revertible =
+            registro.puede_revertirse === true;
 
-        if (accionesRevertibles.includes(registro.accion)) {
+        if (revertible) {
             modalRevertir.classList.remove('hidden');
             modalRevertir.classList.add('inline-flex');
         } else {
             modalRevertir.classList.add('hidden');
             modalRevertir.classList.remove('inline-flex');
+        }
+
+        if (modalAviso) {
+
+            modalAviso.textContent =
+                revertible
+                    ? ''
+                    : obtenerAvisoNoRevertible(registro);
+
+            modalAviso.classList.toggle('hidden', revertible);
         }
     }
 

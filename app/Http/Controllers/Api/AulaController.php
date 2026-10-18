@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AulaRequest;
 use App\Models\Aula;
 use App\Services\AulaService;
+use App\Services\HistorialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -14,10 +15,14 @@ use Illuminate\Validation\ValidationException;
 class AulaController extends Controller
 {
     protected AulaService $aulaService;
+    protected HistorialService $historialService;
 
-    public function __construct(AulaService $aulaService)
-    {
+    public function __construct(
+        AulaService $aulaService,
+        HistorialService $historialService
+    ) {
         $this->aulaService = $aulaService;
+        $this->historialService = $historialService;
     }
 
     private function normalizarDia(string $dia): string
@@ -87,7 +92,9 @@ class AulaController extends Controller
 
             // Filtros post-consulta (para parámetros no manejados en el service)
             if ($request->filled('institucion')) {
-                $aulas = $aulas->where('institucion', $request->institucion);
+                $aulas = $aulas
+                    ->whereIn('institucion', [$request->institucion, 'ambos'])
+                    ->values();
             }
 
             if ($request->has('activo')) {
@@ -330,6 +337,14 @@ class AulaController extends Controller
         try {
             $aula = $this->aulaService->create($request->validated());
 
+            $this->historialService->registrarEvento(
+                'aulas',
+                'crear',
+                null,
+                $this->snapshotAula($aula),
+                'Aula creada'
+            );
+
             return response()->json([
                 'success' => true,
                 'message' => 'Aula creada exitosamente',
@@ -358,7 +373,17 @@ class AulaController extends Controller
     public function update(AulaRequest $request, int $id): JsonResponse
     {
         try {
+            $datosAnteriores = $this->snapshotAula(Aula::findOrFail($id));
+
             $aula = $this->aulaService->update($id, $request->validated());
+
+            $this->historialService->registrarEvento(
+                'aulas',
+                'actualizar',
+                $datosAnteriores,
+                $this->snapshotAula($aula),
+                'Aula actualizada'
+            );
 
             return response()->json([
                 'success' => true,
@@ -388,7 +413,17 @@ class AulaController extends Controller
     public function destroy(int $id): JsonResponse
     {
         try {
+            $datosAnteriores = $this->snapshotAula(Aula::findOrFail($id));
+
             $this->aulaService->delete($id);
+
+            $this->historialService->registrarEvento(
+                'aulas',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Aula eliminada'
+            );
 
             return response()->json([
                 'success' => true,
@@ -437,5 +472,18 @@ class AulaController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Snapshot del aula para el historial.
+     */
+    private function snapshotAula(Aula $aula): array
+    {
+        return array_merge($aula->toArray(), [
+            'modulo' => 'aulas',
+            'tipo_registro' => 'aula',
+            'aula_nombre' => $aula->nombre,
+            'aula_codigo' => $aula->codigo,
+        ]);
     }
 }

@@ -57,6 +57,7 @@ class AsignacionEstadoTest extends TestCase
             '2026_09_21_000004_create_bloques_horarios_table.php',
             '2026_09_22_091535_create_personal_access_tokens_table.php',
             '2026_10_05_000002_add_aula_to_profesor_curso_table.php',
+            '2026_10_12_000001_add_institucion_to_aulas_table.php',
         ] as $migration) {
             (require database_path('migrations/'.$migration))->up();
         }
@@ -569,6 +570,81 @@ class AsignacionEstadoTest extends TestCase
         $this->artisan('horarios:completar-aulas')->assertFailed();
         $this->assertNull($this->asignacion->fresh()->aula_id);
         $this->assertDatabaseCount('historial_cambios', 0);
+    }
+
+    public function test_merged_history_can_revert_catalog_names_but_not_incompatible_course_levels(): void
+    {
+        $curso = Curso::findOrFail($this->asignacion->curso_id);
+        $antes = $curso->toArray();
+        $curso->update(['nombre' => 'Nombre nuevo']);
+        $registro = app(HistorialService::class)->registrarEvento('cursos', 'actualizar', $antes, $curso->toArray());
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertOk();
+        $this->assertSame($antes['nombre'], $curso->fresh()->nombre);
+
+        $registro = app(HistorialService::class)->registrarEvento('cursos', 'actualizar',
+            array_replace($antes, ['nivel' => 'secundaria']), $curso->toArray());
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertStatus(422);
+        $this->assertSame('primaria', $curso->fresh()->nivel);
+    }
+
+    public function test_merged_history_deactivates_professor_and_assignment_together(): void
+    {
+        $this->createHorario();
+        $antes = array_replace($this->profesor->toArray(), ['estado' => 'inactivo']);
+        $registro = app(HistorialService::class)->registrarEvento('profesores', 'actualizar', $antes, $this->profesor->toArray());
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertOk();
+        $this->assertSame('inactivo', $this->profesor->fresh()->estado);
+        $this->assertFalse($this->asignacion->fresh()->activo);
+        $this->assertSame(0, Horario::count());
+    }
+
+    public function test_merged_history_cannot_activate_assignment_for_inactive_teacher(): void
+    {
+        $antes = $this->asignacion->toArray();
+        $this->asignacion->update(['activo' => false]);
+        $this->profesor->update(['estado' => 'inactivo']);
+        $registro = app(HistorialService::class)->registrarEvento('asignaciones', 'eliminar', $antes, $this->asignacion->toArray());
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertStatus(422);
+        $this->assertFalse($this->asignacion->fresh()->activo);
+        $this->assertSame(0, Horario::count());
+    }
+
+    public function test_merged_history_cannot_deactivate_an_occupied_classroom(): void
+    {
+        $this->createHorario();
+        $aula = Aula::findOrFail($this->asignacion->aula_id);
+        $registro = app(HistorialService::class)->registrarEvento('aulas', 'actualizar',
+            array_replace($aula->toArray(), ['activo' => false]), $aula->toArray());
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertStatus(422);
+        $this->assertTrue($aula->fresh()->activo);
+        $this->assertSame(1, Horario::count());
+    }
+
+    public function test_merged_history_does_not_restore_availability_during_recess(): void
+    {
+        $this->app->instance(HorarioRecesoService::class, new HorarioRecesoService());
+        $this->configuration();
+        $disponibilidad = DisponibilidadProfesor::create([
+            'profesor_id' => $this->profesor->id, 'dia_semana' => 'lunes',
+            'hora_inicio' => '09:00', 'hora_fin' => '09:30', 'institucion' => 'colegio', 'tipo' => 'disponible',
+        ]);
+        $registro = app(HistorialService::class)->registrarEvento('disponibilidad', 'eliminar', $disponibilidad->toArray());
+        $disponibilidad->delete();
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertStatus(422);
+        $this->assertTrue($disponibilidad->fresh()->trashed());
+    }
+
+    public function test_merged_history_exposes_reversion_for_physically_deleted_schedules(): void
+    {
+        $this->app->instance(HorarioRecesoService::class, new HorarioRecesoService());
+        $this->availability();
+        $horario = $this->createHorario();
+        $this->deleteJson('/api/horarios/'.$horario->id)->assertOk();
+        $registro = HistorialCambio::where('accion', 'eliminar')->firstOrFail();
+        $this->assertNull($registro->horario_id);
+        $this->assertTrue($registro->puede_revertirse);
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertOk();
+        $this->assertNotNull(Horario::find($horario->id));
     }
 
     private function availability(): void

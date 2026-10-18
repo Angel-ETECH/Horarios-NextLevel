@@ -1005,7 +1005,12 @@
             class="historial-scroll max-h-[70vh] overflow-y-auto p-5"
         ></div>
 
-        <div class="flex justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
+        <div class="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4">
+
+            <p
+                id="historial-modal-aviso"
+                class="mr-auto hidden text-xs font-semibold text-slate-400"
+            ></p>
 
             <button
                 type="button"

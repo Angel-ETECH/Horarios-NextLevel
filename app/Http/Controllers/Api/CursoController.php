@@ -5,11 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CursoRequest;
 use App\Models\Curso;
+use App\Services\HistorialService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CursoController extends Controller
 {
+    public function __construct(
+        private HistorialService $historialService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $query = Curso::query();
@@ -63,6 +69,14 @@ class CursoController extends Controller
 
             DB::commit();
 
+            $this->historialService->registrarEvento(
+                'cursos',
+                'crear',
+                null,
+                $this->snapshotCurso($curso),
+                'Curso creado'
+            );
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Curso creado exitosamente',
@@ -84,6 +98,7 @@ class CursoController extends Controller
             DB::beginTransaction();
 
             $curso = Curso::findOrFail($id);
+            $datosAnteriores = $this->snapshotCurso($curso);
             $data = $request->validated();
             $tieneAsignaciones = $curso->profesores()->wherePivot('activo', true)->exists();
             if ($tieneAsignaciones && (
@@ -99,6 +114,14 @@ class CursoController extends Controller
             $curso->update($data);
 
             DB::commit();
+
+            $this->historialService->registrarEvento(
+                'cursos',
+                'actualizar',
+                $datosAnteriores,
+                $this->snapshotCurso($curso),
+                'Curso actualizado'
+            );
 
             return response()->json([
                 'status' => 'success',
@@ -131,9 +154,19 @@ class CursoController extends Controller
                 ], 422);
             }
 
+            $datosAnteriores = $this->snapshotCurso($curso);
+
             $curso->delete();
 
             DB::commit();
+
+            $this->historialService->registrarEvento(
+                'cursos',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Curso eliminado'
+            );
 
             return response()->json([
                 'status' => 'success',
@@ -170,7 +203,17 @@ class CursoController extends Controller
     {
         try {
             $curso = Curso::withTrashed()->findOrFail($id);
+            $datosAnteriores = $this->snapshotCurso($curso);
+
             $curso->restore();
+
+            $this->historialService->registrarEvento(
+                'cursos',
+                'restaurar',
+                $datosAnteriores,
+                $this->snapshotCurso($curso),
+                'Curso restaurado'
+            );
 
             return response()->json([
                 'status' => 'success',
@@ -184,5 +227,17 @@ class CursoController extends Controller
                 'message' => 'Error al restaurar el curso: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Snapshot del curso para el historial.
+     */
+    private function snapshotCurso(Curso $curso): array
+    {
+        return array_merge($curso->toArray(), [
+            'modulo' => 'cursos',
+            'tipo_registro' => 'curso',
+            'curso_nombre' => $curso->nombre,
+        ]);
     }
 }
