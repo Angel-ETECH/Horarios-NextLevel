@@ -539,6 +539,38 @@ class AsignacionEstadoTest extends TestCase
         $this->assertDatabaseCount('horarios', 2);
     }
 
+    public function test_classroom_repair_is_previewed_then_applied_with_audit_and_no_time_changes(): void
+    {
+        $horario = $this->createHorario();
+        $this->asignacion->update(['aula_id' => null]);
+        $this->artisan('horarios:completar-aulas')->assertSuccessful();
+        $this->assertNull($this->asignacion->fresh()->aula_id);
+        $this->assertDatabaseCount('historial_cambios', 0);
+
+        $backup = tempnam(sys_get_temp_dir(), 'test_respaldo_');
+        file_put_contents($backup, '-- Respaldo aislado de prueba');
+        try {
+            $this->artisan('horarios:completar-aulas', ['--aplicar' => true, '--respaldo' => $backup])->assertSuccessful();
+            $this->assertSame($horario->aula_id, $this->asignacion->fresh()->aula_id);
+            $this->assertSame('07:00', $horario->fresh()->hora_inicio->format('H:i'));
+            $this->assertSame('07:45', $horario->fresh()->hora_fin->format('H:i'));
+            $this->assertDatabaseCount('historial_cambios', 1);
+            $this->artisan('horarios:completar-aulas', ['--aplicar' => true, '--respaldo' => $backup])->assertSuccessful();
+            $this->assertDatabaseCount('historial_cambios', 1);
+        } finally {
+            unlink($backup);
+        }
+    }
+
+    public function test_classroom_repair_requires_backup_and_rejects_unknown_assignments_without_history(): void
+    {
+        $this->asignacion->update(['aula_id' => null]);
+        $this->artisan('horarios:completar-aulas', ['--aplicar' => true])->assertFailed();
+        $this->artisan('horarios:completar-aulas')->assertFailed();
+        $this->assertNull($this->asignacion->fresh()->aula_id);
+        $this->assertDatabaseCount('historial_cambios', 0);
+    }
+
     private function availability(): void
     {
         DisponibilidadProfesor::create([

@@ -41,6 +41,13 @@ Route::post('/reset-password', [
     'resetPassword'
 ]);
 
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
+});
+
 // ============================================
 // CONSULTA PÚBLICA
 // ============================================
@@ -115,8 +122,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/user', [
             AuthController::class,
-            'user'
+            'me'
         ]);
+
+        Route::get('/me', [AuthController::class, 'me']);
+        Route::post('/refresh', [AuthController::class, 'refresh']);
     });
 
     Route::prefix('profesores')->group(function () {
