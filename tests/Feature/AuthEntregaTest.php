@@ -43,6 +43,22 @@ class AuthEntregaTest extends TestCase
         $this->assertSame(':memory:', DB::connection()->getDatabaseName());
     }
 
+    public function test_registration_rolls_back_the_account_if_token_creation_fails(): void
+    {
+        config(['app.debug' => false]);
+        Event::listen('eloquent.creating: '.PersonalAccessToken::class, function () {
+            throw new RuntimeException('private-database-connection');
+        });
+        $response = $this->api('POST', '/api/auth/register', $this->registration())
+            ->assertStatus(500)->assertJsonPath('error', null);
+        $this->assertStringNotContainsString('private-database-connection', $response->getContent());
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+        Event::forget('eloquent.creating: '.PersonalAccessToken::class);
+        $this->api('POST', '/api/auth/register', $this->registration())->assertCreated();
+        $this->assertDatabaseCount('users', 1);
+    }
+
     public static function profiles(): array
     {
         return [['/api/auth/user'], ['/api/auth/me']];
@@ -180,6 +196,7 @@ class AuthEntregaTest extends TestCase
 
     public function test_refresh_restores_the_old_token_if_replacement_creation_fails(): void
     {
+        config(['app.debug' => false]);
         $user = $this->user();
         $token = $user->createToken('existing')->plainTextToken;
         Event::listen('eloquent.creating: '.PersonalAccessToken::class, function () {
@@ -187,7 +204,7 @@ class AuthEntregaTest extends TestCase
         });
 
         $this->api('POST', '/api/auth/refresh', [], $token)
-            ->assertStatus(500)->assertJsonPath('success', false);
+            ->assertStatus(500)->assertJsonPath('success', false)->assertJsonPath('error', null);
 
         $this->assertDatabaseCount('personal_access_tokens', 1);
         $this->assertNotNull(PersonalAccessToken::findToken($token));

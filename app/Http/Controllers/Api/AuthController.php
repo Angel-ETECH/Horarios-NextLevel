@@ -84,15 +84,16 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Crear usuario
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-            ]);
+            // La cuenta y su acceso deben crearse juntos o no guardarse.
+            [$user, $token] = \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                ]);
 
-            // Crear token automáticamente
-            $token = $user->createToken('auth_token')->plainTextToken;
+                return [$user, $user->createToken('auth_token')->plainTextToken];
+            });
 
             return response()->json([
                 'success' => true,
@@ -112,7 +113,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al registrar usuario',
-                'error' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -146,7 +147,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al cerrar sesión',
-                'error' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -211,7 +212,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al refrescar token',
-                'error' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
