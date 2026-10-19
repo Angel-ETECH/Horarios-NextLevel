@@ -18,7 +18,7 @@
             padding: 0;
             background: #ffffff;
             color: #0f2749;
-            font-family: DejaVu Sans, Arial, sans-serif;
+            font-family: "DejaVu Sans", sans-serif;
             font-size: 9px;
         }
 
@@ -42,7 +42,7 @@
         .brand-title {
             color: #0f2749;
             font-size: 22px;
-            font-weight: 800;
+            font-weight: 700;
             line-height: 1;
         }
 
@@ -80,7 +80,7 @@
             margin: 10px 0 9px;
             color: #0f2749;
             font-size: 19px;
-            font-weight: 800;
+            font-weight: 700;
             line-height: 1.18;
         }
 
@@ -114,7 +114,7 @@
             margin-top: 4px;
             color: #0f2749;
             font-size: 8px;
-            font-weight: 800;
+            font-weight: 700;
             line-height: 1.25;
             word-break: break-word;
         }
@@ -131,7 +131,7 @@
             border: 2px solid #ffffff;
             color: #ffffff;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
             text-align: center;
             vertical-align: middle;
             line-height: 1.1;
@@ -168,6 +168,7 @@
 
         .class-card {
             display: block;
+            text-align: left;
             min-height: 42px;
             margin-left: auto;
             margin-right: auto;
@@ -197,21 +198,23 @@
 
         .course {
             display: inline-block;
+            vertical-align: top;
             color: #09245a;
             font-size: 9px;
-            font-weight: 800;
+            font-weight: 700;
             line-height: 1.15;
             width: 74%;
         }
 
         .level-badge {
             display: inline-block;
+            vertical-align: top;
             padding: 2px 4px;
             border-radius: 4px;
             background: #fde2e8;
             color: #be123c;
             font-size: 6px;
-            font-weight: 800;
+            font-weight: 700;
             text-align: center;
         }
 
@@ -236,7 +239,7 @@
             background: transparent;
             color: #0f2749;
             font-size: 8px;
-            font-weight: 800;
+            font-weight: 700;
         }
 
         .room-label {
@@ -249,7 +252,7 @@
         .room-value {
             color: #09245a;
             font-size: 8px;
-            font-weight: 800;
+            font-weight: 700;
         }
 
         .empty-slot {
@@ -276,7 +279,7 @@
 
         .footer-brand {
             color: #0f2749;
-            font-weight: 800;
+            font-weight: 700;
         }
 
         .footer-total {
@@ -290,7 +293,7 @@
             background: #102d52;
             color: #ffffff;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
             line-height: 1.1;
         }
     </style>
@@ -324,6 +327,12 @@
     };
     $nombreProfesor = $primerHorario?->profesor?->nombre_completo ?? 'No especificado';
     $codigoProfesor = $primerHorario?->profesor?->codigo ?? 'N/A';
+    $esProfesor = !empty($filtros['profesor_id']);
+    $tipoConsulta = $esProfesor ? 'profesor' : (!empty($filtros['aula_id']) ? 'aula' : (!empty($filtros['grado_id']) ? 'grado' : (!empty($filtros['curso_id']) ? 'curso' : null)));
+    $registroConsulta = $tipoConsulta ? $primerHorario?->{$tipoConsulta} : null;
+    $etiquetaConsulta = $tipoConsulta ? ucfirst($tipoConsulta) : 'Consulta';
+    $nombreConsulta = $registroConsulta?->nombre_completo ?? $registroConsulta?->nombre ?? 'Horario general';
+    $codigoConsulta = $registroConsulta?->codigo ?? 'N/A';
     $periodo = $primerHorario?->periodo_academico ?? 'No especificado';
     $tituloBase = $titulo ?? 'Horario de ' . $nombreProfesor;
     $tituloDocumento = preg_match('/-\s*' . preg_quote($nombreInstitucion, '/') . '\s*$/i', $tituloBase)
@@ -395,12 +404,12 @@
         <table class="meta-table">
             <tr>
                 <td>
-                    <div class="meta-label">Profesor</div>
-                    <div class="meta-value">{{ $nombreProfesor }}</div>
+                    <div class="meta-label">{{ $etiquetaConsulta }}</div>
+                    <div class="meta-value">{{ $nombreConsulta }}</div>
                 </td>
                 <td>
                     <div class="meta-label">Código</div>
-                    <div class="meta-value">{{ $codigoProfesor }}</div>
+                    <div class="meta-value">{{ $codigoConsulta }}</div>
                 </td>
                 <td>
                     <div class="meta-label">Institución</div>
@@ -435,7 +444,6 @@
                         <td class="day-cell">
                             @forelse(($celdas[$bloqueKey][$diaKey] ?? []) as $item)
                                 @php
-                                    $tone = abs(crc32((string) ($item->curso_id ?? $item->id ?? 0))) % 6;
                                     $aulaNombre = trim((string) ($item->aula->nombre ?? ''));
                                     $aulaTexto = $aulaNombre !== ''
                                         ? preg_replace('/^\s*aula\s+/i', '', $aulaNombre)
@@ -446,6 +454,7 @@
                                         ? 'SEC'
                                         : (str_contains($nivelTexto, 'academia') || $institucionTexto === 'academia' ? 'ACA' : 'PRI');
                                     $nivelClase = strtolower($nivelCodigo);
+                                    $tone = $nivelCodigo === 'PRI' ? 0 : 3;
                                 @endphp
                                 <span class="class-card tone-{{ $tone }}">
                                     <span class="class-head">
@@ -453,6 +462,9 @@
                                         <span class="level-badge level-{{ $nivelClase }}">{{ $nivelCodigo }}</span>
                                     </span>
                                     <span class="grade">{{ $item->grado->nombre_completo ?? 'Grado no especificado' }}</span>
+                                    @unless($esProfesor)
+                                        <span class="grade">{{ $item->profesor->nombre_completo ?? 'Profesor no especificado' }}</span>
+                                    @endunless
                                     <span class="room">
                                         <span class="room-label">Aula</span>
                                         <span class="room-value">{{ $aulaTexto }}</span>

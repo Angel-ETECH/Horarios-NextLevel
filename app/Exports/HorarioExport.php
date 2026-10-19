@@ -391,7 +391,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
             $lineas[] = $this->nombreProfesor($horario);
         }
 
-        $lineas[] = 'Aula: ' . $this->nombreAula($horario);
+        $lineas[] = 'Aula: ' . preg_replace('/^aula\s+/iu', '', $this->nombreAula($horario));
 
         return implode("\n", array_filter($lineas));
     }

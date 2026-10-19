@@ -325,6 +325,7 @@ class AsignacionEstadoTest extends TestCase
             $this->assertStringContainsString('Curso', $sheet->getCell('B8')->getValue());
             $this->assertStringNotContainsString('Profesor Prueba', $sheet->getCell('B8')->getValue());
             $this->assertNull($sheet->getFreezePane());
+            $this->assertStringNotContainsString('Aula: Aula ', $sheet->getCell('B8')->getValue());
             $this->assertSame('Detalle', $workbook->getSheet(1)->getTitle());
             $workbook->disconnectWorksheets();
         } finally {
@@ -346,6 +347,28 @@ class AsignacionEstadoTest extends TestCase
         $url = $service->toPdf($data, 'Horario prueba');
         $this->assertStringContainsString('/storage/exports/', $url);
         $this->assertCount(1, Storage::disk('public')->files('exports'));
+    }
+
+    public function test_export_headers_and_teacher_labels_match_the_selected_consultation(): void
+    {
+        $this->createHorario();
+        $data = $this->app->make(ExportService::class)->prepareData([]);
+        foreach (['exports.horario-imagen', 'exports.horario-pdf'] as $template) {
+            foreach (['profesor', 'grado', 'aula'] as $tipo) {
+                $html = view($template, [
+                    'horarios' => $data, 'titulo' => 'Horario prueba',
+                    'filtros' => [$tipo.'_id' => $this->asignacion->{$tipo.'_id'}],
+                ])->render();
+                $this->assertMatchesRegularExpression('/class="meta-label">'.ucfirst($tipo).'</', $html);
+                $body = explode('<tbody>', $html, 2)[1];
+                if ($tipo === 'profesor') {
+                    $this->assertStringNotContainsString('Profesor Prueba', $body);
+                } else {
+                    $this->assertStringContainsString('Profesor Prueba', $body);
+                }
+                $this->assertStringContainsString('class-card tone-0', $body);
+            }
+        }
     }
 
     public function test_login_token_allows_api_access_and_logout_revokes_it(): void

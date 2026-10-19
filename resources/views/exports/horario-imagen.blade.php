@@ -55,7 +55,7 @@
             font-size: 38px;
             font-weight: 900;
             line-height: 0.95;
-            letter-spacing: -0.8px;
+            letter-spacing: 0;
         }
 
         .brand-title span,
@@ -122,7 +122,7 @@
             font-size: 42px;
             font-weight: 900;
             line-height: 1.12;
-            letter-spacing: -0.9px;
+            letter-spacing: 0;
         }
 
         .meta-card {
@@ -195,7 +195,7 @@
             padding: 7px;
             border-radius: 7px;
             background: #f1f6fb;
-            vertical-align: top;
+            vertical-align: middle;
             text-align: center;
         }
 
@@ -221,7 +221,7 @@
             margin-right: auto;
             padding: 10px 12px 9px 14px;
             text-align: left;
-            border-radius: 9px;
+            border-radius: 8px;
             border: 1px solid #e5eaf1;
             border-left: 5px solid #2563eb;
             background: #fff7f8;
@@ -332,6 +332,8 @@
         }
 
         .footer-left {
+            flex: 1;
+            white-space: nowrap;
             color: #526884;
             font-size: 20px;
         }
@@ -385,6 +387,12 @@
     };
     $nombreProfesor = $primerHorario?->profesor?->nombre_completo ?? 'No especificado';
     $codigoProfesor = $primerHorario?->profesor?->codigo ?? 'N/A';
+    $esProfesor = !empty($filtros['profesor_id']);
+    $tipoConsulta = $esProfesor ? 'profesor' : (!empty($filtros['aula_id']) ? 'aula' : (!empty($filtros['grado_id']) ? 'grado' : (!empty($filtros['curso_id']) ? 'curso' : null)));
+    $registroConsulta = $tipoConsulta ? $primerHorario?->{$tipoConsulta} : null;
+    $etiquetaConsulta = $tipoConsulta ? ucfirst($tipoConsulta) : 'Consulta';
+    $nombreConsulta = $registroConsulta?->nombre_completo ?? $registroConsulta?->nombre ?? 'Horario general';
+    $codigoConsulta = $registroConsulta?->codigo ?? 'N/A';
     $periodo = $primerHorario?->periodo_academico ?? 'No especificado';
     $tituloBase = $titulo ?? 'Horario de ' . $nombreProfesor;
     $tituloDocumento = preg_match('/-\s*' . preg_quote($nombreInstitucion, '/') . '\s*$/i', $tituloBase)
@@ -480,8 +488,8 @@
                 </svg>
             </div>
             <div>
-                <div class="meta-label">Profesor</div>
-                <div class="meta-value">{{ $nombreProfesor }}</div>
+                <div class="meta-label">{{ $etiquetaConsulta }}</div>
+                <div class="meta-value">{{ $nombreConsulta }}</div>
             </div>
         </div>
 
@@ -496,7 +504,7 @@
             </div>
             <div>
                 <div class="meta-label">Código</div>
-                <div class="meta-value">{{ $codigoProfesor }}</div>
+                <div class="meta-value">{{ $codigoConsulta }}</div>
             </div>
         </div>
 
@@ -563,7 +571,6 @@
                         <td>
                             @forelse(($celdas[$bloqueKey][$diaKey] ?? []) as $item)
                                 @php
-                                    $tone = abs(crc32((string) ($item->curso_id ?? $item->id ?? 0))) % 6;
                                     $aulaNombre = trim((string) ($item->aula->nombre ?? ''));
                                     $aulaTexto = $aulaNombre !== ''
                                         ? preg_replace('/^\s*aula\s+/i', '', $aulaNombre)
@@ -574,6 +581,7 @@
                                         ? 'SEC'
                                         : (str_contains($nivelTexto, 'academia') || $institucionTexto === 'academia' ? 'ACA' : 'PRI');
                                     $nivelClase = strtolower($nivelCodigo);
+                                    $tone = $nivelCodigo === 'PRI' ? 0 : 3;
                                 @endphp
                                 <div class="class-card tone-{{ $tone }}">
                                     <span class="class-head">
@@ -581,6 +589,9 @@
                                         <span class="level-badge level-{{ $nivelClase }}">{{ $nivelCodigo }}</span>
                                     </span>
                                     <span class="grade">{{ $item->grado->nombre_completo ?? 'Grado no especificado' }}</span>
+                                    @unless($esProfesor)
+                                        <span class="grade">{{ $item->profesor->nombre_completo ?? 'Profesor no especificado' }}</span>
+                                    @endunless
                                     <span class="room">
                                         <span class="room-label">Aula</span>
                                         <span class="room-value">{{ $aulaTexto }}</span>

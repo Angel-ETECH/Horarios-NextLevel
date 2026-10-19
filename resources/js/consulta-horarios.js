@@ -1,3 +1,5 @@
+import html2canvas from 'html2canvas';
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // =============================================================
@@ -2896,7 +2898,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             '0',
 
                         width:
-                            '1250px',
+                            '1680px',
 
                         height:
                             '2200px',
@@ -3002,12 +3004,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 // GENERAR PNG
                 // =================================================
 
+                const anchoCaptura = Math.ceil(Math.max(1680, contenedor.scrollWidth, contenedor.getBoundingClientRect().width));
+                const altoCaptura = Math.ceil(Math.max(contenedor.scrollHeight, contenedor.getBoundingClientRect().height));
+                iframe.style.width = `${anchoCaptura}px`;
+                iframe.style.height = `${altoCaptura}px`;
+
                 const canvas =
                     await html2canvas(
                         contenedor,
                         {
                             scale:
                                 2,
+
+                            foreignObjectRendering: true,
 
                             backgroundColor:
                                 '#FFFFFF',
@@ -3024,8 +3033,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             scrollY:
                                 0,
 
-                            windowWidth:
-                                1250
+                            width: anchoCaptura,
+                            height: altoCaptura,
+                            windowWidth: anchoCaptura,
+                            windowHeight: altoCaptura
                         }
                     );
 
@@ -3045,11 +3056,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     )}.png`;
 
 
-                enlace.href =
-                    canvas.toDataURL(
-                        'image/png',
-                        1
-                    );
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1));
+                if (!blob) {
+                    throw new Error('No se pudo construir la imagen PNG.');
+                }
+                const url = URL.createObjectURL(blob);
+                enlace.href = url;
 
 
                 document.body.appendChild(
@@ -3061,6 +3073,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
                 enlace.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
 
 
                 mostrarMensaje(
