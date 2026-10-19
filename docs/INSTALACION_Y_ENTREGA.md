@@ -112,6 +112,12 @@ build sin errores. Esto no comprueba SMTP ni el aspecto visual de las pantallas.
 
 ## Entrega a otra persona
 
+Esta entrega actualiza `composer.lock` y `package-lock.json`. En la otra copia
+es necesario ejecutar `composer install`, `npm ci` y `npm run build`, aunque
+ya se hayan aplicado las migraciones. No usar `composer update` para instalar
+esta version: `install` conserva las versiones probadas. No copiar el `.env`
+de otra persona ni los archivos privados o bases locales de QA.
+
 La evidencia y los pendientes de esta revision estan en
 `docs/REVISION_ENTREGA_2026-10-18.md`. Los cambios de aulas realizados en la
 base local no viajan con Git: otra instalacion necesita sus datos autorizados
