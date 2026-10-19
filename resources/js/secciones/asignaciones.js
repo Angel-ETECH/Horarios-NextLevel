@@ -849,6 +849,11 @@ document.addEventListener('DOMContentLoaded', () => {
             'text-slate-600'
         );
 
+        if (estado === 'sin-seleccion') {
+            disponibilidadResumen.classList.add('border-slate-200', 'bg-slate-50', 'text-slate-600');
+            disponibilidadResumen.textContent = 'Selecciona un profesor y una institución para consultar su disponibilidad.';
+            return;
+        }
 
         if (estado === 'error') {
 
@@ -920,7 +925,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ) {
 
             pintarResumenDisponibilidad(
-                null
+                null,
+                'sin-seleccion'
             );
 
             return;

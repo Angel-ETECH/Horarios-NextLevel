@@ -12,6 +12,56 @@ const horariosSource = readFileSync(
 const consultaSource = readFileSync(
     new URL('../consulta-horarios.js', import.meta.url), 'utf8'
 ).replaceAll('\r\n', '\n');
+const disponibilidadSource = readFileSync(
+    new URL('../secciones/disponibilidad.js', import.meta.url), 'utf8'
+).replaceAll('\r\n', '\n');
+
+function gridAvailabilityFixture(recesos) {
+    return loadFunctions(disponibilidadSource, [
+        'minutosHora', 'aTextoHora', 'rangosSeCruzan', 'rangosDisponiblesGrid',
+        'bloquesGridAFranjas', 'disponibilidadAEstadoVisual',
+    ], {
+        recesosInstitucion: recesos, DURACION_BLOQUE_GRID_MIN: 60,
+        nombreDiaANumero: () => 1, horaCorta: value => value.substring(0, 5),
+        disponibilidades: {}, personalizados: {}, generarIdTemporal: () => 'custom',
+    });
+}
+
+test('hourly availability retains the usable minutes after each recess', () => {
+    const context = gridAvailabilityFixture([
+        { hora_inicio: '09:00', hora_fin: '09:30' },
+        { hora_inicio: '11:00', hora_fin: '11:30' },
+    ]);
+    const ranges = context.bloquesGridAFranjas(['1-07:00', '1-08:00', '1-09:00', '1-10:00', '1-11:00']);
+    assert.deepEqual(JSON.parse(JSON.stringify(ranges)), [
+        { dia_semana: 1, hora_inicio: '07:00', hora_fin: '09:00' },
+        { dia_semana: 1, hora_inicio: '09:30', hora_fin: '11:00' },
+        { dia_semana: 1, hora_inicio: '11:30', hora_fin: '12:00' },
+    ]);
+    context.disponibilidadAEstadoVisual(ranges, 'test');
+    assert.deepEqual(Array.from(context.disponibilidades.test), ['1-07:00', '1-08:00', '1-09:00', '1-10:00', '1-11:00']);
+    assert.equal(context.personalizados.test.length, 0);
+});
+
+test('recesses inside an hour preserve both available edges without expanding custom ranges', () => {
+    const context = gridAvailabilityFixture([{ hora_inicio: '09:10', hora_fin: '09:25' }]);
+    const ranges = context.bloquesGridAFranjas(['1-09:00']);
+    assert.deepEqual(JSON.parse(JSON.stringify(ranges)), [
+        { dia_semana: 1, hora_inicio: '09:00', hora_fin: '09:10' },
+        { dia_semana: 1, hora_inicio: '09:25', hora_fin: '10:00' },
+    ]);
+    context.disponibilidadAEstadoVisual([ranges[1]], 'test');
+    assert.equal(context.disponibilidades.test.length, 0);
+    assert.equal(context.personalizados.test[0].horaInicio, '09:25');
+});
+
+test('overlapping recesses are subtracted once and fully blocked slots return no availability', () => {
+    const context = gridAvailabilityFixture([
+        { hora_inicio: '09:00', hora_fin: '09:40' },
+        { hora_inicio: '09:30', hora_fin: '10:00' },
+    ]);
+    assert.equal(context.bloquesGridAFranjas(['1-09:00']).length, 0);
+});
 
 function publicScheduleFixture() {
     const request = deferred();
@@ -75,6 +125,37 @@ function deferred() {
     });
     return { promise, resolve, reject };
 }
+
+test('recess controls change the actual continuous timetable for every shift', () => {
+    for (const [turno, inicio, esperados] of [
+        ['mañana', '09:00', ['09:00-09:45', '11:00-11:45']],
+        ['tarde', '15:10', ['15:10-15:55', '17:10-17:55']],
+        ['completo', '09:00', ['09:00-09:45', '11:00-11:45', '15:00-15:45', '17:00-17:45']],
+    ]) {
+        const context = loadFunctions(horariosSource, [
+            'obtenerMinutosRecesoConfig', 'obtenerInicioRecesoConfig',
+            'recesosBaseConfig', 'limitesTurnoConfig', 'aplicarMinutosRecesoConfig',
+        ], {
+            configTurno: { value: turno }, configRecesoInicio: { value: inicio },
+            configRecesoMinutos: { value: '45' }, horaCorta: value => value,
+            aMinutos: value => Number(value.substring(0, 2)) * 60 + Number(value.substring(3, 5)),
+            aTexto: value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`,
+        });
+        const bloques = Array.from(context.aplicarMinutosRecesoConfig([]));
+        assert.deepEqual(bloques.filter(b => b.tipo === 'receso').map(b => `${b.hora_inicio}-${b.hora_fin}`), esperados);
+        for (let i = 1; i < bloques.length; i++) {
+            assert.equal(bloques[i].hora_inicio, bloques[i - 1].hora_fin);
+        }
+    }
+});
+
+test('an unselected professor is not reported as having no availability', async () => {
+    const { context, summaries } = assignmentFixture();
+    context.profesorSelect.value = '';
+    await context.actualizarResumenDisponibilidad();
+    assert.equal(summaries[0].state, 'sin-seleccion');
+    assert.equal(context.horasDisponiblesActuales, null);
+});
 
 function availability(hours, institucion = 'colegio') {
     return {

@@ -293,6 +293,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function rangosDisponiblesGrid(inicio, fin) {
+        let rangos = [{ hora_inicio: inicio, hora_fin: fin }];
+        for (const receso of recesosInstitucion) {
+            rangos = rangos.flatMap(rango => {
+                if (!rangosSeCruzan(rango.hora_inicio, rango.hora_fin, receso.hora_inicio, receso.hora_fin)) {
+                    return [rango];
+                }
+                const partes = [];
+                if (rango.hora_inicio < receso.hora_inicio) {
+                    partes.push({ hora_inicio: rango.hora_inicio, hora_fin: receso.hora_inicio });
+                }
+                if (rango.hora_fin > receso.hora_fin) {
+                    partes.push({ hora_inicio: receso.hora_fin, hora_fin: rango.hora_fin });
+                }
+                return partes;
+            });
+        }
+        return rangos;
+    }
+
     function generarIdTemporal() {
 
         return `${Date.now()}-${Math.random()
@@ -1526,9 +1546,8 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
 
-        let minutosTotales =
-            seleccionados.length *
-            DURACION_BLOQUE_GRID_MIN;
+        let minutosTotales = bloquesGridAFranjas(seleccionados)
+            .reduce((total, franja) => total + minutosEntre(franja.hora_inicio, franja.hora_fin), 0);
 
 
         const personalizadosData =
@@ -1789,45 +1808,40 @@ document.addEventListener('DOMContentLoaded', () => {
                         inicio,
                         fin
                     );
+                const disponibles = rangosDisponiblesGrid(inicio, fin);
+                const bloqueado = disponibles.length === 0;
 
                 slot.classList.toggle(
                     'receso-slot',
-                    Boolean(
-                        receso
-                    )
+                    bloqueado
                 );
 
                 slot.classList.toggle(
                     'cursor-not-allowed',
-                    Boolean(
-                        receso
-                    )
+                    bloqueado
                 );
 
                 slot.classList.toggle(
                     'bg-red-50',
-                    Boolean(
-                        receso
-                    )
+                    bloqueado
                 );
 
                 slot.classList.toggle(
                     'text-red-500',
-                    Boolean(
-                        receso
-                    )
+                    bloqueado
                 );
 
                 if (
                     receso
                 ) {
-                    marcarSlot(
-                        slot,
-                        false
-                    );
+                    if (bloqueado) {
+                        marcarSlot(slot, false);
+                    }
 
                     slot.title =
-                        `${receso.nombre}: ${receso.hora_inicio} - ${receso.hora_fin}`;
+                        bloqueado
+                            ? `${receso.nombre}: ${receso.hora_inicio} - ${receso.hora_fin}`
+                            : `Disponible: ${disponibles.map(rango => `${rango.hora_inicio} - ${rango.hora_fin}`).join(', ')}; el receso queda excluido`;
                 } else {
                     slot.removeAttribute(
                         'title'
@@ -1978,32 +1992,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     inicioMin;
 
 
-                const minutoInicial =
-                    inicioMin %
-                    60;
-
-
-                const minutoFinal =
-                    finMin %
-                    60;
-
-
-                const alineado =
-                    minutoInicial ===
-                        0 &&
-                    minutoFinal ===
-                        0 &&
-                    duracion >
-                        0 &&
-                    duracion %
-                        DURACION_BLOQUE_GRID_MIN ===
-                        0;
+                const candidatos = [];
+                for (let cursor = Math.floor(inicioMin / DURACION_BLOQUE_GRID_MIN) * DURACION_BLOQUE_GRID_MIN;
+                    cursor < finMin; cursor += DURACION_BLOQUE_GRID_MIN) {
+                    candidatos.push(rangosDisponiblesGrid(aTextoHora(cursor), aTextoHora(cursor + DURACION_BLOQUE_GRID_MIN)));
+                }
+                const alineado = duracion > 0 && candidatos.length > 0
+                    && candidatos.every(rangos => rangos.length > 0 && rangos.every(rango =>
+                        minutosHora(rango.hora_inicio) >= inicioMin && minutosHora(rango.hora_fin) <= finMin));
 
 
                 if (alineado) {
 
                     let cursor =
-                        inicioMin;
+                        Math.floor(inicioMin / DURACION_BLOQUE_GRID_MIN) * DURACION_BLOQUE_GRID_MIN;
 
 
                     while (
@@ -2459,6 +2461,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         Array.from(
                             grupos.values()
                         )
+                            .filter(copias => copias.some(slot => !slot.classList.contains('receso-slot')))
                             .every(
                                 copias =>
                                     copias.some(
@@ -2862,7 +2865,8 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
 
-        return franjas;
+        return franjas.flatMap(franja => rangosDisponiblesGrid(franja.hora_inicio, franja.hora_fin)
+            .map(rango => ({ dia_semana: franja.dia_semana, ...rango })));
     }
 
 

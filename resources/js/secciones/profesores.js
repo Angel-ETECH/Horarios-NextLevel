@@ -992,6 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
         profesorModal.classList.remove(
             'hidden'
         );
+        profesorModal.setAttribute('aria-hidden', 'false');
 
 
         document.body.classList.add(
@@ -1005,6 +1006,7 @@ document.addEventListener('DOMContentLoaded', () => {
         profesorModal.classList.add(
             'hidden'
         );
+        profesorModal.setAttribute('aria-hidden', 'true');
 
 
         document.body.classList.remove(
@@ -1814,6 +1816,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 eliminarModal.classList.remove(
                     'hidden'
                 );
+                eliminarModal.setAttribute('aria-hidden', 'false');
             }
         }
     );
@@ -1914,6 +1917,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editarModal.classList.remove(
             'hidden'
         );
+        editarModal.setAttribute('aria-hidden', 'false');
     }
 
 

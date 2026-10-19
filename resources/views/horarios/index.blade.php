@@ -1427,7 +1427,6 @@
                     id="config-receso-inicio"
                     type="time"
                     value="09:00"
-                    readonly
                     min="07:00"
                     max="20:00"
                     class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#1B3A6B] focus:ring-4 focus:ring-blue-100"
@@ -1446,7 +1445,6 @@
                     min="5"
                     max="60"
                     step="5"
-                    readonly
                     class="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#1B3A6B] focus:ring-4 focus:ring-blue-100"
                     placeholder="Ej. 15"
                 >
@@ -2177,6 +2175,5 @@
 
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 @endsection

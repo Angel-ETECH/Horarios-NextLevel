@@ -1,3 +1,5 @@
+import html2canvas from 'html2canvas';
+
 document.addEventListener('DOMContentLoaded', () => {
     const contenedor = document.getElementById('horarios-render-container');
 
@@ -1204,6 +1206,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function recesosBaseConfig() {
+        const primerRecesoBase = configTurno?.value === 'tarde' ? 15 * 60 : 9 * 60;
+        const desplazamiento = aMinutos(obtenerInicioRecesoConfig()) - primerRecesoBase;
+        const duracion = obtenerMinutosRecesoConfig();
         const recesos =
             [
                 {
@@ -1238,7 +1243,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     hora_fin:
                         '17:30',
                 },
-            ];
+            ].map(receso => {
+                const inicio = aMinutos(receso.hora_inicio) + desplazamiento;
+                return { ...receso, hora_inicio: aTexto(inicio), hora_fin: aTexto(inicio + duracion) };
+            });
 
         if (
             configTurno?.value ===
@@ -4380,6 +4388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .horario-timeline-scroll{
                 width:100%;
+                container-type:inline-size;
                 overflow-x:auto;
                 overflow-y:hidden;
                 scrollbar-width:thin;
@@ -4406,7 +4415,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .horario-timeline-grid{
                 width:100%;
-                min-width:max-content;
+                min-width:760px;
                 background:#FFFFFF;
             }
 
@@ -4938,11 +4947,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .horario-clase-timeline.compacta
             .horario-card-content{
-                gap:2px;
-                padding-top:8px;
-                padding-bottom:7px;
+                gap:1px;
+                padding-top:5px;
+                padding-bottom:5px;
             }
 
+            .horario-clase-timeline.compacta
+            .horario-card-third,
             .horario-clase-timeline.muy-compacta
             .horario-card-third{
                 display:none;
@@ -4951,10 +4962,21 @@ document.addEventListener('DOMContentLoaded', () => {
             .horario-clase-timeline.muy-compacta
             .horario-card-time{
                 padding:
-                    3px
+                    2px
                     6px;
 
                 font-size:8px;
+            }
+
+            @container (max-width:1050px){
+                .horario-card-symbol{display:none;}
+                .horario-card-content{padding:8px 31px 7px 8px;}
+                .horario-card-title{font-size:10px;line-height:1.2;}
+                .horario-clase-timeline .btn-eliminar-horario{width:24px;height:24px;right:4px;top:6px;}
+                .horario-card-time{padding:3px 4px;font-size:8px;}
+                .horario-timeline-head-day strong{font-size:11px;}
+                .horario-timeline-receso{font-size:8px;white-space:normal;line-height:1.2;text-align:center;}
+                .horario-timeline-receso::before{display:none;}
             }
 
             /* ================================================
@@ -5397,7 +5419,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             )
                         );
 
-                    return `minmax(${ancho}px, 1fr)`;
+                    return calcularLanesDia(grupo, dia.numero) <= 1
+                        ? 'minmax(0, 1fr)'
+                        : `minmax(${ancho}px, 1fr)`;
                 }
             );
 
@@ -7538,6 +7562,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         scale:
                             2,
+
+                        foreignObjectRendering: true,
 
                         backgroundColor:
                             '#FFFFFF',
