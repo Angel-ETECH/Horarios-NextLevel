@@ -10,6 +10,7 @@ use App\Services\AulaService;
 use App\Services\HistorialService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AulaController extends Controller
@@ -68,38 +69,27 @@ class AulaController extends Controller
                 'activo' => 'nullable|boolean'
             ]);
 
-            // Aplicar filtros según los parámetros recibidos
-            if ($request->filled('nivel') && $request->filled('tipo')) {
-                // Filtro combinado nivel + tipo
-                $aulas = $this->aulaService->getByNivelYTipo(
-                    $request->nivel,
-                    $request->tipo
-                );
-            } elseif ($request->filled('nivel')) {
-                $aulas = $this->aulaService->getByNivel($request->nivel);
-            } elseif ($request->filled('tipo')) {
-                $aulas = $this->aulaService->getByTipo($request->tipo);
-            } elseif ($request->filled('capacidad')) {
-                $aulas = $this->aulaService->getConCapacidad((int) $request->capacidad);
-            } elseif ($request->filled('edificio') || $request->filled('piso')) {
-                $aulas = $this->aulaService->getByUbicacion(
-                    $request->edificio,
-                    $request->piso
-                );
-            } else {
-                $aulas = $this->aulaService->getAll();
+            $query = Aula::query();
+            if ($request->filled('nivel')) {
+                $query->whereIn('nivel', [$request->nivel, 'todos']);
+            }
+            foreach (['tipo', 'edificio', 'piso'] as $campo) {
+                if ($request->filled($campo)) {
+                    $query->where($campo, $request->input($campo));
+                }
+            }
+            if ($request->filled('capacidad')) {
+                $query->where('capacidad', '>=', (int) $request->capacidad);
             }
 
-            // Filtros post-consulta (para parámetros no manejados en el service)
             if ($request->filled('institucion')) {
-                $aulas = $aulas
-                    ->whereIn('institucion', [$request->institucion, 'ambos'])
-                    ->values();
+                $query->whereIn('institucion', [$request->institucion, 'ambos']);
             }
 
             if ($request->has('activo')) {
-                $aulas = $aulas->where('activo', $request->boolean('activo'));
+                $query->where('activo', $request->boolean('activo'));
             }
+            $aulas = $query->orderBy('codigo')->orderBy('nombre')->get();
 
             return response()->json([
                 'success' => true,
@@ -335,6 +325,7 @@ class AulaController extends Controller
     public function store(AulaRequest $request): JsonResponse
     {
         try {
+            DB::beginTransaction();
             $aula = $this->aulaService->create($request->validated());
 
             $this->historialService->registrarEvento(
@@ -345,6 +336,8 @@ class AulaController extends Controller
                 'Aula creada'
             );
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Aula creada exitosamente',
@@ -352,12 +345,14 @@ class AulaController extends Controller
             ], 201);
 
         } catch (ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error de validación',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error al crear el aula',
@@ -373,6 +368,7 @@ class AulaController extends Controller
     public function update(AulaRequest $request, int $id): JsonResponse
     {
         try {
+            DB::beginTransaction();
             $datosAnteriores = $this->snapshotAula(Aula::findOrFail($id));
 
             $aula = $this->aulaService->update($id, $request->validated());
@@ -385,6 +381,8 @@ class AulaController extends Controller
                 'Aula actualizada'
             );
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Aula actualizada exitosamente',
@@ -392,12 +390,14 @@ class AulaController extends Controller
             ]);
 
         } catch (ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error de validación',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error al actualizar el aula',
@@ -413,6 +413,7 @@ class AulaController extends Controller
     public function destroy(int $id): JsonResponse
     {
         try {
+            DB::beginTransaction();
             $datosAnteriores = $this->snapshotAula(Aula::findOrFail($id));
 
             $this->aulaService->delete($id);
@@ -425,18 +426,22 @@ class AulaController extends Controller
                 'Aula eliminada'
             );
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Aula eliminada exitosamente'
             ]);
 
         } catch (ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'No se puede eliminar el aula',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Error al eliminar el aula',

@@ -157,6 +157,11 @@ class HistorialService
     {
         return DB::transaction(function () use ($historialId, $motivo) {
             $registro = HistorialCambio::lockForUpdate()->findOrFail($historialId);
+            if (($registro->datos_nuevos['solo_auditoria'] ?? $registro->datos_anteriores['solo_auditoria'] ?? false) === true) {
+                throw ValidationException::withMessages([
+                    'historial' => 'Este evento solo registra una correccion calculada y no se puede revertir.',
+                ]);
+            }
             $modulo = $registro->datos_nuevos['modulo']
                 ?? $registro->datos_anteriores['modulo']
                 ?? null;

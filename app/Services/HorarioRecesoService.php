@@ -10,147 +10,140 @@ use Illuminate\Validation\ValidationException;
 
 class HorarioRecesoService
 {
-    public const RECESOS_BASE = [
-        ['nombre' => 'Receso mañana 1', 'hora_inicio' => '09:00', 'hora_fin' => '09:30'],
-        ['nombre' => 'Receso mañana 2', 'hora_inicio' => '11:00', 'hora_fin' => '11:30'],
-        ['nombre' => 'Receso tarde 1', 'hora_inicio' => '15:00', 'hora_fin' => '15:30'],
-        ['nombre' => 'Receso tarde 2', 'hora_inicio' => '17:00', 'hora_fin' => '17:30'],
-    ];
-
-    public function recesosBaseParaTurno(string $turno): array
+    public function recesosVigentes(?string $institucion = null, ?string $nivel = null, ?string $turno = null): Collection
     {
-        if ($turno === 'mañana') {
-            return array_slice(self::RECESOS_BASE, 0, 2);
+        $recesos = collect();
+        foreach (config('horarios.recesos_fijos', []) as $nombreInstitucion => $niveles) {
+            if ($institucion && $institucion !== $nombreInstitucion) {
+                continue;
+            }
+            foreach ($niveles as $nombreNivel => $rangos) {
+                if ($nivel && $nivel !== $nombreNivel) {
+                    continue;
+                }
+                foreach ($rangos as $rango) {
+                    if ($turno !== 'tarde') {
+                        $recesos->push(new BloqueHorario($rango + ['tipo' => 'receso']));
+                    }
+                }
+            }
         }
+        return $recesos->unique(fn ($b) => $this->hora($b->hora_inicio).'-'.$this->hora($b->hora_fin))
+            ->sortBy(fn ($b) => $this->minutos($b->hora_inicio))->values();
+    }
 
-        if ($turno === 'tarde') {
-            return array_slice(self::RECESOS_BASE, 2, 2);
+    public function recesosParaDisponibilidad(string $institucion, ?string $nivel = null, ?string $turno = null): Collection
+    {
+        if ($nivel || $institucion === 'academia') {
+            return $this->recesosVigentes($institucion, $nivel, $turno);
         }
-
-        return self::RECESOS_BASE;
+        // Sin grado solo se excluye el descanso comun a todos los niveles.
+        $comunes = null;
+        foreach (array_keys(config("horarios.recesos_fijos.{$institucion}", [])) as $nombreNivel) {
+            $rangos = $this->recesosVigentes($institucion, $nombreNivel, $turno);
+            if ($comunes === null) {
+                $comunes = $rangos;
+                continue;
+            }
+            $intersecciones = collect();
+            foreach ($comunes as $a) {
+                foreach ($rangos as $b) {
+                    $inicio = max($this->hora($a->hora_inicio), $this->hora($b->hora_inicio));
+                    $fin = min($this->hora($a->hora_fin), $this->hora($b->hora_fin));
+                    if ($inicio < $fin) {
+                        $intersecciones->push(new BloqueHorario([
+                            'hora_inicio' => $inicio, 'hora_fin' => $fin, 'tipo' => 'receso', 'nombre' => 'Receso comun',
+                        ]));
+                    }
+                }
+            }
+            $comunes = $intersecciones;
+        }
+        return ($comunes ?? collect())->values();
     }
 
     public function configuracionVigente(string $institucion, string $nivel, string $turno): ?ConfiguracionHorario
     {
-        return ConfiguracionHorario::with('bloques')
-            ->where('institucion', $institucion)
-            ->where('nivel', $nivel)
-            ->whereIn('turno', [$turno, 'completo'])
-            ->where('activo', true)
-            ->orderByRaw("CASE WHEN turno = ? THEN 0 ELSE 1 END", [$turno])
-            ->orderByDesc('año_academico')
-            ->first();
+        $config = ConfiguracionHorario::with('bloques')
+            ->where('institucion', $institucion)->where('nivel', $nivel)
+            ->whereIn('turno', [$turno, 'completo'])->where('activo', true)
+            ->orderByRaw('CASE WHEN turno = ? THEN 0 ELSE 1 END', [$turno])
+            ->orderByDesc('año_academico')->orderByDesc('id')->first();
+        return $config ? $this->normalizarConfiguracion($config) : null;
     }
 
-    public function recesosVigentes(?string $institucion = null, ?string $nivel = null, ?string $turno = null): Collection
+    public function normalizarConfiguracion(ConfiguracionHorario $config): ConfiguracionHorario
     {
-        $query = ConfiguracionHorario::with('bloquesReceso')
-            ->where('activo', true);
+        $normalizada = clone $config;
+        $bloques = $this->bloquesFijos($config);
+        $normalizada->setRelation('bloques', $bloques);
+        $normalizada->setRelation('bloquesClase', $bloques->where('tipo', 'clase')->values());
+        $normalizada->setRelation('bloquesReceso', $bloques->where('tipo', 'receso')->values());
+        $normalizada->setAttribute('recesos_fijos', true);
+        return $normalizada;
+    }
 
-        if ($institucion) {
-            $query->where('institucion', $institucion);
+    public function bloquesFijos(ConfiguracionHorario $config): Collection
+    {
+        $cursor = $this->minutos($config->hora_inicio);
+        $fin = $this->minutos($config->hora_fin);
+        $duracion = max(30, (int) ($config->duracion_bloque_minutos ?: 45));
+        $recesos = $this->recesosVigentes($config->institucion, $config->nivel)
+            ->filter(fn ($r) => $this->minutos($r->hora_fin) > $cursor && $this->minutos($r->hora_inicio) < $fin);
+        $bloques = collect();
+        $numero = 1;
+        while ($cursor < $fin) {
+            $receso = $recesos->first(fn ($r) => $this->minutos($r->hora_inicio) <= $cursor
+                && $this->minutos($r->hora_fin) > $cursor);
+            $siguiente = $recesos->first(fn ($r) => $this->minutos($r->hora_inicio) > $cursor);
+            $hasta = $receso ? min($fin, $this->minutos($receso->hora_fin))
+                : min($cursor + $duracion, $fin, $siguiente ? $this->minutos($siguiente->hora_inicio) : $fin);
+            $bloques->push(new BloqueHorario([
+                'configuracion_horario_id' => $config->id, 'orden' => $bloques->count() + 1,
+                'hora_inicio' => sprintf('%02d:%02d', intdiv($cursor, 60), $cursor % 60),
+                'hora_fin' => sprintf('%02d:%02d', intdiv($hasta, 60), $hasta % 60),
+                'tipo' => $receso ? 'receso' : 'clase', 'nombre' => $receso ? $receso->nombre : 'Clase '.$numero,
+                'numero_bloque' => $receso ? null : $numero++,
+            ]));
+            $cursor = $hasta;
         }
-
-        if ($nivel) {
-            $query->where('nivel', $nivel);
-        }
-
-        if ($turno) {
-            $query->whereIn('turno', [$turno, 'completo']);
-        }
-
-        return $query
-            ->orderByDesc('año_academico')
-            ->get()
-            ->flatMap(fn (ConfiguracionHorario $config) => $config->bloquesReceso)
-            ->unique(fn (BloqueHorario $bloque) => $this->hora($bloque->hora_inicio) . '-' . $this->hora($bloque->hora_fin))
-            ->sortBy(fn (BloqueHorario $bloque) => $this->minutos($bloque->hora_inicio))
-            ->values();
+        return $bloques;
     }
 
     public function validarBloques(array $bloques, string $turno, ?string $inicio = null, ?string $fin = null): void
     {
-        $bloquesOrdenados = collect($bloques)
-            ->sortBy(fn ($bloque) => $this->minutos($bloque['hora_inicio']))
-            ->values();
-
-        if ($bloquesOrdenados->isEmpty()) {
+        $ordenados = collect($bloques)->sortBy(fn ($b) => $this->minutos($b['hora_inicio']))->values();
+        if ($ordenados->isEmpty()) {
             throw ValidationException::withMessages(['bloques' => 'La configuracion debe contener bloques.']);
         }
-        foreach ($bloquesOrdenados as $bloque) {
-            if ($this->minutos($bloque['hora_inicio']) >= $this->minutos($bloque['hora_fin'])) {
-                throw ValidationException::withMessages(['bloques' => 'Cada bloque debe terminar despues de su inicio.']);
+        $cursor = $inicio ? $this->minutos($inicio) : $this->minutos($ordenados->first()['hora_inicio']);
+        foreach ($ordenados as $bloque) {
+            $hasta = $this->minutos($bloque['hora_fin']);
+            if ($this->minutos($bloque['hora_inicio']) !== $cursor || $hasta <= $cursor) {
+                throw ValidationException::withMessages(['bloques' => 'Los bloques deben ser continuos y tener duracion positiva.']);
             }
+            $cursor = $hasta;
         }
-        if (($inicio !== null && $this->minutos($bloquesOrdenados->first()['hora_inicio']) !== $this->minutos($inicio))
-            || ($fin !== null && $this->minutos($bloquesOrdenados->last()['hora_fin']) !== $this->minutos($fin))) {
+        if ($fin !== null && $cursor !== $this->minutos($fin)) {
             throw ValidationException::withMessages(['bloques' => 'Los bloques deben cubrir toda la jornada configurada.']);
-        }
-
-        for ($index = 1; $index < $bloquesOrdenados->count(); $index++) {
-            $anterior = $bloquesOrdenados[$index - 1];
-            $actual = $bloquesOrdenados[$index];
-
-            if ($this->minutos($actual['hora_inicio']) !== $this->minutos($anterior['hora_fin'])) {
-                throw ValidationException::withMessages([
-                    'bloques' => 'Los bloques deben ser continuos: cada bloque debe comenzar cuando termina el anterior.',
-                ]);
-            }
-        }
-
-        $recesos = collect($bloques)
-            ->filter(fn ($bloque) => ($bloque['tipo'] ?? null) === 'receso')
-            ->values();
-
-        $mañana = $recesos->filter(fn ($bloque) => $this->minutos($bloque['hora_inicio']) < 12 * 60)->count();
-        $tarde = $recesos->filter(fn ($bloque) => $this->minutos($bloque['hora_inicio']) >= 12 * 60)->count();
-
-        $esperados = [
-            'mañana' => ['mañana' => 2, 'tarde' => 0],
-            'tarde' => ['mañana' => 0, 'tarde' => 2],
-            'completo' => ['mañana' => 2, 'tarde' => 2],
-        ][$turno] ?? ['mañana' => 2, 'tarde' => 2];
-
-        if ($mañana !== $esperados['mañana'] || $tarde !== $esperados['tarde']) {
-            $texto = $turno === 'completo'
-                ? 'La configuración completa debe tener 2 recesos en la mañana y 2 recesos en la tarde.'
-                : "La configuración de turno {$turno} debe tener 2 recesos de ese turno.";
-
-            throw ValidationException::withMessages([
-                'bloques' => $texto,
-            ]);
         }
     }
 
     public function validarConfiguracionLista(string $institucion, string $nivel, string $turno): void
     {
         $config = $this->configuracionVigente($institucion, $nivel, $turno);
-
         if (!$config) {
-            throw ValidationException::withMessages([
-                'configuracion_horario' => 'Antes de crear asignaciones debes guardar la configuración de horarios y recesos para esta institución, nivel y turno.',
-            ]);
+            throw ValidationException::withMessages(['configuracion_horario' => 'Falta la jornada de este nivel y turno. Ejecuta la instalacion de configuraciones fijas.']);
         }
-
-        $this->validarBloques($config->bloques->toArray(), $config->turno,
-            $this->hora($config->hora_inicio), $this->hora($config->hora_fin));
+        $this->validarBloques($config->bloques->toArray(), $turno, $this->hora($config->hora_inicio), $this->hora($config->hora_fin));
     }
 
     public function validarNoChocaConReceso(string $institucion, string $nivel, string $turno, string $horaInicio, string $horaFin): void
     {
-        $config = $this->configuracionVigente($institucion, $nivel, $turno);
-
-        if (!$config) {
-            return;
-        }
-
-        foreach ($config->bloques->where('tipo', 'receso') as $receso) {
+        foreach ($this->recesosVigentes($institucion, $nivel) as $receso) {
             if ($this->rangosSeCruzan($horaInicio, $horaFin, $receso->hora_inicio, $receso->hora_fin)) {
-                $inicio = $this->hora($receso->hora_inicio);
-                $fin = $this->hora($receso->hora_fin);
-
                 throw ValidationException::withMessages([
-                    'receso' => "No se puede usar el horario {$horaInicio} - {$horaFin} porque cruza el receso {$inicio} - {$fin}.",
+                    'receso' => 'No se puede programar una clase durante '.$receso->nombre.' ('.$this->hora($receso->hora_inicio).' - '.$this->hora($receso->hora_fin).').',
                 ]);
             }
         }
@@ -158,30 +151,23 @@ class HorarioRecesoService
 
     public function rangoChocaConRecesoInstitucion(string $institucion, string $horaInicio, string $horaFin): ?array
     {
-        foreach ($this->recesosVigentes($institucion) as $receso) {
+        foreach ($this->recesosParaDisponibilidad($institucion) as $receso) {
             if ($this->rangosSeCruzan($horaInicio, $horaFin, $receso->hora_inicio, $receso->hora_fin)) {
-                return [
-                    'hora_inicio' => $this->hora($receso->hora_inicio),
-                    'hora_fin' => $this->hora($receso->hora_fin),
-                    'nombre' => $receso->nombre ?: 'Receso',
-                ];
+                return ['hora_inicio' => $this->hora($receso->hora_inicio), 'hora_fin' => $this->hora($receso->hora_fin), 'nombre' => $receso->nombre];
             }
         }
-
         return null;
     }
 
     public function rangosSeCruzan(string $inicioA, string $finA, string $inicioB, string $finB): bool
     {
-        return Carbon::parse($inicioA)->lt(Carbon::parse($finB))
-            && Carbon::parse($finA)->gt(Carbon::parse($inicioB));
+        return Carbon::parse($inicioA)->lt(Carbon::parse($finB)) && Carbon::parse($finA)->gt(Carbon::parse($inicioB));
     }
 
     private function minutos(string $hora): int
     {
-        $carbon = Carbon::parse($hora);
-
-        return ((int) $carbon->format('H')) * 60 + (int) $carbon->format('i');
+        $hora = Carbon::parse($hora);
+        return (int) $hora->format('H') * 60 + (int) $hora->format('i');
     }
 
     private function hora(string $hora): string

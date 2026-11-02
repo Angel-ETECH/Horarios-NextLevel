@@ -133,6 +133,20 @@ class AsignacionService
     /**
      * Validar que no exista una asignación duplicada
      */
+    private function validarProgramacion(array $data): void
+    {
+        if (($data['modo_programacion'] ?? 'automatico') !== 'manual') {
+            return;
+        }
+        $bloques = $data['bloques_manuales'] ?? [];
+        $claves = array_map(fn ($b) => $b['dia_semana'].'|'.$b['hora_inicio'].'|'.$b['hora_fin'], $bloques);
+        if (count($bloques) !== (int) $data['horas_asignadas'] || count(array_unique($claves)) !== count($bloques)) {
+            throw ValidationException::withMessages([
+                'bloques_manuales' => 'Selecciona un bloque distinto por cada hora lectiva asignada. Puedes elegirlos consecutivos en un mismo día.',
+            ]);
+        }
+    }
+
     private function validateUnique(array $data, ?int $excludeId = null): void
     {
         $query = ProfesorCurso::where('profesor_id', $data['profesor_id'])
@@ -258,7 +272,7 @@ class AsignacionService
         }
     }
 
-    private function validateAula(int $aulaId, int $gradoId): void
+    private function validateAula(int $aulaId, int $gradoId, string $institucion): void
     {
         $aula = Aula::find($aulaId);
 
@@ -271,6 +285,12 @@ class AsignacionService
         if (!$aula->activo) {
             throw ValidationException::withMessages([
                 'aula_id' => 'El aula seleccionada no está activa'
+            ]);
+        }
+
+        if (!in_array($aula->institucion, [$institucion, 'ambos'], true)) {
+            throw ValidationException::withMessages([
+                'aula_id' => 'El aula no pertenece a la institucion de la asignacion.',
             ]);
         }
 
@@ -344,6 +364,8 @@ class AsignacionService
     public function create(array $data): ProfesorCurso
     {
         return DB::transaction(function () use ($data) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $this->validarProgramacion($data);
             // 1. Validar que el profesor existe y está activo
             $this->validateProfesorCurso($data);
 
@@ -355,7 +377,7 @@ class AsignacionService
             );
 
             // 3. Validar que el aula exista y sea compatible con el grado
-            $this->validateAula($data['aula_id'], $data['grado_id']);
+            $this->validateAula($data['aula_id'], $data['grado_id'], $data['institucion'] ?? 'colegio');
 
             // 4. Validar que no exista duplicado
             $this->validateUnique($data);
@@ -395,7 +417,18 @@ class AsignacionService
     public function update(int $id, array $data): ProfesorCurso
     {
         return DB::transaction(function () use ($id, $data) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $asignacion = ProfesorCurso::findOrFail($id);
+            $programacion = array_merge($asignacion->toArray(), $data);
+            $this->validarProgramacion($programacion);
+            $cambioPlan = array_key_exists('modo_programacion', $data) || array_key_exists('bloques_manuales', $data);
+            $cambioPlan = $cambioPlan && (
+                ($asignacion->modo_programacion ?? 'automatico') !== ($programacion['modo_programacion'] ?? 'automatico') ||
+                ($asignacion->bloques_manuales ?? []) !== ($programacion['bloques_manuales'] ?? [])
+            );
+            if (array_key_exists('modo_programacion', $data) && $data['modo_programacion'] === 'automatico') {
+                $data['bloques_manuales'] = null;
+            }
             $datosAnteriores = $this->snapshotAsignacion($asignacion);
 
             // Obtener valores actuales
@@ -410,11 +443,12 @@ class AsignacionService
             $nuevoProfesorId = $data['profesor_id'] ?? $profesorIdActual;
             $nuevoCursoId = $data['curso_id'] ?? $cursoIdActual;
             $nuevoGradoId = $data['grado_id'] ?? $gradoIdActual;
-            $nuevoAulaId = $data['aula_id'] ?? $aulaIdActual;
+            $nuevoAulaId = array_key_exists('aula_id', $data) ? $data['aula_id'] : $aulaIdActual;
             $nuevasHoras = $data['horas_asignadas'] ?? $horasActuales;
             $nuevaInstitucion = $data['institucion'] ?? $institucionActual;
 
-            if ((bool) ($data['activo'] ?? $asignacion->activo)) {
+            $quedaActiva = (bool) ($data['activo'] ?? $asignacion->activo);
+            if ($quedaActiva) {
                 $this->validateProfesorCurso([
                     'profesor_id' => $nuevoProfesorId,
                     'curso_id' => $nuevoCursoId,
@@ -422,28 +456,20 @@ class AsignacionService
                 ]);
             }
 
-            // 1. Validar que los IDs existan (si cambiaron)
-            if (isset($data['curso_id']) || isset($data['grado_id'])) {
-                $this->validateCursoYGrado(
-                    $data['curso_id'] ?? $cursoIdActual,
-                    $data['grado_id'] ?? $gradoIdActual,
-                    $nuevaInstitucion
-                );
-            } elseif (isset($data['institucion'])) {
+            // Activar desde editar debe validar lo mismo que el boton Activar.
+            if ($quedaActiva) {
                 $this->validateCursoYGrado(
                     $nuevoCursoId,
                     $nuevoGradoId,
                     $nuevaInstitucion
                 );
+                if (!$nuevoAulaId) {
+                    throw ValidationException::withMessages([
+                        'aula_id' => 'Selecciona un aula para esta asignación.'
+                    ]);
+                }
+                $this->validateAula((int) $nuevoAulaId, (int) $nuevoGradoId, $nuevaInstitucion);
             }
-
-            if (!$nuevoAulaId) {
-                throw ValidationException::withMessages([
-                    'aula_id' => 'Selecciona un aula para esta asignación.'
-                ]);
-            }
-
-            $this->validateAula((int) $nuevoAulaId, (int) $nuevoGradoId);
 
             // 2. VALIDACIÓN CRÍTICA: Verificar duplicados al actualizar
             // IMPORTANTE: Si cambia profesor, curso, grado o institución,
@@ -462,15 +488,14 @@ class AsignacionService
             }
 
             // 3. Validar carga horaria (si cambia profesor o horas)
-            if ($nuevoProfesorId != $profesorIdActual || $nuevasHoras != $horasActuales) {
+            if ($quedaActiva) {
                 $this->validateCargaHoraria($nuevoProfesorId, $nuevasHoras, $id);
             }
 
             // 4. Validar configuración de recesos antes de actualizar
-            $this->validateConfiguracionRecesos(
-                $nuevoGradoId,
-                $nuevaInstitucion
-            );
+            if ($quedaActiva) {
+                $this->validateConfiguracionRecesos($nuevoGradoId, $nuevaInstitucion);
+            }
 
             // 5. Actualizar la asignación
             $asignacion->update($data);
@@ -484,9 +509,11 @@ class AsignacionService
             $cambioAula =
                 (int) $nuevoAulaId !== (int) $aulaIdActual;
 
-            $quedaActiva = array_key_exists('activo', $data)
-                ? (bool) $data['activo']
-                : (bool) $asignacion->activo;
+            if ($cambioIdentidad || $cambioAula || $cambioPlan) {
+                $this->eliminarHorariosDeAsignacion(
+                    $profesorIdActual, $cursoIdActual, $gradoIdActual, $institucionActual
+                );
+            }
 
             if (!$quedaActiva) {
                 $this->eliminarHorariosDeAsignacion(
@@ -495,14 +522,7 @@ class AsignacionService
                     $nuevoGradoId,
                     $nuevaInstitucion
                 );
-            } elseif ($cambioIdentidad || $cambioAula) {
-                $this->eliminarHorariosDeAsignacion(
-                    $profesorIdActual,
-                    $cursoIdActual,
-                    $gradoIdActual,
-                    $institucionActual
-                );
-            } elseif ($nuevasHoras < $horasActuales) {
+            } elseif (!$cambioIdentidad && !$cambioAula && !$cambioPlan && $nuevasHoras < $horasActuales) {
                 $this->ajustarHorariosAhorasAsignadas(
                     $nuevoProfesorId,
                     $nuevoCursoId,
@@ -652,7 +672,8 @@ class AsignacionService
 
             $this->validateAula(
                 $asignacion->aula_id,
-                $asignacion->grado_id
+                $asignacion->grado_id,
+                $asignacion->institucion ?? 'colegio'
             );
 
             $this->validateConfiguracionRecesos(
@@ -772,7 +793,7 @@ class AsignacionService
             ->where('grado_id', $gradoId)
             ->where('institucion', $institucion)
             ->where('estado', 'activo')
-            ->orderBy('dia_semana')
+            ->ordenSemanal()
             ->orderBy('hora_inicio')
             ->get();
 

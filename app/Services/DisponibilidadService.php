@@ -15,19 +15,21 @@ class DisponibilidadService
     public function reemplazar(int $profesorId, string $institucion, array $franjas): Collection
     {
         return DB::transaction(function () use ($profesorId, $institucion, $franjas) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $profesor = Profesor::lockForUpdate()->findOrFail($profesorId);
             if (!in_array($profesor->institucion, [$institucion, 'ambos'], true)) {
                 throw ValidationException::withMessages([
                     'institucion' => 'El profesor no pertenece a esta institucion.',
                 ]);
             }
+            $anteriores = DisponibilidadProfesor::where('profesor_id', $profesorId)->get();
             $this->deleteByInstitucion($profesorId, $institucion, false);
             foreach ($franjas as $franja) {
                 $this->create(array_merge($franja, [
                     'profesor_id' => $profesorId, 'institucion' => $institucion, 'tipo' => 'disponible',
                 ]));
             }
-            $this->validarHorariosGuardados($profesorId, $institucion);
+            $this->validarHorariosGuardados($profesorId, $institucion, $anteriores);
             return $this->getByProfesorEInstitucion($profesorId, $institucion);
         });
     }
@@ -53,15 +55,56 @@ class DisponibilidadService
         return false;
     }
 
-    private function validarHorariosGuardados(int $profesorId, ?string $institucion = null): void
+    private function validarHorariosGuardados(int $profesorId, ?string $institucion = null, ?Collection $anteriores = null): void
     {
-        $query = \App\Models\Horario::where('profesor_id', $profesorId)->where('estado', 'activo');
+        $actuales = DisponibilidadProfesor::where('profesor_id', $profesorId)->where('tipo', 'disponible')->get();
+        // Solo proteger minutos utilizados que el cambio realmente quita. Una ampliación
+        // no debe bloquearse por inconsistencias anteriores ajenas al rango editado.
+        $quitaMinutos = function ($dia, $inicio, $fin, $institucionClase) use ($anteriores, $actuales): bool {
+            if ($anteriores === null) return true;
+            $nuevos = $actuales->where('dia_semana', $dia)->where('institucion', $institucionClase);
+            foreach ($anteriores->where('tipo', 'disponible')->where('dia_semana', $dia)->where('institucion', $institucionClase) as $anterior) {
+                $desde = max(Carbon::parse($inicio)->format('H:i'), Carbon::parse($anterior->hora_inicio)->format('H:i'));
+                $hasta = min(Carbon::parse($fin)->format('H:i'), Carbon::parse($anterior->hora_fin)->format('H:i'));
+                if ($desde < $hasta && !$this->rangoEstaCubierto($nuevos, $desde, $hasta)) return true;
+            }
+            return false;
+        };
+        $query = \App\Models\Horario::with(['curso', 'grado', 'aula'])->where('profesor_id', $profesorId)->where('estado', 'activo');
         if ($institucion !== null) {
             $query->where('institucion', $institucion);
         }
+        $errores = [];
         foreach ($query->get() as $horario) {
-            $this->validarRangoEnDisponibilidad($profesorId, $horario->dia_semana,
-                $horario->hora_inicio->format('H:i'), $horario->hora_fin->format('H:i'), $horario->institucion);
+            try {
+                $this->validarRangoEnDisponibilidad($profesorId, $horario->dia_semana,
+                    $horario->hora_inicio->format('H:i'), $horario->hora_fin->format('H:i'), $horario->institucion);
+            } catch (ValidationException $e) {
+                if (!$quitaMinutos($horario->dia_semana, $horario->hora_inicio, $horario->hora_fin, $horario->institucion)) continue;
+                $errores[] = "No puedes quitar este horario: {$horario->curso?->nombre}, {$horario->grado?->nombre_completo}, "
+                    .ucfirst($horario->dia_semana).' '.$horario->hora_inicio->format('H:i').'–'.$horario->hora_fin->format('H:i')
+                    ." ({$horario->aula?->nombre}). Conserva el rango completo de esta clase.";
+            }
+        }
+        if (app(HorarioCalendarioService::class)->instalado()) {
+            $recuperaciones = \App\Models\RecuperacionHorario::with('horario.curso')
+                ->where('estado', 'programada')->whereDate('fecha_recuperacion', '>=', today())
+                ->where('disponibilidad_excepcional', false)
+                ->whereHas('horario', fn ($q) => $q->where('profesor_id', $profesorId)
+                    ->when($institucion, fn ($q) => $q->where('institucion', $institucion)))->get();
+            foreach ($recuperaciones as $r) {
+                try {
+                    $this->validarRangoEnDisponibilidad($profesorId, HorarioCalendarioService::DIAS[$r->fecha_recuperacion->dayOfWeekIso],
+                        $r->hora_inicio, $r->hora_fin, $r->horario->institucion);
+                } catch (ValidationException $e) {
+                    if (!$quitaMinutos(HorarioCalendarioService::DIAS[$r->fecha_recuperacion->dayOfWeekIso], $r->hora_inicio, $r->hora_fin, $r->horario->institucion)) continue;
+                    $errores[] = 'La recuperación de '.$r->horario->curso?->nombre.' del '.$r->fecha_recuperacion->format('d/m/Y')
+                        .' '.substr($r->hora_inicio, 0, 5).'–'.substr($r->hora_fin, 0, 5).' utiliza esta disponibilidad.';
+                }
+            }
+        }
+        if ($errores) {
+            throw ValidationException::withMessages(['disponibilidad' => $errores]);
         }
     }
     public function __construct(
@@ -551,6 +594,7 @@ class DisponibilidadService
 
         return DB::transaction(
             function () use ($data) {
+                app(RecuperacionHorarioService::class)->bloquearAgenda();
 
                 /*
                 |--------------------------------------------------------------------------
@@ -748,11 +792,14 @@ class DisponibilidadService
                 $id,
                 $data
             ) {
+                app(RecuperacionHorarioService::class)->bloquearAgenda();
 
                 $disponibilidad =
                     DisponibilidadProfesor::findOrFail(
                         $id
                     );
+
+                $anteriores = DisponibilidadProfesor::where('profesor_id', $disponibilidad->profesor_id)->get();
 
                 $datosAnteriores =
                     $this->snapshotDisponibilidad(
@@ -809,7 +856,7 @@ class DisponibilidadService
                         $data
                     );
 
-                $this->validarHorariosGuardados((int) $datosAnteriores['profesor_id'], $datosAnteriores['institucion']);
+                $this->validarHorariosGuardados((int) $datosAnteriores['profesor_id'], $datosAnteriores['institucion'], $anteriores);
 
 
                 $disponibilidad
@@ -840,10 +887,13 @@ class DisponibilidadService
     ): bool {
 
         return DB::transaction(function () use ($id) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $disponibilidad =
                 DisponibilidadProfesor::findOrFail(
                     $id
                 );
+
+            $anteriores = DisponibilidadProfesor::where('profesor_id', $disponibilidad->profesor_id)->get();
 
             $datosAnteriores =
                 $this->snapshotDisponibilidad(
@@ -854,7 +904,7 @@ class DisponibilidadService
                 $disponibilidad
                     ->delete();
 
-            $this->validarHorariosGuardados($disponibilidad->profesor_id, $disponibilidad->institucion);
+            $this->validarHorariosGuardados($disponibilidad->profesor_id, $disponibilidad->institucion, $anteriores);
 
             $this->historialService->registrarEvento(
                 'disponibilidad',
@@ -882,6 +932,7 @@ class DisponibilidadService
             );
 
         return DB::transaction(function () use ($profesor) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $disponibilidades =
                 $profesor
                     ->disponibilidades()
@@ -907,7 +958,7 @@ class DisponibilidadService
                 );
             }
 
-            $this->validarHorariosGuardados($profesor->id);
+            $this->validarHorariosGuardados($profesor->id, null, $disponibilidades);
             return
                 $disponibilidades->count();
         });
@@ -927,6 +978,7 @@ class DisponibilidadService
             $institucion,
             $validarHorarios
         ) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $disponibilidades =
                 DisponibilidadProfesor::where(
                     'profesor_id',
@@ -959,7 +1011,7 @@ class DisponibilidadService
             }
 
             if ($validarHorarios) {
-                $this->validarHorariosGuardados($profesorId, $institucion);
+                $this->validarHorariosGuardados($profesorId, $institucion, $disponibilidades);
             }
             return
                 $disponibilidades->count();

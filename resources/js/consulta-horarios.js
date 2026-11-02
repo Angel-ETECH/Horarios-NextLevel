@@ -1,4 +1,5 @@
 import html2canvas from 'html2canvas';
+import { fechaActualHorario } from './calendario-actual';
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -18,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const selector =
         document.getElementById('consulta-selector');
+    let fechaConsultaActual = fechaActualHorario();
 
     const selectorLabel =
         document.getElementById('consulta-label');
@@ -205,7 +207,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'Miércoles',
         'Jueves',
         'Viernes',
-        'Sábado'
+        'Sábado',
+        'Domingo'
     ];
 
 
@@ -292,7 +295,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Viernes',
 
             sabado:
-                'Sábado'
+                'Sábado',
+            domingo: 'Domingo',
+            '7': 'Domingo',
         };
 
         return mapa[valor] || '';
@@ -2033,7 +2038,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <article class="horario-clase">
 
                 <p class="horario-curso">
-
+                    ${horario.recuperacion_id ? 'Recuperación · ' : ''}
                     ${escaparHTML(
                         nombreCurso(
                             curso
@@ -2426,8 +2431,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // =============================================================
 
     async function consultarHorario() {
-        const contexto = `${institucionSeleccionada}|${tipoSeleccionado}|${selector.value}`;
-        const consultaSigueVigente = () => contexto === `${institucionSeleccionada}|${tipoSeleccionado}|${selector.value}`;
+        const semana = fechaActualHorario();
+        const contexto = `${institucionSeleccionada}|${tipoSeleccionado}|${selector.value}|${semana}`;
+        const consultaSigueVigente = () => contexto === `${institucionSeleccionada}|${tipoSeleccionado}|${selector.value}|${fechaActualHorario()}`;
 
         mensaje?.classList.add(
             'hidden'
@@ -2522,6 +2528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     {
                         institucion:
                             institucionSeleccionada,
+                        ...(semana ? { semana_inicio: semana } : {}),
                     }
                 );
 
@@ -2655,7 +2662,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         profesorId
                     )}?institucion=${encodeURIComponent(
                         institucionSeleccionada
-                    )}`;
+                    )}&semana_inicio=${encodeURIComponent(fechaActualHorario())}`;
 
 
                 const respuesta =
@@ -2852,7 +2859,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         ),
                         {
                             institucion:
-                                institucionSeleccionada
+                                institucionSeleccionada,
+                            semana_inicio: fechaActualHorario(),
                         }
                     );
 
@@ -3432,6 +3440,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // =============================================================
 
     actualizarDisponibilidadTipos();
+    function sincronizarConsultaActual() {
+        if (fechaConsultaActual !== fechaActualHorario()) {
+            fechaConsultaActual = fechaActualHorario();
+            if (selector.value) consultarHorario();
+        }
+    }
+    window.addEventListener('focus', sincronizarConsultaActual);
+    window.setInterval(sincronizarConsultaActual, 60000);
 
     actualizarBotonesInstitucion();
 

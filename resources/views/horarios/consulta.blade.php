@@ -550,7 +550,7 @@
             display: grid;
 
             grid-template-columns:
-                repeat(6, minmax(0, 1fr));
+                repeat(7, minmax(0, 1fr));
 
             gap: 12px;
 
@@ -911,7 +911,7 @@
             display: grid !important;
 
             grid-template-columns:
-                repeat(6, minmax(0,1fr)) !important;
+                repeat(7, minmax(0,1fr)) !important;
 
             gap: 8px !important;
         }
@@ -978,7 +978,7 @@
                 display: grid !important;
 
                 grid-template-columns:
-                    repeat(6, minmax(0,1fr)) !important;
+                    repeat(7, minmax(0,1fr)) !important;
 
                 gap: 7px !important;
             }

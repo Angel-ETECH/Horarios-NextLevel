@@ -13,6 +13,16 @@ class Horario extends Model
 
     protected $table = 'horarios';
 
+    protected static function booted(): void
+    {
+        static::updating(function (Horario $horario) {
+            if ($horario->isDirty(['profesor_id', 'curso_id', 'grado_id', 'aula_id', 'dia_semana', 'hora_inicio', 'hora_fin', 'periodo_academico', 'institucion', 'estado'])) {
+                app(\App\Services\RecuperacionHorarioService::class)->protegerPlantilla($horario->id);
+            }
+        });
+        static::deleting(fn (Horario $horario) => app(\App\Services\RecuperacionHorarioService::class)->protegerPlantilla($horario->id));
+    }
+
     protected $fillable = [
         'profesor_id',
         'curso_id',

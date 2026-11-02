@@ -162,7 +162,13 @@ class AsignacionRequest extends FormRequest
         }
 
 
-        return $rules;
+        return array_merge($rules, [
+            'modo_programacion' => ['sometimes', Rule::in(['automatico', 'manual'])],
+            'bloques_manuales' => ['required_if:modo_programacion,manual', 'nullable', 'array', 'max:40'],
+            'bloques_manuales.*.dia_semana' => ['required', Rule::in(['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'])],
+            'bloques_manuales.*.hora_inicio' => ['required', 'date_format:H:i'],
+            'bloques_manuales.*.hora_fin' => ['required', 'date_format:H:i'],
+        ]);
     }
 
     /**

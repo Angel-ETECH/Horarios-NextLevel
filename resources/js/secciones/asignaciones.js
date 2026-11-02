@@ -1,3 +1,5 @@
+import { iniciarProgramacionAsignacion } from './programacion-asignacion';
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================
@@ -699,22 +701,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     grado.turno
                 );
 
-            const esValido =
-                turno === 'mañana'
-                    ? mañana >= 2
-                    : turno === 'tarde'
-                        ? tarde >= 2
-                        : mañana >= 2 && tarde >= 2;
+            const esValido = response?.data?.recesos_fijos === true ||
+                (turno === 'mañana' ? mañana >= 2 : turno === 'tarde' ? tarde >= 2 : mañana >= 2 && tarde >= 2);
 
             configuracionRecesosLista =
                 esValido;
 
             if (esValido) {
                 pintarResumenRecesos(
-                    `Recesos listos: ${recesos.map(
+                    recesos.length ? `Recesos fijos: ${recesos.map(
                         receso =>
                             `${horaCorta(receso.hora_inicio)}-${horaCorta(receso.hora_fin)}`
-                    ).join(' · ')}`,
+                    ).join(' · ')}` : 'Sin recesos institucionales definidos para este turno.',
                     'ok'
                 );
 
@@ -755,10 +753,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return extraerColeccion(response);
     }
 
+    async function obtenerRecesosDisponibilidad(institucion) {
+        const grado = obtenerGradoSeleccionado();
+        const params = { institucion, alcance: 'disponibilidad' };
+        if (grado) {
+            params.nivel = grado.nivel;
+            params.turno = turnoConfigurable(grado.turno);
+        }
+        const response = await window.axios.get('/api/configuraciones-horario/recesos', { params });
+        return response?.data?.data ?? [];
+    }
+
+    function franjasSinRecesos(inicio, fin, recesos) {
+        let franjas = [[minutosHora(inicio), minutosHora(fin)]];
+        for (const receso of recesos) {
+            const desde = minutosHora(receso.hora_inicio);
+            const hasta = minutosHora(receso.hora_fin);
+            franjas = franjas.flatMap(([a, b]) => {
+                if (hasta <= a || desde >= b) { return [[a, b]]; }
+                const libres = [];
+                if (a < desde) { libres.push([a, desde]); }
+                if (hasta < b) { libres.push([hasta, b]); }
+                return libres;
+            });
+        }
+        return franjas.filter(([a, b]) => b > a);
+    }
+
+    function horaDesdeMinutos(valor) {
+        return `${String(Math.floor(valor / 60)).padStart(2, '0')}:${String(valor % 60).padStart(2, '0')}`;
+    }
 
     function resumirDisponibilidad(
         registros,
-        institucion
+        institucion,
+        recesos = []
     ) {
 
         const filtrados =
@@ -781,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         const rangos =
-            filtrados.map(
+            filtrados.flatMap(
                 item => {
 
                     const inicio =
@@ -796,17 +825,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         );
 
 
-                    minutosTotales +=
-                        Math.max(
-                            0,
-                            minutosHora(fin) -
-                                minutosHora(inicio)
-                        );
-
-
-                    return `${nombreDiaDisponible(
-                        item.dia_semana
-                    )} ${inicio}-${fin}`;
+                    return franjasSinRecesos(inicio, fin, recesos).map(([desde, hasta]) => {
+                        minutosTotales += hasta - desde;
+                        return `${nombreDiaDisponible(item.dia_semana)} ${horaDesdeMinutos(desde)}-${horaDesdeMinutos(hasta)}`;
+                    });
                 }
             );
 
@@ -822,7 +844,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     60
                 ),
 
-            rangos
+            rangos,
+
+            simulada: filtrados.some(item =>
+                String(item.observacion ?? '').startsWith('PRUEBA SIMULADA:')
+            )
         };
     }
 
@@ -898,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
         disponibilidadResumen.textContent =
             `${formatearHorasDisponibles(
                 resumen.horas
-            )} hora(s) disponibles: ${
+            )} hora(s) disponibles${resumen.simulada ? ' (datos de prueba)' : ''}: ${
                 resumen.rangos.join(' · ')
             }`;
     }
@@ -945,10 +971,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
 
-            const registros =
-                await obtenerDisponibilidadProfesor(
-                    profesorId
-                );
+            const [registros, recesos] = await Promise.all([
+                obtenerDisponibilidadProfesor(profesorId),
+                obtenerRecesosDisponibilidad(institucion),
+            ]);
 
 
             if (consulta !== consultaDisponibilidad) {
@@ -958,12 +984,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const resumen =
                 resumirDisponibilidad(
                     registros,
-                    institucion
+                    institucion,
+                    recesos
                 );
 
 
             horasDisponiblesActuales =
-                resumen.horasEnteras;
+                resumen.horas > 0 ? 40 : 0;
 
 
             pintarResumenDisponibilidad(
@@ -972,14 +999,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             if (
-                resumen.horasEnteras > 0
+                resumen.horas > 0
             ) {
 
                 horasInput.max =
                     String(
                         Math.min(
                             40,
-                            resumen.horasEnteras
+                            horasDisponiblesActuales
                         )
                     );
 
@@ -992,8 +1019,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     horasInput.value =
                         String(
                             Math.min(
-                                40,
-                                resumen.horasEnteras
+                                1,
+                                horasDisponiblesActuales
                             )
                         );
                 }
@@ -1671,6 +1698,7 @@ document.addEventListener('DOMContentLoaded', () => {
             institucionSelect,
             cursoSelect,
             gradoSelect,
+            aulaSelect,
             rolSelect,
             estadoSelect,
             filtroInstitucion
@@ -2336,7 +2364,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
 
-                    return true;
+                    const institucion = normalizarTexto(institucionSelect.value);
+                    const institucionAula = normalizarTexto(aula.institucion ?? 'ambos');
+                    return !institucion || institucionAula === 'ambos' || institucionAula === institucion;
                 })
                 .sort(
                     (a, b) =>
@@ -3185,6 +3215,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function obtenerPayload() {
 
         return {
+            ...programacionManual.payload(),
 
             profesor_id:
                 Number(
@@ -3228,6 +3259,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function validarFormulario() {
+        if (!programacionManual.validar()) return false;
 
         if (!profesorSelect.value) {
 
@@ -3344,7 +3376,7 @@ document.addEventListener('DOMContentLoaded', () => {
             !configuracionRecesosLista
         ) {
             alert(
-                'Antes de guardar, configura los recesos del grado en Horarios.'
+                'No se pudieron validar los recesos institucionales. Vuelve a seleccionar el grado.'
             );
 
             return false;
@@ -3398,6 +3430,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function limpiarFormulario() {
+        programacionManual.limpiar();
         ++consultaDisponibilidad;
         ++consultaRecesos;
 
@@ -3457,7 +3490,8 @@ document.addEventListener('DOMContentLoaded', () => {
             false;
 
         pintarResumenDisponibilidad(
-            null
+            null,
+            'sin-seleccion'
         );
 
         pintarResumenRecesos(
@@ -3747,6 +3781,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         void actualizarResumenDisponibilidad();
         void actualizarResumenRecesos();
+        programacionManual.cargar(asignacion);
 
 
         ocultarEstado();
@@ -4069,6 +4104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cursoSelect
             );
 
+            void actualizarResumenDisponibilidad();
             void actualizarResumenRecesos();
         }
     );
@@ -4106,6 +4142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             cargarSelectAulas();
 
+            void actualizarResumenDisponibilidad();
             void actualizarResumenRecesos();
         }
     );
@@ -4214,6 +4251,15 @@ document.addEventListener('DOMContentLoaded', () => {
         void actualizarResumenRecesos();
     });
 
+    const programacionManual = iniciarProgramacionAsignacion({
+        contexto: () => ({
+            profesor_id: profesorSelect.value, institucion: institucionSelect.value,
+            curso_id: cursoSelect.value, grado_id: gradoSelect.value, aula_id: aulaSelect.value,
+            ...(asignacionEditandoId ? { asignacion_id: asignacionEditandoId } : {}),
+        }),
+        controles: [profesorSelect, institucionSelect, cursoSelect, gradoSelect, aulaSelect],
+        horas: horasInput,
+    });
     iniciar();
 
 });

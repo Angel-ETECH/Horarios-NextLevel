@@ -108,10 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const diasBackend = {
         1: 'lunes',
         2: 'martes',
-        3: 'miercoles',
+        3: 'miércoles',
         4: 'jueves',
         5: 'viernes',
-        6: 'sabado',
+        6: 'sábado',
         7: 'domingo'
     };
 
@@ -149,6 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const personalizados =
         {};
+
+    const disponibilidadesSimuladas = new Set();
 
     let cargando =
         false;
@@ -461,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ) &&
                 primerGrupo.length
             ) {
-                return primerGrupo[0];
+                  return primerGrupo.join('\n');
             }
         }
 
@@ -1668,7 +1670,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             detailElement.textContent =
                 resumen.length > 0
-                    ? `Disponibilidad guardada/seleccionada: ${resumen.join(' · ')}`
+                    ? `${disponibilidadesSimuladas.has(claveActual()) ? 'Disponibilidad simulada (datos de prueba)' : 'Disponibilidad guardada/seleccionada'}: ${resumen.join(' · ')}`
                     : 'Este profesor no tiene disponibilidad guardada para esta institución.';
         }
     }
@@ -1744,6 +1746,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `${API_CONFIGURACIONES}/recesos`,
                     {
                         params: {
+                            alcance: 'disponibilidad',
                             institucion:
                                 institucionSelect.value ||
                                 'colegio'
@@ -1925,6 +1928,15 @@ document.addEventListener('DOMContentLoaded', () => {
         guardadas,
         clave
     ) {
+        const simulada = guardadas.some(item =>
+            (!item.tipo || item.tipo === 'disponible') &&
+            String(item.observacion ?? '').startsWith('PRUEBA SIMULADA:')
+        );
+        if (simulada) {
+            disponibilidadesSimuladas.add(clave);
+        } else {
+            disponibilidadesSimuladas.delete(clave);
+        }
 
         const idsGrid =
             [];

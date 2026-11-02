@@ -249,7 +249,7 @@ class HistorialCambio extends Model
      */
     public function scopeRecientes(Builder $query): Builder
     {
-        return $query->orderBy('created_at', 'desc');
+        return $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
     }
 
     /**
@@ -395,6 +395,9 @@ class HistorialCambio extends Model
      */
     public function getPuedeRevertirseAttribute(): bool
     {
+        if (($this->datos_nuevos['solo_auditoria'] ?? $this->datos_anteriores['solo_auditoria'] ?? false) === true) {
+            return false;
+        }
         if (!in_array($this->accion, [self::ACCION_CREAR, self::ACCION_ACTUALIZAR, self::ACCION_ELIMINAR], true)) {
             return false;
         }
@@ -404,6 +407,9 @@ class HistorialCambio extends Model
             ?? null;
 
         $snapshot = $this->datos_anteriores ?? $this->datos_nuevos;
+        if ($modulo === 'configuraciones') {
+            return false;
+        }
         $esHorario = $modulo === 'horarios' || $this->horario_id !== null
             || ($modulo === null && isset($snapshot['profesor_id'], $snapshot['curso_id'],
                 $snapshot['grado_id'], $snapshot['dia_semana'], $snapshot['hora_inicio']));

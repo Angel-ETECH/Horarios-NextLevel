@@ -1,3 +1,5 @@
+import { fechaActualHorario } from '../calendario-actual';
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================================================
@@ -1201,7 +1203,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     ),
 
                     cargarTodasLasPaginas(
-                        API.horarios
+                        API.horarios,
+                        { semana_inicio: fechaActualHorario() }
                     )
 
                 ]);

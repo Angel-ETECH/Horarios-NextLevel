@@ -80,8 +80,6 @@ class GradoController extends Controller
 
             $grado = Grado::create($data);
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'grados',
                 'crear',
@@ -89,6 +87,8 @@ class GradoController extends Controller
                 $this->snapshotGrado($grado),
                 'Grado creado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -137,8 +137,6 @@ class GradoController extends Controller
 
             $grado->update($data);
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'grados',
                 'actualizar',
@@ -146,6 +144,8 @@ class GradoController extends Controller
                 $this->snapshotGrado($grado),
                 'Grado actualizado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -197,8 +197,6 @@ class GradoController extends Controller
 
             $grado->delete();
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'grados',
                 'eliminar',
@@ -206,6 +204,8 @@ class GradoController extends Controller
                 null,
                 'Grado eliminado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -243,6 +243,7 @@ class GradoController extends Controller
     public function restore($id)
     {
         try {
+            DB::beginTransaction();
             $grado = Grado::withTrashed()->findOrFail($id);
             $datosAnteriores = $this->snapshotGrado($grado);
 
@@ -256,6 +257,8 @@ class GradoController extends Controller
                 'Grado restaurado'
             );
 
+            DB::commit();
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Grado restaurado exitosamente',
@@ -263,6 +266,7 @@ class GradoController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al restaurar el grado: ' . $e->getMessage()

@@ -91,7 +91,7 @@ class AsignacionEstadoTest extends TestCase
             'grado_id' => $grado->id, 'aula_id' => $aula->id,
             'horas_asignadas' => 2, 'institucion' => 'colegio', 'activo' => true,
         ]);
-        $recesos = Mockery::mock(HorarioRecesoService::class);
+        $recesos = Mockery::mock(HorarioRecesoService::class)->makePartial();
         $recesos->shouldReceive('validarConfiguracionLista')->andReturnNull();
         $this->app->instance(HorarioRecesoService::class, $recesos);
     }
@@ -114,6 +114,19 @@ class AsignacionEstadoTest extends TestCase
         $this->assertDatabaseCount('historial_cambios', 3);
     }
 
+    public function test_calculated_corrections_are_audited_but_cannot_be_reverted(): void
+    {
+        $registro = $this->app->make(HistorialService::class)->registrarEvento('profesores', 'actualizar',
+            ['id' => $this->profesor->id, 'carga_horaria_actual' => 0, 'solo_auditoria' => true],
+            ['id' => $this->profesor->id, 'carga_horaria_actual' => 2, 'solo_auditoria' => true],
+            'Contador recalculado desde las asignaciones activas');
+        $this->assertFalse($registro->puede_revertirse);
+        $this->postJson('/api/historial/revertir/'.$registro->id)->assertUnprocessable()
+            ->assertJsonValidationErrors('historial');
+        $this->assertSame(2, $this->profesor->fresh()->carga_horaria_actual);
+        $this->assertDatabaseCount('historial_cambios', 1);
+    }
+
     public function test_assignment_can_be_deactivated_and_reactivated(): void
     {
         $this->mockGenerator(['success' => true, 'horarios_creados' => 2]);
@@ -122,6 +135,302 @@ class AsignacionEstadoTest extends TestCase
         $this->postJson('/api/asignaciones/'.$this->asignacion->id.'/activar')
             ->assertOk()->assertJsonPath('data.activo', true);
         $this->assertSame(2, $this->profesor->fresh()->carga_horaria_actual);
+    }
+
+    public static function inactiveAssignmentReferences(): array
+    {
+        return [['curso', 'curso_id'], ['grado', 'grado_id']];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('inactiveAssignmentReferences')]
+    public function test_edit_cannot_activate_assignment_with_inactive_reference(string $relation, string $field): void
+    {
+        $this->asignacion->update(['activo' => false]);
+        $this->asignacion->{$relation}->update(['activo' => false]);
+        $this->mock(HorarioGeneratorService::class)->shouldNotReceive('generarHorarios');
+        $this->putJson('/api/asignaciones/'.$this->asignacion->id, ['activo' => true])
+            ->assertUnprocessable()->assertJsonValidationErrors($field);
+        $this->assertFalse($this->asignacion->fresh()->activo);
+    }
+
+    public function test_edit_reactivation_checks_the_teachers_current_workload(): void
+    {
+        $this->asignacion->update(['activo' => false]);
+        $this->profesor->update(['carga_horaria_maxima' => 1, 'carga_horaria_actual' => 0]);
+        $this->mock(HorarioGeneratorService::class)->shouldNotReceive('generarHorarios');
+        $this->putJson('/api/asignaciones/'.$this->asignacion->id, ['activo' => true])
+            ->assertUnprocessable()->assertJsonValidationErrors('horas_asignadas');
+        $this->assertFalse($this->asignacion->fresh()->activo);
+    }
+
+    public function test_edit_cannot_clear_the_classroom_of_an_active_assignment(): void
+    {
+        $this->mock(HorarioGeneratorService::class)->shouldNotReceive('generarHorarios');
+        $this->putJson('/api/asignaciones/'.$this->asignacion->id, ['aula_id' => null])
+            ->assertUnprocessable()->assertJsonValidationErrors('aula_id');
+        $this->assertNotNull($this->asignacion->fresh()->aula_id);
+    }
+
+    public function test_a_legacy_assignment_can_be_deactivated_without_an_available_classroom(): void
+    {
+        $this->asignacion->update(['aula_id' => null]);
+        $this->putJson('/api/asignaciones/'.$this->asignacion->id, ['activo' => false])->assertOk();
+        $this->assertFalse($this->asignacion->fresh()->activo);
+        $this->assertSame(0, $this->profesor->fresh()->carga_horaria_actual);
+    }
+
+    public function test_editing_identity_while_deactivating_removes_the_previous_schedule(): void
+    {
+        $this->createHorario();
+        $other = Curso::create(['codigo' => 'C2', 'nombre' => 'Otro curso', 'nivel' => 'primaria']);
+        $this->putJson('/api/asignaciones/'.$this->asignacion->id, ['curso_id' => $other->id, 'activo' => false])->assertOk();
+        $this->assertDatabaseCount('horarios', 0);
+        $this->assertFalse($this->asignacion->fresh()->activo);
+        $this->assertDatabaseCount('historial_cambios', 2);
+    }
+
+    public function test_assignment_classroom_must_belong_to_its_institution_but_can_be_shared(): void
+    {
+        $this->mockGenerator(['success' => true]);
+        $this->asignacion->aula->update(['institucion' => 'academia']);
+        $this->asignacion->update(['activo' => false]);
+        $this->postJson('/api/asignaciones/'.$this->asignacion->id.'/activar')
+            ->assertUnprocessable()->assertJsonValidationErrors('aula_id');
+        $this->asignacion->aula->update(['institucion' => 'ambos', 'nivel' => 'secundaria']);
+        $this->postJson('/api/asignaciones/'.$this->asignacion->id.'/activar')->assertOk();
+    }
+
+    public function test_reducing_hours_keeps_the_first_days_of_the_week(): void
+    {
+        $first = $this->createHorario();
+        $last = $first->replicate();
+        $last->dia_semana = 'jueves';
+        $last->save();
+        $this->mockGenerator(['success' => true]);
+        $this->putJson('/api/asignaciones/'.$this->asignacion->id, ['horas_asignadas' => 1])->assertOk();
+        $this->assertNotNull(Horario::find($first->id));
+        $this->assertNull(Horario::find($last->id));
+    }
+
+    public static function catalogMutations(): array
+    {
+        $cases = [];
+        foreach (['profesores', 'cursos', 'grados', 'aulas'] as $resource) {
+            foreach (['POST', 'PUT', 'DELETE'] as $method) { $cases[] = [$resource, $method]; }
+        }
+        return $cases;
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('catalogMutations')]
+    public function test_catalog_mutations_roll_back_when_history_cannot_be_saved(string $resource, string $method): void
+    {
+        $this->asignacion->update(['activo' => false]);
+        $models = ['profesores' => $this->profesor, 'cursos' => $this->asignacion->curso,
+            'grados' => $this->asignacion->grado, 'aulas' => $this->asignacion->aula];
+        $model = $models[$resource]->fresh();
+        $before = $model->getRawOriginal();
+        $count = $model->newQuery()->count();
+        $payload = array_replace($model->toArray(), ['codigo' => 'QA-NEW', 'nombre' => 'Cambio de prueba']);
+        if ($resource === 'profesores') { $payload = array_replace($payload, ['email' => 'qa-catalogo@example.test', 'dni' => '87654321']); }
+        if ($resource === 'cursos') { $payload = array_replace($payload, ['horas_semanales' => 2, 'duracion_minutos' => 45, 'tipo' => 'obligatorio']); }
+        if ($resource === 'grados') { $payload = array_replace($payload, ['seccion' => 'B', 'capacidad_maxima' => 30, 'numero_estudiantes' => 15, 'turno' => 'mañana']); }
+        $this->mock(HistorialService::class, function ($mock) {
+            $mock->shouldReceive('registrarEvento')->once()->andThrow(new \RuntimeException('Historial no disponible'));
+        });
+        $url = '/api/'.$resource.($method === 'POST' ? '' : '/'.$model->id);
+        $this->json($method, $url, $payload)->assertStatus(500);
+        $this->assertSame($count, $model->newQuery()->count());
+        $this->assertSame($before, $model->fresh()->getRawOriginal());
+        $this->assertSame(0, DB::transactionLevel());
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('inactiveAssignmentReferences')]
+    public function test_catalog_restoration_rolls_back_if_history_fails(string $relation): void
+    {
+        $model = $this->asignacion->{$relation};
+        $resource = $relation === 'curso' ? 'cursos' : 'grados';
+        $model->delete();
+        $this->mock(HistorialService::class)->shouldReceive('registrarEvento')->once()
+            ->andThrow(new \RuntimeException('Historial no disponible'));
+        $this->postJson('/api/'.$resource.'/'.$model->id.'/restore')->assertStatus(500);
+        $this->assertTrue($model->fresh()->trashed());
+        $this->assertSame(0, DB::transactionLevel());
+    }
+
+    public function test_professor_restoration_rolls_back_if_history_fails(): void
+    {
+        $this->profesor->delete();
+        $this->mock(HistorialService::class)->shouldReceive('registrarEvento')->once()
+            ->andThrow(new \RuntimeException('Historial no disponible'));
+        $this->postJson('/api/profesores/'.$this->profesor->id.'/restore')->assertStatus(500);
+        $this->assertTrue($this->profesor->fresh()->trashed());
+        $this->assertSame(0, DB::transactionLevel());
+    }
+
+    public function test_professor_with_active_assignment_cannot_be_deleted_without_schedules(): void
+    {
+        $this->deleteJson('/api/profesores/'.$this->profesor->id)->assertUnprocessable();
+        $this->assertFalse($this->profesor->fresh()->trashed());
+        $this->assertTrue($this->asignacion->fresh()->activo);
+    }
+
+    public function test_teacher_maximum_load_cannot_be_lower_than_active_assignments(): void
+    {
+        $this->putJson('/api/profesores/'.$this->profesor->id, array_replace(
+            $this->profesor->toArray(), ['carga_horaria_maxima' => 1]
+        ))->assertUnprocessable()->assertJsonValidationErrors('carga_horaria_maxima');
+        $this->assertSame(30, $this->profesor->fresh()->carga_horaria_maxima);
+    }
+
+    public function test_classroom_institution_cannot_invalidate_active_assignments(): void
+    {
+        $aula = $this->asignacion->aula;
+        $this->putJson('/api/aulas/'.$aula->id, array_replace(
+            $aula->toArray(), ['institucion' => 'academia']
+        ))->assertUnprocessable()->assertJsonValidationErrors('institucion');
+        $this->assertSame('ambos', $aula->fresh()->institucion);
+    }
+
+    public function test_available_classrooms_respect_institution_and_inactive_state(): void
+    {
+        $aula = $this->asignacion->aula;
+        $aula->update(['activo' => false]);
+        $this->getJson('/api/aulas/disponibilidad/verificar?aula_id='.$aula->id.'&dia=lunes&hora_inicio=07:00&hora_fin=08:00&institucion=colegio')
+            ->assertOk()->assertJsonPath('disponible', false);
+        $aula->update(['activo' => true, 'institucion' => 'academia']);
+        $this->getJson('/api/aulas/disponibilidad/disponibles?dia=lunes&hora_inicio=07:00&hora_fin=08:00&institucion=colegio')
+            ->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public static function configurationMutations(): array
+    {
+        return [['POST'], ['PUT'], ['DELETE']];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('configurationMutations')]
+    public function test_fixed_configuration_mutations_are_rejected_without_history(string $method): void
+    {
+        $this->app->forgetInstance(HorarioRecesoService::class);
+        $config = $this->configuration()->load('bloques');
+        $this->asignacion->update(['activo' => false]);
+        $payload = $config->toArray();
+        $payload['hora_inicio'] = '07:00';
+        $payload['hora_fin'] = '13:00';
+        $payload['año_academico'] = 2027;
+        $payload['nombre'] = 'Configuracion editada';
+        $payload['bloques'] = $config->bloques->map(fn ($b) => [
+            'orden' => $b->orden, 'hora_inicio' => $b->hora_inicio->format('H:i'),
+            'hora_fin' => $b->hora_fin->format('H:i'), 'tipo' => $b->tipo,
+        ])->all();
+        $url = '/api/configuraciones-horario'.($method === 'POST' ? '' : '/'.$config->id);
+        $this->json($method, $url, $payload)->assertUnprocessable()->assertJsonValidationErrors('configuracion');
+        $this->assertSame('Configuracion prueba', $config->fresh()->nombre);
+        $this->assertDatabaseCount('historial_cambios', 0);
+    }
+
+    public static function configurationIdentityChanges(): array
+    {
+        return [['institucion', 'academia'], ['nivel', 'secundaria'],
+            ['turno', 'tarde'], ['año_academico', 2027], ['activo', false]];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('configurationIdentityChanges')]
+    public function test_configuration_in_use_cannot_be_disabled_or_repurposed(string $field, mixed $value): void
+    {
+        $config = $this->configuration();
+        $this->putJson('/api/configuraciones-horario/'.$config->id, [$field => $value])
+            ->assertUnprocessable()->assertJsonValidationErrors('configuracion');
+        $this->assertSame($config->{$field}, $config->fresh()->{$field});
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('configurationMutations')]
+    public function test_fixed_configuration_rejects_changes_before_opening_transactions(string $method): void
+    {
+        $this->app->forgetInstance(HorarioRecesoService::class);
+        $config = $this->configuration()->fresh()->load('bloques');
+        $this->asignacion->update(['activo' => false]);
+        $before = $config->toArray();
+        $payload = array_replace($before, ['año_academico' => 2027, 'nombre' => 'Cambio no guardado',
+            'hora_inicio' => '07:00', 'hora_fin' => '13:00']);
+        $payload['bloques'] = $config->bloques->map(fn ($b) => [
+            'orden' => $b->orden, 'hora_inicio' => $b->hora_inicio->format('H:i'),
+            'hora_fin' => $b->hora_fin->format('H:i'), 'tipo' => $b->tipo,
+        ])->all();
+        $this->mock(HistorialService::class)->shouldNotReceive('registrarEvento');
+        $url = '/api/configuraciones-horario'.($method === 'POST' ? '' : '/'.$config->id);
+        $this->json($method, $url, $payload)->assertUnprocessable();
+        $this->assertSame(1, ConfiguracionHorario::count());
+        $this->assertSame($before, $config->fresh()->load('bloques')->toArray());
+        $this->assertSame(0, DB::transactionLevel());
+    }
+
+    public function test_classroom_filters_are_combined_and_can_include_inactive_rooms(): void
+    {
+        $aula = $this->asignacion->aula;
+        $aula->update(['activo' => false, 'capacidad' => 10]);
+        $this->getJson('/api/aulas?nivel=todos&activo=0')->assertOk()->assertJsonCount(1, 'data');
+        $aula->update(['activo' => true]);
+        $this->getJson('/api/aulas?tipo=aula_normal&capacidad=20')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_read_only_audit_accepts_consistent_data_without_writing(): void
+    {
+        $this->app->forgetInstance(HorarioRecesoService::class);
+        $this->configuration();
+        $this->availability();
+        $this->createHorario();
+        $before = Horario::first()->getRawOriginal();
+        $this->artisan('horarios:verificar', ['--json' => true])
+            ->expectsOutputToContain('"total_incidencias": 0')->assertSuccessful();
+        $this->assertSame($before, Horario::first()->getRawOriginal());
+        $this->assertDatabaseCount('historial_cambios', 0);
+    }
+
+    public function test_read_only_audit_detects_conflicts_recesses_and_missing_availability(): void
+    {
+        $this->app->forgetInstance(HorarioRecesoService::class);
+        $this->configuration();
+        $this->asignacion->aula->update(['institucion' => 'academia']);
+        $this->profesor->update(['carga_horaria_actual' => 0]);
+        $first = $this->createHorario();
+        $first->update(['hora_inicio' => '08:45', 'hora_fin' => '09:15']);
+        $second = $first->replicate();
+        $second->hora_inicio = '09:00';
+        $second->hora_fin = '09:45';
+        $second->save();
+        $this->assertSame(1, \Illuminate\Support\Facades\Artisan::call('horarios:verificar', ['--json' => true]));
+        $informe = json_decode(\Illuminate\Support\Facades\Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        $tipos = array_column($informe['incidencias'], 'tipo');
+        foreach (['aula_incompatible', 'carga_incoherente', 'sin_disponibilidad', 'cruce_receso', 'cruce_horario'] as $tipo) {
+            $this->assertContains($tipo, $tipos);
+        }
+        $this->assertDatabaseCount('horarios', 2);
+        $this->assertDatabaseCount('historial_cambios', 0);
+    }
+
+    public function test_history_uses_id_to_order_events_with_the_same_timestamp(): void
+    {
+        $service = $this->app->make(HistorialService::class);
+        $first = $service->registrarEvento('cursos', 'crear', null, ['id' => 1]);
+        $last = $service->registrarEvento('cursos', 'actualizar', ['id' => 1], ['id' => 1]);
+        $last->update(['created_at' => $first->created_at]);
+        $this->assertSame([$last->id, $first->id], HistorialCambio::recientes()->pluck('id')->all());
+    }
+
+    public function test_current_recesses_ignore_old_years_and_prefer_the_selected_shift(): void
+    {
+        $this->app->forgetInstance(HorarioRecesoService::class);
+        $this->configuration();
+        foreach (['mañana', 'completo'] as $turno) {
+            $old = ConfiguracionHorario::create([
+                'institucion' => 'colegio', 'nivel' => 'primaria', 'turno' => $turno,
+                'nombre' => 'Configuracion anterior', 'hora_inicio' => '07:00', 'hora_fin' => '20:00',
+                'duracion_bloque_minutos' => 45, 'año_academico' => 2025, 'activo' => true,
+            ]);
+            $old->bloques()->create(['orden' => 1, 'hora_inicio' => '09:00', 'hora_fin' => '09:15', 'tipo' => 'receso']);
+        }
+        $this->getJson('/api/configuraciones-horario/recesos?institucion=colegio&nivel=primaria&turno=mañana')
+            ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.hora_fin', '08:50');
     }
 
     public function test_inactive_professor_cannot_be_reactivated_through_assignment(): void
@@ -220,7 +529,7 @@ class AsignacionEstadoTest extends TestCase
         $result = $generator->generarHorarios(['profesor_id' => $this->profesor->id]);
         $this->assertTrue($result['success'], $result['error'] ?? '');
         $this->assertSame(4, $result['horarios_creados']);
-        $this->assertSame(['07:45', '08:30', '09:00', '10:15'],
+        $this->assertSame(['07:45', '08:30', '09:35', '10:20'],
             Horario::orderBy('hora_inicio')->get()->map(fn ($h) => $h->hora_fin->format('H:i'))->all());
         $again = $generator->generarHorarios(['profesor_id' => $this->profesor->id]);
         $this->assertTrue($again['success']);
@@ -401,26 +710,23 @@ class AsignacionEstadoTest extends TestCase
         $this->availability();
         $this->app->instance(HorarioRecesoService::class, new HorarioRecesoService());
         $horario = $this->createHorario();
-        $this->putJson('/api/horarios/'.$horario->id, ['hora_inicio' => '08:00', 'hora_fin' => '08:45'])->assertOk();
+        $this->putJson('/api/horarios/'.$horario->id, ['hora_inicio' => '09:00', 'hora_fin' => '09:45'])->assertOk();
         $registro = HistorialCambio::where('accion', 'actualizar')->firstOrFail();
         $conflicto = $this->createHorario();
         $conflicto->update(['hora_inicio' => '07:15', 'hora_fin' => '08:00']);
         $this->postJson('/api/historial/revertir/'.$registro->id)->assertStatus(422);
-        $this->assertSame('08:00', $horario->fresh()->hora_inicio->format('H:i'));
+        $this->assertSame('09:00', $horario->fresh()->hora_inicio->format('H:i'));
     }
 
-    public function test_recess_update_rolls_back_when_reprogramming_is_incomplete(): void
+    public function test_fixed_recess_update_never_starts_reprogramming(): void
     {
         $config = $this->configuration();
         $horario = $this->createHorario();
         $generator = Mockery::mock(HorarioGeneratorService::class);
-        $generator->shouldReceive('generarHorarios')->once()->andReturn([
-            'success' => true, 'horarios_creados' => 0,
-            'asignaciones_incompletas' => [['horas_pendientes' => 2, 'motivo' => 'Sin disponibilidad']],
-        ]);
+        $generator->shouldNotReceive('generarHorarios');
         $this->app->instance(HorarioGeneratorService::class, $generator);
         $this->putJson('/api/configuraciones-horario/'.$config->id, ['nombre' => 'Cambio prueba'])
-            ->assertStatus(422)->assertJsonValidationErrors('reprogramacion_horarios');
+            ->assertStatus(422)->assertJsonValidationErrors('configuracion');
         $this->assertSame('Configuracion prueba', $config->fresh()->nombre);
         $this->assertNotNull($horario->fresh());
         $this->assertDatabaseCount('historial_cambios', 0);
@@ -521,7 +827,7 @@ class AsignacionEstadoTest extends TestCase
         $this->assertSame(0, DB::transactionLevel());
     }
 
-    public function test_changing_recesses_regenerates_classes_with_a_valid_continuous_configuration(): void
+    public function test_attempting_to_change_fixed_recesses_keeps_generated_classes(): void
     {
         $this->app->instance(HorarioRecesoService::class, new HorarioRecesoService());
         $this->availability();
@@ -535,8 +841,8 @@ class AsignacionEstadoTest extends TestCase
             'tipo' => $bloque->tipo,
         ])->all();
         $this->putJson('/api/configuraciones-horario/'.$config->id, ['bloques' => $bloques])
-            ->assertOk()->assertJsonPath('reprogramacion_horarios.horarios_creados', 4);
-        $this->assertSame('09:15', Horario::orderBy('hora_inicio')->get()[2]->hora_fin->format('H:i'));
+            ->assertUnprocessable()->assertJsonValidationErrors('configuracion');
+        $this->assertSame('09:35', Horario::orderBy('hora_inicio')->get()[2]->hora_fin->format('H:i'));
         $this->assertSame(4, Horario::count());
     }
 
@@ -649,7 +955,7 @@ class AsignacionEstadoTest extends TestCase
         $this->configuration();
         $disponibilidad = DisponibilidadProfesor::create([
             'profesor_id' => $this->profesor->id, 'dia_semana' => 'lunes',
-            'hora_inicio' => '09:00', 'hora_fin' => '09:30', 'institucion' => 'colegio', 'tipo' => 'disponible',
+            'hora_inicio' => '08:50', 'hora_fin' => '09:20', 'institucion' => 'academia', 'tipo' => 'disponible',
         ]);
         $registro = app(HistorialService::class)->registrarEvento('disponibilidad', 'eliminar', $disponibilidad->toArray());
         $disponibilidad->delete();

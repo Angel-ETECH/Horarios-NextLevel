@@ -345,6 +345,7 @@
         'jueves' => 'Jueves',
         'viernes' => 'Viernes',
         'sábado' => 'Sábado',
+        'domingo' => 'Domingo',
     ];
     $normalizarDia = function ($dia) {
         $dia = strtolower(trim((string) $dia));
@@ -398,6 +399,9 @@
 
     <div class="main-title">
         {{ $tituloDocumento }}
+        @if(!empty($filtros['semana_inicio']))
+            <span style="display:block;font-size:12px;font-weight:normal;line-height:1.5">Semana del {{ app(\App\Services\HorarioCalendarioService::class)->inicioSemana($filtros['semana_inicio'])->format('d/m/Y') }}</span>
+        @endif
     </div>
 
     <div class="meta-wrap">
@@ -458,7 +462,7 @@
                                 @endphp
                                 <span class="class-card tone-{{ $tone }}">
                                     <span class="class-head">
-                                        <span class="course">{{ $item->curso->nombre ?? 'Curso no especificado' }}</span>
+                                        <span class="course">{{ $item->tipo === 'recuperacion' ? 'Recuperacion: ' : '' }}{{ $item->curso->nombre ?? 'Curso no especificado' }}</span>
                                         <span class="level-badge level-{{ $nivelClase }}">{{ $nivelCodigo }}</span>
                                     </span>
                                     <span class="grade">{{ $item->grado->nombre_completo ?? 'Grado no especificado' }}</span>
@@ -478,7 +482,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="empty-slot">No existen horarios disponibles para exportar.</td>
+                    <td colspan="8" class="empty-slot">No existen horarios disponibles para exportar.</td>
                 </tr>
             @endforelse
         </tbody>

@@ -23,12 +23,27 @@ class DisponibilidadController extends Controller
     public function reemplazar(Request $request, int $profesorId, string $institucion): JsonResponse
     {
         abort_unless(in_array($institucion, ['colegio', 'academia'], true), 404);
+        // Aceptar también clientes anteriores que envían los días sin tilde.
+        $franjas = $request->input('franjas');
+        if (is_array($franjas)) {
+            $request->merge(['franjas' => array_map(function ($franja) {
+                if (is_array($franja) && is_string($franja['dia_semana'] ?? null)) {
+                    $franja['dia_semana'] = $this->normalizarDia($franja['dia_semana']);
+                }
+                return $franja;
+            }, $franjas)]);
+        }
         $data = $request->validate([
             'franjas' => 'present|array|max:100',
-            'franjas.*.dia_semana' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado',
+            'franjas.*' => 'array',
+            'franjas.*.dia_semana' => 'required|string|in:lunes,martes,miércoles,jueves,viernes,sábado',
             'franjas.*.hora_inicio' => 'required|date_format:H:i',
             'franjas.*.hora_fin' => 'required|date_format:H:i',
             'franjas.*.turno' => 'nullable|in:mañana,tarde,noche',
+        ], [
+            'franjas.*.dia_semana.required' => 'Selecciona el día de cada horario disponible.',
+            'franjas.*.dia_semana.string' => 'El día de la disponibilidad debe ser un nombre válido.',
+            'franjas.*.dia_semana.in' => 'El día de la disponibilidad debe ser lunes, martes, miércoles, jueves, viernes o sábado.',
         ]);
         $disponibilidades = $this->disponibilidadService->reemplazar($profesorId, $institucion, $data['franjas']);
         return response()->json(['success' => true, 'data' => $disponibilidades]);
@@ -40,7 +55,7 @@ class DisponibilidadController extends Controller
             return $dia;
         }
 
-        $dia = strtolower(trim($dia));
+        $dia = mb_strtolower(trim($dia), 'UTF-8');
 
         return match ($dia) {
             'miercoles' => 'miércoles',
@@ -345,6 +360,8 @@ class DisponibilidadController extends Controller
                 'message' => 'Disponibilidad eliminada exitosamente'
             ]);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -369,6 +386,8 @@ class DisponibilidadController extends Controller
                 'total_eliminados' => $cantidad
             ]);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -393,6 +412,8 @@ class DisponibilidadController extends Controller
                 'total_eliminados' => $cantidad
             ]);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

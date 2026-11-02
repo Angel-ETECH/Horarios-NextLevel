@@ -31,6 +31,7 @@ class PublicController extends Controller
         'jueves',
         'viernes',
         'sábado',
+        'domingo',
     ];
 
 
@@ -768,6 +769,17 @@ class PublicController extends Controller
                 )
                 ->get();
 
+        if ($request->filled('semana_inicio')) {
+            $horarios = app(\App\Services\HorarioCalendarioService::class)->consultar([
+                'semana_inicio' => $request->input('semana_inicio'), 'profesor_id' => $id,
+                'institucion' => $request->input('institucion'),
+            ]);
+        }
+
+
+
+
+
 
         return response()->json([
             'success' =>
@@ -864,6 +876,7 @@ class PublicController extends Controller
 
             'institucion' =>
                 $request->institucion,
+            'semana_inicio' => $request->input('semana_inicio'),
         ];
 
 
@@ -965,6 +978,7 @@ class PublicController extends Controller
 
             'institucion' =>
                 $request->institucion,
+            'semana_inicio' => $request->input('semana_inicio'),
         ];
 
 
@@ -1129,6 +1143,13 @@ class PublicController extends Controller
                 )
                 ->get();
 
+        if ($request->filled('semana_inicio')) {
+            $horarios = app(\App\Services\HorarioCalendarioService::class)->consultar([
+                'semana_inicio' => $request->input('semana_inicio'), 'grado_id' => $id,
+                'institucion' => $request->input('institucion'),
+            ]);
+        }
+
 
         return response()->json([
             'success' =>
@@ -1241,6 +1262,13 @@ class PublicController extends Controller
                     'hora_inicio'
                 )
                 ->get();
+
+        if ($request->filled('semana_inicio')) {
+            $horarios = app(\App\Services\HorarioCalendarioService::class)->consultar([
+                'semana_inicio' => $request->input('semana_inicio'), 'aula_id' => $id,
+                'institucion' => $request->input('institucion'),
+            ]);
+        }
 
 
         return response()->json([
@@ -1357,6 +1385,13 @@ class PublicController extends Controller
                     'hora_inicio'
                 )
                 ->get();
+
+        if ($request->filled('semana_inicio')) {
+            $horarios = app(\App\Services\HorarioCalendarioService::class)->consultar([
+                'semana_inicio' => $request->input('semana_inicio'), 'curso_id' => $id,
+                'institucion' => $request->input('institucion'),
+            ]);
+        }
 
 
         return response()->json([

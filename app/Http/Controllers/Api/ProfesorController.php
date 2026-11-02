@@ -82,8 +82,6 @@ class ProfesorController extends Controller
             $profesor->carga_horaria_actual = 0;
             $profesor->save();
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'profesores',
                 'crear',
@@ -91,6 +89,8 @@ class ProfesorController extends Controller
                 $this->snapshotProfesor($profesor),
                 'Profesor creado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -117,6 +117,17 @@ class ProfesorController extends Controller
 
             $profesor = Profesor::findOrFail($id);
             $datosAnteriores = $this->snapshotProfesor($profesor);
+            $data = $request->validated();
+            $cargaAsignada = \App\Models\ProfesorCurso::where('profesor_id', $id)
+                ->where('activo', true)->sum('horas_asignadas');
+            if ($data['estado'] === 'activo' && $data['carga_horaria_maxima'] < $cargaAsignada) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'La carga maxima no puede ser menor que las horas ya asignadas.',
+                    'errors' => ['carga_horaria_maxima' => ["El profesor tiene {$cargaAsignada} horas asignadas activas."]],
+                ], 422);
+            }
             $institucionNueva = $request->validated()['institucion'];
             if ($institucionNueva !== 'ambos' && \App\Models\ProfesorCurso::where('profesor_id', $id)
                 ->where('activo', true)->where('institucion', '!=', $institucionNueva)->exists()) {
@@ -148,6 +159,9 @@ class ProfesorController extends Controller
                 'data' => $profesor->fresh()
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -167,6 +181,14 @@ class ProfesorController extends Controller
 
             $profesor = Profesor::findOrFail($id);
 
+            if (\App\Models\ProfesorCurso::where('profesor_id', $id)->where('activo', true)->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Desactiva primero las asignaciones antes de eliminar el profesor.',
+                ], 422);
+            }
+
             // Verificar si tiene horarios activos
             if ($profesor->horarios()->where('estado', 'activo')->count() > 0) {
                 DB::rollBack();
@@ -180,8 +202,6 @@ class ProfesorController extends Controller
 
             $profesor->delete();
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'profesores',
                 'eliminar',
@@ -189,6 +209,8 @@ class ProfesorController extends Controller
                 null,
                 'Profesor eliminado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -233,6 +255,7 @@ class ProfesorController extends Controller
     public function restore($id)
     {
         try {
+            DB::beginTransaction();
             $profesor = Profesor::withTrashed()->findOrFail($id);
             $datosAnteriores = $this->snapshotProfesor($profesor);
 
@@ -246,6 +269,8 @@ class ProfesorController extends Controller
                 'Profesor restaurado'
             );
 
+            DB::commit();
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Profesor restaurado exitosamente',
@@ -253,6 +278,7 @@ class ProfesorController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al restaurar el profesor: ' . $e->getMessage()

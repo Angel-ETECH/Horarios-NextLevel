@@ -67,8 +67,6 @@ class CursoController extends Controller
 
             $curso = Curso::create($request->validated());
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'cursos',
                 'crear',
@@ -76,6 +74,8 @@ class CursoController extends Controller
                 $this->snapshotCurso($curso),
                 'Curso creado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -113,8 +113,6 @@ class CursoController extends Controller
             }
             $curso->update($data);
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'cursos',
                 'actualizar',
@@ -122,6 +120,8 @@ class CursoController extends Controller
                 $this->snapshotCurso($curso),
                 'Curso actualizado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -158,8 +158,6 @@ class CursoController extends Controller
 
             $curso->delete();
 
-            DB::commit();
-
             $this->historialService->registrarEvento(
                 'cursos',
                 'eliminar',
@@ -167,6 +165,8 @@ class CursoController extends Controller
                 null,
                 'Curso eliminado'
             );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -202,6 +202,7 @@ class CursoController extends Controller
     public function restore($id)
     {
         try {
+            DB::beginTransaction();
             $curso = Curso::withTrashed()->findOrFail($id);
             $datosAnteriores = $this->snapshotCurso($curso);
 
@@ -215,6 +216,8 @@ class CursoController extends Controller
                 'Curso restaurado'
             );
 
+            DB::commit();
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Curso restaurado exitosamente',
@@ -222,6 +225,7 @@ class CursoController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al restaurar el curso: ' . $e->getMessage()

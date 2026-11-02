@@ -99,6 +99,12 @@ class HorarioService
             ]);
         }
 
+        if (!in_array($aula->institucion, [$institucion, 'ambos'], true)) {
+            throw ValidationException::withMessages([
+                'aula_id' => 'El aula no pertenece a la institucion del horario.',
+            ]);
+        }
+
         // 9. VALIDAR QUE LA INSTITUCIÓN SEA COHERENTE CON CURSO Y GRADO
         $this->validarInstitucionAcademica($institucion, $curso, $grado);
 
@@ -134,6 +140,7 @@ class HorarioService
 
         // 15. VALIDAR QUE NO SE PROGRAMEN MÁS CLASES QUE LAS ASIGNADAS
         $this->validarLimiteHorasAsignadas($asignacion, $periodoAcademico, $excludeId);
+        app(RecuperacionHorarioService::class)->validarNuevaPlantilla($data, $excludeId);
     }
 
     /**
@@ -403,6 +410,7 @@ class HorarioService
     public function create(array $data): Horario
     {
         return DB::transaction(function () use ($data) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $data = $this->normalizarDatosHorario($data);
 
             // Validación completa
@@ -421,9 +429,67 @@ class HorarioService
     /**
      * Actualizar un horario existente
      */
+    public function opcionesMovimiento(int $id): array
+    {
+        $h = Horario::findOrFail($id);
+        $a = $this->obtenerAsignacionActiva($h->profesor_id, $h->curso_id, $h->grado_id, $h->institucion);
+        $opciones = app(HorarioGeneratorService::class)->opcionesManuales(array_merge($a->toArray(), [
+            'asignacion_id' => $a->id, 'periodo_academico' => $h->periodo_academico,
+        ]));
+        $duracion = $h->hora_inicio->diffInMinutes($h->hora_fin);
+        return array_values(array_map(function ($b) use ($h, $duracion) {
+            $minutos = fn ($t) => (int) substr($t, 0, 2) * 60 + (int) substr($t, 3, 2);
+            if ($minutos($b['hora_fin']) - $minutos($b['hora_inicio']) != $duracion) {
+                $b['disponible'] = false;
+                $b['motivo'] = 'Este espacio no tiene la misma duración que la clase.';
+            } elseif ($b['disponible']) {
+                try {
+                    $this->validarHorarioCompleto(array_merge($h->toArray(), [
+                        'dia_semana' => $b['dia_semana'], 'hora_inicio' => $b['hora_inicio'], 'hora_fin' => $b['hora_fin'],
+                        'turno' => $b['hora_inicio'] < '12:00' ? 'mañana' : 'tarde',
+                    ]), $h->id);
+                } catch (ValidationException $e) {
+                    $b['disponible'] = false;
+                    $b['motivo'] = collect($e->errors())->flatten()->implode(' ');
+                }
+            }
+            return $b;
+        }, $opciones));
+    }
+
+    public function mover(int $id, array $destino): Horario
+    {
+        return DB::transaction(function () use ($id, $destino) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $h = Horario::findOrFail($id);
+            $origen = ['dia_semana' => $h->dia_semana, 'hora_inicio' => $h->hora_inicio->format('H:i'), 'hora_fin' => $h->hora_fin->format('H:i')];
+            if ($h->estado !== 'activo' || $destino['origen'] != $origen) {
+                throw ValidationException::withMessages(['horario' => 'La clase cambió. Actualiza el horario antes de reorganizarlo.']);
+            }
+            $nuevo = array_intersect_key($destino, $origen);
+            if (!collect($this->opcionesMovimiento($id))->contains(fn ($b) => $b['disponible'] && array_intersect_key($b, $origen) == $nuevo)) {
+                throw ValidationException::withMessages(['horario' => 'El destino no está disponible para esta duración. Revisa disponibilidad, recesos y ocupación del profesor, aula o grado.']);
+            }
+            $a = $this->obtenerAsignacionActiva($h->profesor_id, $h->curso_id, $h->grado_id, $h->institucion);
+            if ($a->modo_programacion !== 'manual') {
+                $plan = Horario::where('profesor_id', $h->profesor_id)->where('curso_id', $h->curso_id)
+                    ->where('grado_id', $h->grado_id)->where('institucion', $h->institucion)
+                    ->where('periodo_academico', $h->periodo_academico)->where('estado', 'activo')
+                    ->orderBy('id')->get()->map(fn ($b) => ['dia_semana' => $b->dia_semana,
+                        'hora_inicio' => $b->hora_inicio->format('H:i'), 'hora_fin' => $b->hora_fin->format('H:i')])->all();
+                if (count($plan) !== (int) $a->horas_asignadas) {
+                    throw ValidationException::withMessages(['asignacion' => 'Completa los bloques pendientes desde Asignaciones antes de reorganizar esta clase.']);
+                }
+                $a->update(['modo_programacion' => 'manual', 'bloques_manuales' => $plan]);
+            }
+            return $this->update($id, $nuevo + ['turno' => $nuevo['hora_inicio'] < '12:00' ? 'mañana' : 'tarde']);
+        });
+    }
+
     public function update(int $id, array $data): Horario
     {
         return DB::transaction(function () use ($id, $data) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $horario = Horario::findOrFail($id);
             $data = $this->normalizarDatosHorario($data);
 
@@ -434,6 +500,35 @@ class HorarioService
 
             // Validación completa (excluyendo el horario actual)
             $this->validarHorarioCompleto($mergedData, $id);
+
+            // Mantener la elección manual al editar un bloque desde Horarios.
+            $asignacion = \App\Models\ProfesorCurso::where('profesor_id', $horario->profesor_id)
+                ->where('curso_id', $horario->curso_id)->where('grado_id', $horario->grado_id)
+                ->where('institucion', $horario->institucion)->where('modo_programacion', 'manual')->first();
+            if ($asignacion) {
+                foreach (['profesor_id', 'curso_id', 'grado_id', 'aula_id', 'institucion'] as $campo) {
+                    if ((string) $mergedData[$campo] !== (string) $horario->$campo) {
+                        throw ValidationException::withMessages(['asignacion' => 'Cambia el profesor, curso, grado o aula desde Asignaciones para mantener todos sus bloques conectados.']);
+                    }
+                }
+                $anterior = ['dia_semana' => $horario->dia_semana, 'hora_inicio' => $horario->hora_inicio->format('H:i'), 'hora_fin' => $horario->hora_fin->format('H:i')];
+                $nuevo = array_intersect_key($mergedData, $anterior);
+                if ($nuevo != $anterior) {
+                    $opciones = app(HorarioGeneratorService::class)->opcionesManuales(array_merge($asignacion->toArray(), [
+                        'asignacion_id' => $asignacion->id, 'periodo_academico' => $horario->periodo_academico,
+                    ]));
+                    if (!collect($opciones)->contains(fn ($b) => $b['disponible'] && array_intersect_key($b, $anterior) == $nuevo)) {
+                        throw ValidationException::withMessages(['hora_inicio' => 'Selecciona un bloque lectivo disponible del grado. También puedes cambiar la selección desde Asignaciones.']);
+                    }
+                    $plan = $asignacion->bloques_manuales ?? [];
+                    $indice = collect($plan)->search(fn ($b) => $b == $anterior);
+                    if ($indice === false) {
+                        throw ValidationException::withMessages(['asignacion' => 'Actualiza la selección de esta clase desde Asignaciones.']);
+                    }
+                    $plan[$indice] = $nuevo;
+                    $asignacion->update(['bloques_manuales' => $plan]);
+                }
+            }
 
             // Actualizar
             $horario->update($data);

@@ -45,6 +45,13 @@ class HorarioController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        if ($request->filled('semana_inicio')) {
+            $items = app(\App\Services\HorarioCalendarioService::class)->consultar($request->all());
+            $perPage = max(1, min(100, (int) $request->input('per_page', 20)));
+            $page = max(1, (int) $request->input('page', 1));
+            return response()->json(['success' => true, 'data' => $items->slice(($page - 1) * $perPage, $perPage)->values(),
+                'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($items->count() / $perPage)), 'per_page' => $perPage, 'total' => $items->count()]]);
+        }
         $query = Horario::with(['profesor', 'curso', 'aula', 'grado'])
             ->where('estado', 'activo');
 
@@ -167,8 +174,11 @@ class HorarioController extends Controller
             ->orderBy('hora_inicio')
             ->get();
 
+        if ($request->filled('semana_inicio')) {
+            $horarios = app(\App\Services\HorarioCalendarioService::class)->consultar(['semana_inicio' => $request->semana_inicio, 'profesor_id' => $profesorId, 'institucion' => $request->institucion]);
+        }
         // Organizar por días
-        $dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        $dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
         $horariosPorDia = [];
 
         foreach ($dias as $dia) {
@@ -220,8 +230,12 @@ class HorarioController extends Controller
             ->orderBy('hora_inicio')
             ->get();
 
+        if ($request->filled('semana_inicio')) {
+            $horarios = app(\App\Services\HorarioCalendarioService::class)->consultar(['semana_inicio' => $request->semana_inicio, 'grado_id' => $gradoId, 'institucion' => $request->institucion]);
+        }
+
         // Organizar por días
-        $dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        $dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
         $horariosPorDia = [];
 
         foreach ($dias as $dia) {
@@ -242,7 +256,7 @@ class HorarioController extends Controller
      * GET /api/horarios/dia/{dia}
      * Obtener horarios de un día específico
      */
-    public function getByDia(string $dia): JsonResponse
+    public function getByDia(Request $request, string $dia): JsonResponse
     {
         $dia = $this->normalizarDiaSemana($dia);
 
@@ -252,6 +266,9 @@ class HorarioController extends Controller
             ->orderBy('hora_inicio')
             ->get();
 
+        if ($request->filled('semana_inicio')) {
+            $horarios = app(\App\Services\HorarioCalendarioService::class)->consultar(['semana_inicio' => $request->semana_inicio, 'dia_semana' => $dia]);
+        }
         // Agrupar por hora
         $horariosPorHora = $horarios->groupBy('hora_inicio');
 
@@ -291,6 +308,30 @@ class HorarioController extends Controller
      * PUT /api/horarios/{id}
      * Actualizar un horario (con registro de cambios)
      */
+    public function opcionesMovimiento(int $id): JsonResponse
+    {
+        return response()->json(['data' => $this->horarioService->opcionesMovimiento($id)]);
+    }
+
+    public function mover(Request $request, int $id): JsonResponse
+    {
+        $data = $request->validate([
+            'dia_semana' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado',
+            'hora_inicio' => 'required|date_format:H:i', 'hora_fin' => 'required|date_format:H:i',
+            'origen' => 'required|array:dia_semana,hora_inicio,hora_fin',
+            'origen.dia_semana' => 'required|string', 'origen.hora_inicio' => 'required|date_format:H:i',
+            'origen.hora_fin' => 'required|date_format:H:i',
+        ]);
+        return DB::transaction(function () use ($id, $data) {
+            app(\App\Services\RecuperacionHorarioService::class)->bloquearAgenda();
+            $antes = $this->crearSnapshotHistorial(Horario::with(['profesor', 'curso', 'grado', 'aula'])->findOrFail($id));
+            $h = $this->horarioService->mover($id, $data);
+            $this->historialService->registrarCambio($id, 'actualizar', $antes, $this->crearSnapshotHistorial($h),
+                'Reorganización del horario habitual; aula y duración conservadas', auth()->id());
+            return response()->json(['success' => true, 'data' => $h]);
+        });
+    }
+
     public function update(Request $request, int $id): JsonResponse
     {
         try {

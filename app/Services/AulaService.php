@@ -112,8 +112,10 @@ class AulaService
     ): Collection {
         $query = Aula::where('activo', true);
 
-        // Las aulas son espacios físicos compartidos entre niveles e institución.
-        // La disponibilidad se decide por choque horario real, no por el nivel.
+        // Los niveles comparten aulas; "ambos" permite compartir entre instituciones.
+        if ($institucion) {
+            $query->whereIn('institucion', [$institucion, 'ambos']);
+        }
 
         // Subconsulta: aulas ocupadas en ese horario
         $ocupadas = \App\Models\Horario::where('dia_semana', $dia)
@@ -155,6 +157,11 @@ class AulaService
         ?string $institucion = null,
         ?int $excludeId = null
     ): bool {
+        $aula = Aula::find($aulaId);
+        if (!$aula || !$aula->activo || ($institucion && !in_array($aula->institucion, [$institucion, 'ambos'], true))) {
+            return false;
+        }
+
         $query = \App\Models\Horario::where('aula_id', $aulaId)
             ->where('dia_semana', $dia)
             ->where('estado', 'activo');
@@ -204,7 +211,19 @@ class AulaService
     public function update(int $id, array $data): Aula
     {
         return DB::transaction(function () use ($id, $data) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            app(RecuperacionHorarioService::class)->protegerAula($id, $data);
             $aula = Aula::findOrFail($id);
+
+            if (isset($data['institucion']) && $data['institucion'] !== 'ambos' && (
+                $aula->horarios()->where('estado', 'activo')->where('institucion', '!=', $data['institucion'])->exists() ||
+                \App\Models\ProfesorCurso::where('aula_id', $id)->where('activo', true)
+                    ->where('institucion', '!=', $data['institucion'])->exists()
+            )) {
+                throw ValidationException::withMessages([
+                    'institucion' => 'Desactiva primero las asignaciones de la otra institucion antes de cambiar el aula.',
+                ]);
+            }
 
             if (array_key_exists('activo', $data) && !$data['activo'] && (
                 $aula->horarios()->where('estado', 'activo')->exists() ||
@@ -262,22 +281,26 @@ class AulaService
      */
     public function delete(int $id): bool
     {
-        $aula = Aula::findOrFail($id);
+        return DB::transaction(function () use ($id) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            app(RecuperacionHorarioService::class)->protegerAula($id, [], true);
+            $aula = Aula::findOrFail($id);
 
-        if (\App\Models\ProfesorCurso::where('aula_id', $id)->where('activo', true)->exists()) {
-            throw ValidationException::withMessages([
-                'aula' => 'No se puede eliminar el aula porque tiene asignaciones activas.',
-            ]);
-        }
+            if (\App\Models\ProfesorCurso::where('aula_id', $id)->where('activo', true)->exists()) {
+                throw ValidationException::withMessages([
+                    'aula' => 'No se puede eliminar el aula porque tiene asignaciones activas.',
+                ]);
+            }
 
-        // Verificar si tiene horarios activos
-        if ($aula->horarios()->where('estado', 'activo')->exists()) {
-            throw ValidationException::withMessages([
-                'aula' => 'No se puede eliminar el aula porque tiene horarios activos asignados'
-            ]);
-        }
+            // Verificar si tiene horarios activos
+            if ($aula->horarios()->where('estado', 'activo')->exists()) {
+                throw ValidationException::withMessages([
+                    'aula' => 'No se puede eliminar el aula porque tiene horarios activos asignados'
+                ]);
+            }
 
-        return $aula->delete();
+            return $aula->delete();
+        });
     }
 
     /**

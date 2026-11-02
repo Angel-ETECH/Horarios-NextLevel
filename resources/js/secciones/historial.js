@@ -270,6 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
             aulas: 'Aula',
             asignaciones: 'Asignación',
             disponibilidad: 'Disponibilidad',
+            configuraciones: 'Configuración de recesos',
+            recuperaciones: 'Recuperación',
         };
 
         const etiqueta =

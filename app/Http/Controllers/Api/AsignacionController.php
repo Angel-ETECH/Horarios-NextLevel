@@ -33,6 +33,7 @@ class AsignacionController extends Controller
         }
 
         $resultado = $this->horarioGeneratorService->generarHorarios([
+            'asignacion_id' => $asignacion->id,
             'profesor_id' => $asignacion->profesor_id,
             'institucion' => $asignacion->institucion ?? 'colegio',
             'respetar_existentes' => true,
@@ -45,6 +46,19 @@ class AsignacionController extends Controller
         }
 
         return $resultado;
+    }
+
+    public function opcionesHorario(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'profesor_id' => 'required|integer|exists:profesores,id',
+            'grado_id' => 'required|integer|exists:grados,id',
+            'aula_id' => 'required|integer|exists:aulas,id',
+            'curso_id' => 'required|integer|exists:cursos,id',
+            'institucion' => 'required|in:colegio,academia',
+            'asignacion_id' => 'nullable|integer|exists:profesor_curso,id',
+        ]);
+        return response()->json(['success' => true, 'data' => $this->horarioGeneratorService->opcionesManuales($data)]);
     }
 
     /**
@@ -242,6 +256,8 @@ class AsignacionController extends Controller
                 'success' => true,
                 'message' => 'Asignación desactivada exitosamente'
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -264,6 +280,8 @@ class AsignacionController extends Controller
                 'success' => true,
                 'message' => 'Asignación eliminada definitivamente'
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

@@ -145,6 +145,8 @@ class HorarioGeneratorController extends Controller
                 ],
             ], $resultado['success'] ? 200 : 500);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -190,6 +192,8 @@ class HorarioGeneratorController extends Controller
                 ],
             ], $resultado['success'] ? 200 : 500);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -227,6 +231,8 @@ class HorarioGeneratorController extends Controller
             ], 404);
         }
 
+        $config = app(\App\Services\HorarioRecesoService::class)->normalizarConfiguracion($config);
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -238,8 +244,8 @@ class HorarioGeneratorController extends Controller
                 'hora_inicio' => $config->hora_inicio,
                 'hora_fin' => $config->hora_fin,
                 'duracion_bloque_minutos' => $config->duracion_bloque_minutos,
-                'total_bloques_clase' => $config->bloques->where('tipo', 'clase')->count(),
-                'total_recesos' => $config->bloques->where('tipo', 'receso')->count(),
+                'total_bloques_clase' => $config->bloquesClase->count(),
+                'total_recesos' => $config->bloquesReceso->count(),
                 'bloques' => $config->bloques,
             ],
         ]);
@@ -335,58 +341,64 @@ class HorarioGeneratorController extends Controller
                 'confirmar' => 'required|accepted',
             ]);
 
-            $query = Horario::withTrashed();
+            return DB::transaction(function () use ($request): JsonResponse {
+                app(\App\Services\RecuperacionHorarioService::class)->bloquearAgenda();
+                $query = Horario::withTrashed();
 
-            if ($request->institucion) {
-                $query->where('institucion', $request->institucion);
-            }
+                if ($request->institucion) {
+                    $query->where('institucion', $request->institucion);
+                }
 
-            if ($request->periodo_academico) {
-                $query->where('periodo_academico', $request->periodo_academico);
-            }
+                if ($request->periodo_academico) {
+                    $query->where('periodo_academico', $request->periodo_academico);
+                }
 
-            if ($request->profesor_id) {
-                $query->where('profesor_id', $request->profesor_id);
-            }
+                if ($request->profesor_id) {
+                    $query->where('profesor_id', $request->profesor_id);
+                }
 
-            if ($request->grado_id) {
-                $query->where('grado_id', $request->grado_id);
-            }
+                if ($request->grado_id) {
+                    $query->where('grado_id', $request->grado_id);
+                }
 
-            $historialQuery = clone $query;
-            $cantidad = (clone $query)->count();
+                foreach ((clone $query)->pluck('id') as $id) {
+                    app(\App\Services\RecuperacionHorarioService::class)->protegerPlantilla($id);
+                }
+                $historialQuery = clone $query;
+                $cantidad = (clone $query)->count();
 
-            // Registrar en historial antes de eliminar
-            $horarios = $historialQuery->where('estado', 'activo')->get();
-            foreach ($horarios as $horario) {
-                \App\Models\HistorialCambio::create([
-                    'horario_id' => $horario->id,
-                    'usuario_id' => auth()->id(),
-                    'accion' => 'eliminar',
-                    'datos_anteriores' => $horario->toArray(),
-                    'datos_nuevos' => null,
-                    'motivo' => 'Limpieza masiva de horarios',
-                    'ip_usuario' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                ]);
-            }
+                // Registrar en historial antes de eliminar
+                $horarios = $historialQuery->where('estado', 'activo')->get();
+                foreach ($horarios as $horario) {
+                    \App\Models\HistorialCambio::create([
+                        'horario_id' => $horario->id,
+                        'usuario_id' => auth()->id(),
+                        'accion' => 'eliminar',
+                        'datos_anteriores' => $horario->toArray(),
+                        'datos_nuevos' => null,
+                        'motivo' => 'Limpieza masiva de horarios',
+                        'ip_usuario' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                    ]);
+                }
 
-            // Eliminar definitivamente para liberar claves únicas de aula/horario.
-            $query->forceDelete();
+                // Eliminar definitivamente para liberar claves únicas de aula/horario.
+                $query->forceDelete();
 
-            return response()->json([
-                'success' => true,
-                'message' => "Se eliminaron {$cantidad} horarios",
-                'data' => [
-                    'total_eliminados' => $cantidad,
-                    'filtros_aplicados' => [
-                        'institucion' => $request->institucion,
-                        'periodo_academico' => $request->periodo_academico,
-                        'profesor_id' => $request->profesor_id,
-                        'grado_id' => $request->grado_id,
+                return response()->json([
+                    'success' => true,
+                    'message' => "Se eliminaron {$cantidad} horarios",
+                    'data' => [
+                        'total_eliminados' => $cantidad,
+                        'filtros_aplicados' => [
+                            'institucion' => $request->institucion,
+                            'periodo_academico' => $request->periodo_academico,
+                            'profesor_id' => $request->profesor_id,
+                            'grado_id' => $request->grado_id,
+                        ],
                     ],
-                ],
-            ]);
+                ]);
+            });
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -409,15 +421,18 @@ class HorarioGeneratorController extends Controller
      */
     public function configuraciones(): JsonResponse
     {
-        $configuraciones = ConfiguracionHorario::withCount([
-            'bloques as total_bloques' => fn($q) => $q->where('tipo', 'clase'),
-            'bloques as total_recesos' => fn($q) => $q->where('tipo', 'receso'),
-        ])
-        ->where('activo', true)
+        $recesos = app(\App\Services\HorarioRecesoService::class);
+        $configuraciones = ConfiguracionHorario::where('activo', true)
         ->orderBy('institucion')
         ->orderBy('nivel')
         ->orderBy('turno')
-        ->get();
+        ->get()->map(function ($config) use ($recesos) {
+            $normalizada = $recesos->normalizarConfiguracion($config);
+            $config->setAttribute('total_bloques', $normalizada->bloquesClase->count());
+            $config->setAttribute('total_recesos', $normalizada->bloquesReceso->count());
+
+            return $config;
+        });
 
         return response()->json([
             'success' => true,
@@ -472,24 +487,30 @@ class HorarioGeneratorController extends Controller
      */
     protected function limpiarHorariosPorFiltros(array $opciones): void
     {
-        $query = Horario::withTrashed();
+        DB::transaction(function () use ($opciones) {
+            app(\App\Services\RecuperacionHorarioService::class)->bloquearAgenda();
+            $query = Horario::withTrashed();
 
-        if (!empty($opciones['institucion'])) {
-            $query->where('institucion', $opciones['institucion']);
-        }
+            if (!empty($opciones['institucion'])) {
+                $query->where('institucion', $opciones['institucion']);
+            }
 
-        if (!empty($opciones['periodo_academico'])) {
-            $query->where('periodo_academico', $opciones['periodo_academico']);
-        }
+            if (!empty($opciones['periodo_academico'])) {
+                $query->where('periodo_academico', $opciones['periodo_academico']);
+            }
 
-        if (!empty($opciones['profesor_id'])) {
-            $query->where('profesor_id', $opciones['profesor_id']);
-        }
+            if (!empty($opciones['profesor_id'])) {
+                $query->where('profesor_id', $opciones['profesor_id']);
+            }
 
-        if (!empty($opciones['grado_id'])) {
-            $query->where('grado_id', $opciones['grado_id']);
-        }
+            if (!empty($opciones['grado_id'])) {
+                $query->where('grado_id', $opciones['grado_id']);
+            }
 
-        $query->forceDelete();
+            foreach ((clone $query)->pluck('id') as $id) {
+                app(\App\Services\RecuperacionHorarioService::class)->protegerPlantilla($id);
+            }
+            $query->forceDelete();
+        });
     }
 }

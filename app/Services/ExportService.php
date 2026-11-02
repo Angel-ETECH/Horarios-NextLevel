@@ -31,6 +31,9 @@ class ExportService
      */
     public function prepareData(array $params): Collection
     {
+        if (!empty($params['semana_inicio'])) {
+            return app(HorarioCalendarioService::class)->consultar($params);
+        }
         $query = Horario::with(['profesor', 'curso', 'aula', 'grado'])
             ->where('estado', 'activo');
 

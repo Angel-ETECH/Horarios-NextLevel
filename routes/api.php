@@ -114,6 +114,10 @@ Route::prefix('publico')->group(function () {
 // ============================================
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/recuperaciones', [\App\Http\Controllers\Api\RecuperacionHorarioController::class, 'index']);
+    Route::post('/recuperaciones/opciones', [\App\Http\Controllers\Api\RecuperacionHorarioController::class, 'opciones'])->middleware('throttle:60,1');
+    Route::post('/recuperaciones', [\App\Http\Controllers\Api\RecuperacionHorarioController::class, 'store']);
+    Route::post('/recuperaciones/{id}/cancelar', [\App\Http\Controllers\Api\RecuperacionHorarioController::class, 'cancelar']);
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [
             AuthController::class,
@@ -178,6 +182,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::prefix('asignaciones')->group(function () {
+        Route::get('/opciones-horario', [AsignacionController::class, 'opcionesHorario']);
         Route::get('/', [AsignacionController::class, 'index']);
         Route::get('/profesor/{profesorId}', [AsignacionController::class, 'getByProfesor']);
         Route::get('/curso/{cursoId}', [AsignacionController::class, 'getByCurso']);
@@ -231,6 +236,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/profesor/{profesorId}', [HorarioController::class, 'getByProfesor']);
         Route::get('/grado/{gradoId}', [HorarioController::class, 'getByGrado']);
         Route::get('/dia/{dia}', [HorarioController::class, 'getByDia']);
+        Route::get('/{id}/opciones-movimiento', [HorarioController::class, 'opcionesMovimiento']);
+        Route::post('/{id}/mover', [HorarioController::class, 'mover']);
         Route::get('/{id}', [HorarioController::class, 'show']);
         Route::put('/{id}', [HorarioController::class, 'update']);
         Route::delete('/{id}', [HorarioController::class, 'destroy']);

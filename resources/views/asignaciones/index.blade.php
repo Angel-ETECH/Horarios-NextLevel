@@ -1001,7 +1001,7 @@
                 </div>
 
                 <p class="mt-1.5 text-xs text-slate-500">
-                    Entre 1 y 40 horas.
+                    Entre 1 y 40 horas lectivas (bloques del horario del grado).
                 </p>
 
                 <div
@@ -1042,6 +1042,22 @@
 
             </div>
 
+
+            <div id="asignacion-programacion" class="col-span-full rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-[#0F2749]">¿Cómo deseas programar las clases?</p>
+                <div class="mt-3 flex flex-wrap gap-5 text-sm">
+                    <label class="flex items-center gap-2"><input type="radio" name="modo-programacion" value="automatico" checked> Distribución automática</label>
+                    <label class="flex items-center gap-2"><input type="radio" name="modo-programacion" value="manual"> Elegir día y horario</label>
+                </div>
+                <p class="mt-2 text-xs text-slate-500">Cada hora lectiva corresponde a un bloque con su duración indicada. Los recesos no se pueden seleccionar.</p>
+                <div data-panel-manual hidden>
+                    <div class="my-3 flex flex-wrap items-center justify-between gap-3">
+                        <p data-resumen-manual class="text-sm text-slate-600" aria-live="polite"></p>
+                        <button type="button" data-actualizar-bloques class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold">Actualizar horarios</button>
+                    </div>
+                    <div data-bloques-manuales class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-live="polite"></div>
+                </div>
+            </div>
 
             {{-- ROL --}}
 

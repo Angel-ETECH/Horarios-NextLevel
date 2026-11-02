@@ -23,7 +23,7 @@ class HorarioExport implements WithMultipleSheets
     public function __construct($horarios, $titulo = 'Horario Academico', $filtros = [])
     {
         $this->horarios = $horarios;
-        $this->titulo = $titulo;
+        $this->titulo = $titulo . (!empty($filtros['semana_inicio']) ? ' | Semana del '.app(\App\Services\HorarioCalendarioService::class)->inicioSemana($filtros['semana_inicio'])->format('d/m/Y') : '');
         $this->filtros = $filtros;
     }
 
@@ -50,6 +50,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
         'viernes' => 'Viernes',
         'sábado' => 'Sabado',
         'sabado' => 'Sabado',
+        'domingo' => 'Domingo',
     ];
 
     private array $cellStyles = [];
@@ -73,7 +74,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
         $this->rowHeights = [];
 
         $rows = [
-            ['Next Level School', '', '', '', '', 'Generado', now()->format('d/m/Y H:i')],
+            ['Next Level School', '', '', '', '', 'Generado: '.now()->format('d/m/Y H:i'), '', ''],
             ['Sistema de Gestion Academica', '', '', '', '', '', ''],
             ['', '', '', '', '', '', ''],
             [$this->titulo, '', '', '', '', '', ''],
@@ -87,7 +88,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
                 "Total\n" . $this->horarios->count() . ' clases',
             ],
             ['', '', '', '', '', '', ''],
-            ['Hora', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'],
+            ['Hora', 'Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'],
         ];
 
         $slots = $this->obtenerFranjas();
@@ -129,7 +130,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
         }
 
         if (empty($slots)) {
-            $rows[] = ['Sin horarios', '-', '-', '-', '-', '-', '-'];
+            $rows[] = ['Sin horarios', '-', '-', '-', '-', '-', '-', '-'];
             $this->rowHeights[self::FIRST_DATA_ROW] = 58;
         }
 
@@ -160,8 +161,9 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
 
                 $sheet->mergeCells('A1:E1');
                 $sheet->mergeCells('A2:E2');
-                $sheet->mergeCells('F1:G1');
-                $sheet->mergeCells('A4:G4');
+                $sheet->mergeCells('F1:H1');
+                $sheet->mergeCells('A4:H4');
+                $sheet->mergeCells('G5:H5');
                 $sheet->mergeCells('A5:B5');
                 $sheet->mergeCells('C5:D5');
                 $sheet->mergeCells('E5:F5');
@@ -177,7 +179,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
     {
         $sheet->getColumnDimension('A')->setWidth(20);
 
-        foreach (range('B', 'G') as $columna) {
+        foreach (range('B', 'H') as $columna) {
             $sheet->getColumnDimension($columna)->setWidth(34);
         }
 
@@ -194,7 +196,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
 
     private function aplicarEstilosBase($sheet, int $highestRow): void
     {
-        $sheet->getStyle("A1:G{$highestRow}")->applyFromArray([
+        $sheet->getStyle("A1:H{$highestRow}")->applyFromArray([
             'font' => [
                 'name' => 'Aptos',
                 'color' => ['rgb' => '0B2345'],
@@ -211,17 +213,17 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
         $sheet->getStyle('A2')->applyFromArray([
             'font' => ['size' => 12, 'color' => ['rgb' => '60738F']],
         ]);
-        $sheet->getStyle('F1:G1')->applyFromArray([
+        $sheet->getStyle('F1:H1')->applyFromArray([
             'font' => ['bold' => true, 'size' => 12],
             'alignment' => ['horizontal' => Alignment::HORIZONTAL_RIGHT],
         ]);
         $sheet->getStyle('G1')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
 
-        $sheet->getStyle('A4:G4')->applyFromArray([
+        $sheet->getStyle('A4:H4')->applyFromArray([
             'font' => ['bold' => true, 'size' => 22, 'color' => ['rgb' => '0B2345']],
         ]);
 
-        $sheet->getStyle('A5:G5')->applyFromArray([
+        $sheet->getStyle('A5:H5')->applyFromArray([
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'F3F7FC'],
@@ -240,7 +242,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
             ],
         ]);
 
-        $sheet->getStyle('A' . self::HEADER_ROW . ':G' . self::HEADER_ROW)->applyFromArray([
+        $sheet->getStyle('A' . self::HEADER_ROW . ':H' . self::HEADER_ROW)->applyFromArray([
             'font' => ['bold' => true, 'size' => 13, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
@@ -270,7 +272,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
             ],
         ]);
 
-        $sheet->getStyle('A' . self::FIRST_DATA_ROW . ':G' . $highestRow)->applyFromArray([
+        $sheet->getStyle('A' . self::FIRST_DATA_ROW . ':H' . $highestRow)->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => Border::BORDER_THIN,
@@ -383,7 +385,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
     private function textoBloque($horario): string
     {
         $lineas = [
-            $this->nombreCurso($horario),
+            ($horario->tipo === 'recuperacion' ? 'Recuperacion: ' : '').$this->nombreCurso($horario),
             $this->nombreGrado($horario),
         ];
 
@@ -425,6 +427,7 @@ class HorarioMatrizSheet implements FromArray, WithEvents, WithTitle
             'jueves' => 'Jueves',
             'viernes' => 'Viernes',
             'sábado' => 'Sabado',
+            'domingo' => 'Domingo',
         ];
     }
 
@@ -580,11 +583,11 @@ class HorarioDetalleSheet implements FromArray, WithEvents, WithTitle
         foreach ($this->horarios as $h) {
             $rows[] = [
                 ucfirst($h->institucion ?? 'N/A'),
-                ucfirst($h->dia_semana ?? 'N/A'),
+                ucfirst($h->dia_semana ?? 'N/A').(!empty($h->fecha_clase) ? "\n".\Carbon\CarbonImmutable::parse($h->fecha_clase)->format('d/m/Y') : ''),
                 $this->hora($h->hora_inicio),
                 $this->hora($h->hora_fin),
                 $h->profesor->nombre_completo ?? 'N/A',
-                $h->curso->nombre ?? 'N/A',
+                ($h->tipo === 'recuperacion' ? 'Recuperacion: ' : '').($h->curso->nombre ?? 'N/A'),
                 $h->grado->nombre_completo ?? 'N/A',
                 $h->aula->nombre ?? 'N/A',
                 ucfirst($h->turno ?? 'N/A'),
@@ -708,7 +711,7 @@ class HorarioDetalleSheet implements FromArray, WithEvents, WithTitle
                 $sheet->getRowDimension(self::HEADER_ROW)->setRowHeight(26);
 
                 for ($row = self::HEADER_ROW + 1; $row <= $highestRow; $row++) {
-                    $sheet->getRowDimension($row)->setRowHeight(26);
+                    $sheet->getRowDimension($row)->setRowHeight(!empty($this->filtros['semana_inicio']) ? 38 : 26);
                 }
             },
         ];

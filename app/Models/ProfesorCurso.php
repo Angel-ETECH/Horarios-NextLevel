@@ -18,6 +18,8 @@ class ProfesorCurso extends Model
         'grado_id',
         'aula_id',
         'horas_asignadas',
+        'modo_programacion',
+        'bloques_manuales',
         'rol',
         'institucion',
         'activo',
@@ -27,6 +29,7 @@ class ProfesorCurso extends Model
     protected $casts = [
         'horas_asignadas' => 'integer',
         'activo' => 'boolean',
+        'bloques_manuales' => 'array',
     ];
 
     // ============ RELACIONES ============
