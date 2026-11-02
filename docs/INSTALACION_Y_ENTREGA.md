@@ -124,6 +124,29 @@ base local no viajan con Git: otra instalacion necesita sus datos autorizados
 o completar las aulas manualmente. No ejecutar una reparacion automaticamente
 como parte de `migrate`.
 
+La revision funcional posterior esta en `docs/REVISION_FUNCIONAL_2026-10-20.md`.
+La regularizacion autorizada de la base de demostracion esta en
+`docs/REGULARIZACION_DATOS_PRUEBA_2026-10-21.md`; no sustituye la confirmacion
+de disponibilidad real ni cambia automaticamente otras bases.
+Los recesos definitivos del Excel, su aplicacion por nivel y la adaptacion
+posterior de la demostracion estan en `docs/RECESOS_FIJOS_2026-10-21.md`.
+Antes de declarar lista una base con datos existentes, ejecutar
+`php artisan horarios:verificar`: informa cruces, disponibilidad y referencias
+incoherentes sin modificar registros. Un resultado con incidencias necesita
+revision de los datos autorizados, no ejecutar seeders o regenerar a ciegas.
+
+Las recuperaciones por fecha se documentan en `docs/RECUPERACIONES_POR_FECHA.md`.
+Esta funcionalidad si incorpora una tabla nueva: ejecutar `php artisan migrate`
+en cada instalacion y compilar los recursos con `npm run build`. No reemplaza
+la plantilla semanal ni copia disponibilidad simulada a otra base.
+
+La elección manual de bloques y la edición segura de disponibilidad están en
+`docs/ASIGNACION_MANUAL_Y_DISPONIBILIDAD.md`. Requieren la migración que añade
+`modo_programacion` y `bloques_manuales` a `profesor_curso`, además de recompilar
+los recursos. La migración conserva las asignaciones anteriores. La limpieza
+autorizada de la base local no forma parte de la instalación ni se replica al
+aplicar migraciones en otra computadora.
+
 - Entregar el codigo y los archivos de bloqueo; instalar con `composer install`
   y `npm ci`. Mantener credenciales, `.env`, logs y tokens fuera de la entrega.
 - Indicar si se entrega una base vacia o un respaldo autorizado; registrar
