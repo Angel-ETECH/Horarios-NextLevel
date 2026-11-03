@@ -478,12 +478,19 @@ class HistorialCambio extends Model
         return array_keys($this->campos_cambiados);
     }
 
+    public const CLAVES_IGNORADAS_FALLBACK = [
+        'id', 'created_at', 'updated_at', 'deleted_at', 'deleted',
+        'password', 'remember_token', 'token', 'email_verified_at',
+        'two_factor_secret', 'two_factor_recovery_codes', 'modulo',
+        'tipo_registro', 'solo_auditoria'
+    ];
+
     /**
      * Comparar dos valores y formatear la diferencia para mostrar
      */
-    public function formatearValor(mixed $valor): string
+    public function formatearValor(mixed $valor, ?string $campo = null): string
     {
-        if (is_null($valor)) {
+        if (is_null($valor) || $valor === '') {
             return '(vacío)';
         }
 
@@ -491,10 +498,255 @@ class HistorialCambio extends Model
             return $valor ? 'Sí' : 'No';
         }
 
+        if (is_string($valor)) {
+            $trimmed = trim($valor);
+            if ((str_starts_with($trimmed, '{') && str_ends_with($trimmed, '}'))
+                || (str_starts_with($trimmed, '[') && str_ends_with($trimmed, ']'))) {
+                $decoded = json_decode($trimmed, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $valor = $decoded;
+                }
+            }
+        }
+
         if (is_array($valor)) {
-            return json_encode($valor, JSON_UNESCAPED_UNICODE);
+            return $this->formatearEstructura($valor, $campo);
         }
 
         return (string) $valor;
+    }
+
+    /**
+     * Formatear estructuras compuestas (arrays asociativos o listas).
+     */
+    public function formatearEstructura(array $datos, ?string $campo = null, int $nivel = 0): string
+    {
+        if (empty($datos)) {
+            return '(vacío)';
+        }
+
+        if ($nivel > 3) {
+            return '...';
+        }
+
+        if (array_is_list($datos)) {
+            $items = [];
+            foreach ($datos as $item) {
+                if ($item === null || $item === '') {
+                    continue;
+                }
+                if (is_array($item)) {
+                    $ent = $this->formatearEntidadConocida($item);
+                    $items[] = $ent ?? $this->formatearEstructura($item, null, $nivel + 1);
+                } else {
+                    $items[] = (string) $item;
+                }
+            }
+            return !empty($items) ? implode(', ', $items) : '(vacío)';
+        }
+
+        $entidad = $this->formatearEntidadConocida($datos, $campo);
+        if ($entidad !== null) {
+            return $entidad;
+        }
+
+        $pares = [];
+        foreach ($datos as $clave => $val) {
+            if (in_array($clave, self::CLAVES_IGNORADAS_FALLBACK, true)) {
+                continue;
+            }
+            if ($val === null || $val === '') {
+                continue;
+            }
+
+            $etiqueta = $this->formatearNombreCampo($clave);
+
+            if (is_bool($val)) {
+                $valTexto = $val ? 'Sí' : 'No';
+            } elseif (is_array($val)) {
+                $entVal = $this->formatearEntidadConocida($val, $clave);
+                $valTexto = $entVal ?? $this->formatearEstructura($val, $clave, $nivel + 1);
+            } else {
+                $valTexto = (string) $val;
+            }
+
+            if ($valTexto !== '' && $valTexto !== '(vacío)') {
+                $pares[] = "{$etiqueta}: {$valTexto}";
+            }
+        }
+
+        if (!empty($pares)) {
+            return implode(', ', $pares);
+        }
+
+        if (isset($datos['id'])) {
+            return "#{$datos['id']}";
+        }
+
+        return '(vacío)';
+    }
+
+    public function formatearEntidadConocida(array $obj, ?string $campo = null): ?string
+    {
+        $c = strtolower((string)$campo);
+
+        if ($c === 'profesor' || $c === 'profesor_id' || str_contains($c, 'profesor')
+            || isset($obj['apellido_paterno']) || isset($obj['apellido_materno'])
+            || isset($obj['carga_horaria_maxima']) || isset($obj['carga_horaria_actual'])
+            || (isset($obj['codigo']) && str_starts_with((string)$obj['codigo'], 'DOC-'))) {
+            return $this->formatearProfesor($obj);
+        }
+
+        if ($c === 'curso' || $c === 'curso_id' || str_contains($c, 'curso')
+            || isset($obj['duracion_minutos']) || isset($obj['horas_semanales'])) {
+            return $this->formatearCurso($obj);
+        }
+
+        if ($c === 'aula' || $c === 'aula_id' || str_contains($c, 'aula')
+            || isset($obj['equipamiento']) || (isset($obj['capacidad']) && (isset($obj['piso']) || isset($obj['edificio'])))) {
+            return $this->formatearAula($obj);
+        }
+
+        if ($c === 'grado' || $c === 'grado_id' || str_contains($c, 'grado')
+            || isset($obj['seccion']) || isset($obj['numero_estudiantes']) || isset($obj['año_academico'])) {
+            return $this->formatearGrado($obj);
+        }
+
+        $titulo = trim((string)($obj['titulo'] ?? $obj['title'] ?? ''));
+        $nombre = trim((string)($obj['nombre_completo'] ?? $obj['nombre'] ?? $obj['name'] ?? ''));
+        $codigo = trim((string)($obj['codigo'] ?? $obj['code'] ?? ''));
+
+        $textoPrincipal = $titulo !== '' ? $titulo : $nombre;
+        if ($textoPrincipal !== '' && $codigo !== '' && !str_contains($textoPrincipal, $codigo)) {
+            return "{$textoPrincipal} ({$codigo})";
+        }
+        if ($textoPrincipal !== '') {
+            return $textoPrincipal;
+        }
+        if ($codigo !== '') {
+            return $codigo;
+        }
+
+        return null;
+    }
+
+    public function formatearProfesor(array $obj): string
+    {
+        $partes = array_filter([
+            trim((string)($obj['nombre'] ?? '')),
+            trim((string)($obj['apellido_paterno'] ?? '')),
+            trim((string)($obj['apellido_materno'] ?? '')),
+        ], fn ($p) => $p !== '');
+
+        $nombre = implode(' ', $partes);
+        if ($nombre === '') {
+            $nombre = trim((string)($obj['nombre_completo'] ?? $obj['name'] ?? ''));
+        }
+        if ($nombre === '' && isset($obj['id'])) {
+            $nombre = "Profesor #{$obj['id']}";
+        }
+
+        $codigo = trim((string)($obj['codigo'] ?? ''));
+        if ($nombre !== '' && $codigo !== '') {
+            return str_contains($nombre, "({$codigo})") ? $nombre : "{$nombre} ({$codigo})";
+        }
+        if ($nombre !== '') {
+            return $nombre;
+        }
+        if ($codigo !== '') {
+            return "Profesor ({$codigo})";
+        }
+
+        return '(vacío)';
+    }
+
+    public function formatearCurso(array $obj): string
+    {
+        $nombre = trim((string)($obj['nombre'] ?? $obj['nombre_completo'] ?? $obj['name'] ?? ''));
+        $codigo = trim((string)($obj['codigo'] ?? ''));
+
+        if ($nombre !== '' && $codigo !== '' && !str_contains($nombre, $codigo)) {
+            return "{$nombre} ({$codigo})";
+        }
+
+        return $nombre !== '' ? $nombre : ($codigo !== '' ? $codigo : (isset($obj['id']) ? "Curso #{$obj['id']}" : 'Curso'));
+    }
+
+    public function formatearAula(array $obj): string
+    {
+        $nombre = trim((string)($obj['nombre'] ?? $obj['name'] ?? ''));
+        $codigo = trim((string)($obj['codigo'] ?? ''));
+
+        if ($nombre !== '' && $codigo !== '' && $nombre !== $codigo && !str_contains($nombre, $codigo)) {
+            return "{$nombre} ({$codigo})";
+        }
+
+        return $nombre !== '' ? $nombre : ($codigo !== '' ? $codigo : (isset($obj['id']) ? "Aula #{$obj['id']}" : 'Aula'));
+    }
+
+    public function formatearGrado(array $obj): string
+    {
+        $codigo = trim((string)($obj['codigo'] ?? ''));
+
+        if (!empty($obj['nombre_completo'])) {
+            $base = trim((string)$obj['nombre_completo']);
+            if ($codigo !== '' && !str_contains($base, $codigo)) {
+                return "{$base} ({$codigo})";
+            }
+            return $base;
+        }
+
+        $partes = array_filter([
+            trim((string)($obj['nivel'] ?? '')),
+            trim((string)($obj['grado'] ?? '')),
+            !empty($obj['seccion']) ? 'Sección ' . trim((string)$obj['seccion']) : '',
+        ], fn ($p) => $p !== '');
+
+        if (!empty($partes)) {
+            $base = implode(' ', $partes);
+            return ($codigo !== '' && !str_contains($base, $codigo)) ? "{$base} ({$codigo})" : $base;
+        }
+
+        $nombre = trim((string)($obj['nombre'] ?? ''));
+        if ($nombre !== '' && $codigo !== '' && !str_contains($nombre, $codigo)) {
+            return "{$nombre} ({$codigo})";
+        }
+
+        return $nombre !== '' ? $nombre : ($codigo !== '' ? $codigo : (isset($obj['id']) ? "Grado #{$obj['id']}" : 'Grado'));
+    }
+
+    public function formatearNombreCampo(string $campo): string
+    {
+        $nombres = [
+            'profesor' => 'Profesor',
+            'profesor_id' => 'Profesor',
+            'curso' => 'Curso',
+            'curso_id' => 'Curso',
+            'aula' => 'Aula',
+            'aula_id' => 'Aula',
+            'grado' => 'Grado',
+            'grado_id' => 'Grado',
+            'dia_semana' => 'Día',
+            'hora_inicio' => 'Hora de inicio',
+            'hora_fin' => 'Hora de fin',
+            'turno' => 'Turno',
+            'institucion' => 'Institución',
+            'tipo' => 'Tipo',
+            'semana' => 'Semana',
+            'periodo_academico' => 'Periodo académico',
+            'estado' => 'Estado',
+            'version' => 'Versión',
+            'creado_por' => 'Creado por',
+            'modificado_por' => 'Modificado por',
+            'observacion' => 'Observación',
+            'profesor_nombre' => 'Nombre de profesor',
+            'curso_nombre' => 'Nombre de curso',
+            'aula_nombre' => 'Nombre de aula',
+            'grado_nombre' => 'Nombre de grado',
+            'original' => 'Horario original',
+        ];
+
+        return $nombres[$campo]
+            ?? ucwords(str_replace('_', ' ', $campo));
     }
 }

@@ -132,26 +132,20 @@ document.addEventListener('DOMContentLoaded', () => {
             registro?.datos_anteriores ??
             {};
 
-        if (!profesor) {
-            return snapshot.profesor_nombre ??
-                (
-                    snapshot.profesor_id
-                        ? `Profesor #${snapshot.profesor_id}`
-                        : '—'
-                );
+        if (profesor) {
+            return formatearValor(profesor, 'profesor');
         }
 
-        if (profesor.nombre_completo) {
-            return profesor.nombre_completo;
+        if (snapshot.profesor) {
+            return formatearValor(snapshot.profesor, 'profesor');
         }
 
-        if (profesor.nombre && profesor.apellido) {
-            return `${profesor.nombre} ${profesor.apellido}`;
-        }
-
-        return profesor.nombre
-            ?? profesor.name
-            ?? `Profesor #${profesor.id ?? ''}`;
+        return snapshot.profesor_nombre ??
+            (
+                snapshot.profesor_id
+                    ? `Profesor #${snapshot.profesor_id}`
+                    : '—'
+            );
     }
 
 
@@ -163,9 +157,15 @@ document.addEventListener('DOMContentLoaded', () => {
             registro?.datos_anteriores ??
             {};
 
-        return curso?.nombre
-            ?? curso?.name
-            ?? snapshot.curso_nombre
+        if (curso) {
+            return formatearValor(curso, 'curso');
+        }
+
+        if (snapshot.curso) {
+            return formatearValor(snapshot.curso, 'curso');
+        }
+
+        return snapshot.curso_nombre
             ?? (
                 snapshot.curso_id
                     ? `Curso #${snapshot.curso_id}`
@@ -183,32 +183,20 @@ document.addEventListener('DOMContentLoaded', () => {
             registro?.datos_anteriores ??
             {};
 
-        if (!grado) {
-            return snapshot.grado_nombre ??
-                (
-                    snapshot.grado_id
-                        ? `Grado #${snapshot.grado_id}`
-                        : '—'
-                );
+        if (grado) {
+            return formatearValor(grado, 'grado');
         }
 
-        if (grado.nombre) {
-            return grado.nombre;
+        if (snapshot.grado) {
+            return formatearValor(snapshot.grado, 'grado');
         }
 
-        const partes = [];
-
-        if (grado.grado) {
-            partes.push(grado.grado);
-        }
-
-        if (grado.seccion) {
-            partes.push(grado.seccion);
-        }
-
-        return partes.length
-            ? partes.join(' ')
-            : `Grado #${grado.id ?? ''}`;
+        return snapshot.grado_nombre ??
+            (
+                snapshot.grado_id
+                    ? `Grado #${snapshot.grado_id}`
+                    : '—'
+            );
     }
 
 
@@ -220,10 +208,15 @@ document.addEventListener('DOMContentLoaded', () => {
             registro?.datos_anteriores ??
             {};
 
-        return aula?.nombre
-            ?? aula?.codigo
-            ?? aula?.name
-            ?? snapshot.aula_nombre
+        if (aula) {
+            return formatearValor(aula, 'aula');
+        }
+
+        if (snapshot.aula) {
+            return formatearValor(snapshot.aula, 'aula');
+        }
+
+        return snapshot.aula_nombre
             ?? (
                 snapshot.aula_id
                     ? `Aula #${snapshot.aula_id}`
@@ -1135,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </p>
 
                                 <p class="mt-1 break-words text-sm text-slate-600">
-                                    ${escaparHtml(formatearValor(item.anterior))}
+                                    ${escaparHtml(formatearValor(item.anterior, item.campo))}
                                 </p>
 
                             </div>
@@ -1147,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </p>
 
                                 <p class="mt-1 break-words text-sm font-semibold text-slate-700">
-                                    ${escaparHtml(formatearValor(item.nuevo))}
+                                    ${escaparHtml(formatearValor(item.nuevo, item.campo))}
                                 </p>
 
                             </div>
@@ -1166,9 +1159,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatearNombreCampo(campo) {
 
         const nombres = {
+            profesor: 'Profesor',
             profesor_id: 'Profesor',
+            curso: 'Curso',
             curso_id: 'Curso',
+            aula: 'Aula',
             aula_id: 'Aula',
+            grado: 'Grado',
             grado_id: 'Grado',
             dia_semana: 'Día',
             hora_inicio: 'Hora de inicio',
@@ -1183,6 +1180,11 @@ document.addEventListener('DOMContentLoaded', () => {
             creado_por: 'Creado por',
             modificado_por: 'Modificado por',
             observacion: 'Observación',
+            profesor_nombre: 'Nombre de profesor',
+            curso_nombre: 'Nombre de curso',
+            aula_nombre: 'Nombre de aula',
+            grado_nombre: 'Nombre de grado',
+            original: 'Horario original',
         };
 
         return nombres[campo]
@@ -1192,7 +1194,330 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function formatearValor(valor) {
+    const CLAVES_IGNORADAS_FALLBACK = new Set([
+        'id',
+        'created_at',
+        'updated_at',
+        'deleted_at',
+        'deleted',
+        'password',
+        'remember_token',
+        'token',
+        'email_verified_at',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'modulo',
+        'tipo_registro',
+        'solo_auditoria',
+    ]);
+
+
+    function normalizarEstructura(valor) {
+
+        if (typeof valor === 'string') {
+            const recortado = valor.trim();
+            if (
+                (recortado.startsWith('{') && recortado.endsWith('}')) ||
+                (recortado.startsWith('[') && recortado.endsWith(']'))
+            ) {
+                try {
+                    return JSON.parse(recortado);
+                } catch (e) {
+                    return valor;
+                }
+            }
+        }
+
+        return valor;
+    }
+
+
+    function esProfesorObjeto(obj, campo = null) {
+
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            return false;
+        }
+
+        const c = String(campo || '').toLowerCase();
+        if (c === 'profesor' || c === 'profesor_id' || c.includes('profesor')) {
+            return true;
+        }
+
+        if ('apellido_paterno' in obj || 'apellido_materno' in obj) {
+            return true;
+        }
+
+        if ('carga_horaria_maxima' in obj || 'carga_horaria_actual' in obj) {
+            return true;
+        }
+
+        if ('especialidad' in obj && ('dni' in obj || 'codigo' in obj)) {
+            return true;
+        }
+
+        if (typeof obj.codigo === 'string' && obj.codigo.startsWith('DOC-')) {
+            return true;
+        }
+
+        return false;
+    }
+
+
+    function formatearProfesorObjeto(obj) {
+
+        const partesNombre = [
+            obj.nombre,
+            obj.apellido_paterno,
+            obj.apellido_materno,
+        ].filter(p => p !== null && p !== undefined && String(p).trim() !== '')
+         .map(p => String(p).trim());
+
+        let nombre = partesNombre.join(' ');
+
+        if (!nombre) {
+            nombre = (obj.nombre_completo ?? obj.name ?? '').toString().trim();
+        }
+
+        if (!nombre && obj.id) {
+            nombre = `Profesor #${obj.id}`;
+        }
+
+        const codigo = (obj.codigo ?? '').toString().trim();
+
+        if (nombre && codigo) {
+            return nombre.includes(`(${codigo})`) ? nombre : `${nombre} (${codigo})`;
+        }
+
+        if (nombre) {
+            return nombre;
+        }
+
+        if (codigo) {
+            return `Profesor (${codigo})`;
+        }
+
+        return '(vacío)';
+    }
+
+
+    function esCursoObjeto(obj, campo = null) {
+
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            return false;
+        }
+
+        const c = String(campo || '').toLowerCase();
+        if (c === 'curso' || c === 'curso_id' || c.includes('curso')) {
+            return true;
+        }
+
+        return 'duracion_minutos' in obj || 'horas_semanales' in obj;
+    }
+
+
+    function formatearCursoObjeto(obj) {
+
+        const nombre = (obj.nombre ?? obj.nombre_completo ?? obj.name ?? '').toString().trim();
+        const codigo = (obj.codigo ?? '').toString().trim();
+
+        if (nombre && codigo && !nombre.includes(codigo)) {
+            return `${nombre} (${codigo})`;
+        }
+
+        return nombre || codigo || (obj.id ? `Curso #${obj.id}` : 'Curso');
+    }
+
+
+    function esAulaObjeto(obj, campo = null) {
+
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            return false;
+        }
+
+        const c = String(campo || '').toLowerCase();
+        if (c === 'aula' || c === 'aula_id' || c.includes('aula')) {
+            return true;
+        }
+
+        return 'equipamiento' in obj || ('capacidad' in obj && ('piso' in obj || 'edificio' in obj));
+    }
+
+
+    function formatearAulaObjeto(obj) {
+
+        const nombre = (obj.nombre ?? obj.name ?? '').toString().trim();
+        const codigo = (obj.codigo ?? '').toString().trim();
+
+        if (nombre && codigo && nombre !== codigo && !nombre.includes(codigo)) {
+            return `${nombre} (${codigo})`;
+        }
+
+        return nombre || codigo || (obj.id ? `Aula #${obj.id}` : 'Aula');
+    }
+
+
+    function esGradoObjeto(obj, campo = null) {
+
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            return false;
+        }
+
+        const c = String(campo || '').toLowerCase();
+        if (c === 'grado' || c === 'grado_id' || c.includes('grado')) {
+            return true;
+        }
+
+        return 'seccion' in obj || 'numero_estudiantes' in obj || 'año_academico' in obj;
+    }
+
+
+    function formatearGradoObjeto(obj) {
+
+        const codigo = (obj.codigo ?? '').toString().trim();
+
+        if (obj.nombre_completo) {
+            const base = String(obj.nombre_completo).trim();
+            if (codigo && !base.includes(codigo)) {
+                return `${base} (${codigo})`;
+            }
+            return base;
+        }
+
+        const partes = [obj.nivel, obj.grado, obj.seccion ? `Sección ${obj.seccion}` : null]
+            .filter(p => p !== null && p !== undefined && String(p).trim() !== '')
+            .map(p => String(p).trim());
+
+        if (partes.length > 0) {
+            const base = partes.join(' ');
+            return (codigo && !base.includes(codigo)) ? `${base} (${codigo})` : base;
+        }
+
+        const nombre = (obj.nombre ?? '').toString().trim();
+        if (nombre && codigo && !nombre.includes(codigo)) {
+            return `${nombre} (${codigo})`;
+        }
+
+        return nombre || codigo || (obj.id ? `Grado #${obj.id}` : 'Grado');
+    }
+
+
+    function formatearEntidadConocida(obj, campo = null) {
+
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+            return null;
+        }
+
+        if (esProfesorObjeto(obj, campo)) {
+            return formatearProfesorObjeto(obj);
+        }
+
+        if (esCursoObjeto(obj, campo)) {
+            return formatearCursoObjeto(obj);
+        }
+
+        if (esAulaObjeto(obj, campo)) {
+            return formatearAulaObjeto(obj);
+        }
+
+        if (esGradoObjeto(obj, campo)) {
+            return formatearGradoObjeto(obj);
+        }
+
+        const titulo = (obj.titulo ?? obj.title ?? '').toString().trim();
+        const nombre = (obj.nombre_completo ?? obj.nombre ?? obj.name ?? '').toString().trim();
+        const codigo = (obj.codigo ?? obj.code ?? '').toString().trim();
+
+        const textoPrincipal = titulo || nombre;
+        if (textoPrincipal && codigo && !textoPrincipal.includes(codigo)) {
+            return `${textoPrincipal} (${codigo})`;
+        }
+
+        if (textoPrincipal || codigo) {
+            return textoPrincipal || codigo;
+        }
+
+        return null;
+    }
+
+
+    function formatearFallbackArrayUObjeto(dato, nivel = 0) {
+
+        if (dato === null || dato === undefined || dato === '') {
+            return '(vacío)';
+        }
+
+        if (nivel > 3) {
+            return '...';
+        }
+
+        if (Array.isArray(dato)) {
+            if (dato.length === 0) {
+                return '(vacío)';
+            }
+
+            const items = dato.map(item => {
+                if (item === null || item === undefined || item === '') {
+                    return '(vacío)';
+                }
+                if (typeof item === 'object') {
+                    const entidad = formatearEntidadConocida(item);
+                    return entidad ?? formatearFallbackArrayUObjeto(item, nivel + 1);
+                }
+                return String(item);
+            }).filter(t => t && t !== '(vacío)');
+
+            return items.length > 0 ? items.join(', ') : '(vacío)';
+        }
+
+        if (typeof dato === 'object') {
+            const entidad = formatearEntidadConocida(dato);
+            if (entidad) {
+                return entidad;
+            }
+
+            const pares = [];
+
+            for (const [clave, val] of Object.entries(dato)) {
+                if (CLAVES_IGNORADAS_FALLBACK.has(clave)) {
+                    continue;
+                }
+                if (val === null || val === undefined || val === '') {
+                    continue;
+                }
+
+                const etiqueta = formatearNombreCampo(clave);
+                let valTexto;
+
+                if (typeof val === 'boolean') {
+                    valTexto = val ? 'Sí' : 'No';
+                } else if (typeof val === 'object') {
+                    const entVal = formatearEntidadConocida(val, clave);
+                    valTexto = entVal ?? formatearFallbackArrayUObjeto(val, nivel + 1);
+                } else {
+                    valTexto = String(val);
+                }
+
+                if (valTexto && valTexto !== '(vacío)') {
+                    pares.push(`${etiqueta}: ${valTexto}`);
+                }
+            }
+
+            if (pares.length > 0) {
+                return pares.join(', ');
+            }
+
+            if (dato.id) {
+                return `#${dato.id}`;
+            }
+
+            return '(vacío)';
+        }
+
+        return String(dato);
+    }
+
+
+    function formatearValor(valor, campo = null) {
 
         if (valor === null || valor === undefined || valor === '') {
             return '(vacío)';
@@ -1202,11 +1527,37 @@ document.addEventListener('DOMContentLoaded', () => {
             return valor ? 'Sí' : 'No';
         }
 
-        if (typeof valor === 'object') {
-            return JSON.stringify(valor);
+        const valorNormalizado = normalizarEstructura(valor);
+
+        if (typeof valorNormalizado === 'object') {
+            if (valorNormalizado === null) {
+                return '(vacío)';
+            }
+
+            if (Array.isArray(valorNormalizado)) {
+                if (valorNormalizado.length === 0) {
+                    return '(vacío)';
+                }
+                return formatearFallbackArrayUObjeto(valorNormalizado);
+            }
+
+            const entidad = formatearEntidadConocida(valorNormalizado, campo);
+            if (entidad) {
+                return entidad;
+            }
+
+            return formatearFallbackArrayUObjeto(valorNormalizado);
         }
 
-        return String(valor);
+        if (campo === 'dia_semana' || campo === 'dia') {
+            return nombreDia(valorNormalizado);
+        }
+
+        if (campo === 'hora_inicio' || campo === 'hora_fin') {
+            return formatearHora(valorNormalizado);
+        }
+
+        return String(valorNormalizado);
     }
 
 
