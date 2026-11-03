@@ -9,6 +9,7 @@ use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Models\User;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -82,15 +84,16 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Crear usuario
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-            ]);
+            // La cuenta y su acceso deben crearse juntos o no guardarse.
+            [$user, $token] = \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                ]);
 
-            // Crear token automáticamente
-            $token = $user->createToken('auth_token')->plainTextToken;
+                return [$user, $user->createToken('auth_token')->plainTextToken];
+            });
 
             return response()->json([
                 'success' => true,
@@ -110,7 +113,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error al registrar usuario',
-                'error' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -121,20 +124,30 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $currentToken = $user->currentAccessToken();
+
+        if (!$currentToken instanceof PersonalAccessToken) {
+            throw new AuthenticationException;
+        }
+
         try {
-            // Revocar el token actual
-            $request->user()->currentAccessToken()->delete();
+            if ($user->tokens()->whereKey($currentToken->getKey())->delete() !== 1) {
+                throw new AuthenticationException;
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Sesión cerrada exitosamente',
             ]);
 
+        } catch (AuthenticationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al cerrar sesión',
-                'error' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -163,14 +176,26 @@ class AuthController extends Controller
      */
     public function refresh(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $currentToken = $user->currentAccessToken();
+
+        if (!$currentToken instanceof PersonalAccessToken) {
+            throw new AuthenticationException;
+        }
+
         try {
-            $user = $request->user();
+            $token = $user->getConnection()->transaction(function () use ($user, $currentToken) {
+                // Only one request may consume this token; a failed replacement restores it.
+                if ($user->tokens()->whereKey($currentToken->getKey())->delete() !== 1) {
+                    throw new AuthenticationException;
+                }
 
-            // Revocar token actual
-            $user->currentAccessToken()->delete();
-
-            // Crear nuevo token
-            $token = $user->createToken('auth_token')->plainTextToken;
+                return $user->createToken(
+                    $currentToken->name,
+                    $currentToken->abilities,
+                    $currentToken->expires_at
+                )->plainTextToken;
+            });
 
             return response()->json([
                 'success' => true,
@@ -181,11 +206,13 @@ class AuthController extends Controller
                 ],
             ]);
 
+        } catch (AuthenticationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al refrescar token',
-                'error' => $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

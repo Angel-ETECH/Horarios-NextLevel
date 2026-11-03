@@ -5,11 +5,19 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ProfesorRequest;
 use App\Models\Profesor;
+use App\Services\AsignacionService;
+use App\Services\HistorialService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProfesorController extends Controller
 {
+
+    public function __construct(
+        private HistorialService $historialService
+    ) {
+    }
+
     /**
      * Listar todos los profesores con filtros
      */
@@ -74,6 +82,14 @@ class ProfesorController extends Controller
             $profesor->carga_horaria_actual = 0;
             $profesor->save();
 
+            $this->historialService->registrarEvento(
+                'profesores',
+                'crear',
+                null,
+                $this->snapshotProfesor($profesor),
+                'Profesor creado'
+            );
+
             DB::commit();
 
             return response()->json([
@@ -100,7 +116,40 @@ class ProfesorController extends Controller
             DB::beginTransaction();
 
             $profesor = Profesor::findOrFail($id);
+            $datosAnteriores = $this->snapshotProfesor($profesor);
+            $data = $request->validated();
+            $cargaAsignada = \App\Models\ProfesorCurso::where('profesor_id', $id)
+                ->where('activo', true)->sum('horas_asignadas');
+            if ($data['estado'] === 'activo' && $data['carga_horaria_maxima'] < $cargaAsignada) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'La carga maxima no puede ser menor que las horas ya asignadas.',
+                    'errors' => ['carga_horaria_maxima' => ["El profesor tiene {$cargaAsignada} horas asignadas activas."]],
+                ], 422);
+            }
+            $institucionNueva = $request->validated()['institucion'];
+            if ($institucionNueva !== 'ambos' && \App\Models\ProfesorCurso::where('profesor_id', $id)
+                ->where('activo', true)->where('institucion', '!=', $institucionNueva)->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Desactiva primero las asignaciones de la otra institucion antes de cambiar al profesor.',
+                ], 422);
+            }
             $profesor->update($request->validated());
+
+            if ($profesor->estado !== 'activo') {
+                app(AsignacionService::class)->deleteByProfesor($profesor->id);
+            }
+
+            $this->historialService->registrarEvento(
+                'profesores',
+                'actualizar',
+                $datosAnteriores,
+                $this->snapshotProfesor($profesor->fresh()),
+                'Profesor actualizado'
+            );
 
             DB::commit();
 
@@ -110,6 +159,9 @@ class ProfesorController extends Controller
                 'data' => $profesor->fresh()
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -129,15 +181,34 @@ class ProfesorController extends Controller
 
             $profesor = Profesor::findOrFail($id);
 
+            if (\App\Models\ProfesorCurso::where('profesor_id', $id)->where('activo', true)->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Desactiva primero las asignaciones antes de eliminar el profesor.',
+                ], 422);
+            }
+
             // Verificar si tiene horarios activos
             if ($profesor->horarios()->where('estado', 'activo')->count() > 0) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el profesor porque tiene horarios activos'
                 ], 422);
             }
 
+            $datosAnteriores = $this->snapshotProfesor($profesor);
+
             $profesor->delete();
+
+            $this->historialService->registrarEvento(
+                'profesores',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Profesor eliminado'
+            );
 
             DB::commit();
 
@@ -184,8 +255,21 @@ class ProfesorController extends Controller
     public function restore($id)
     {
         try {
+            DB::beginTransaction();
             $profesor = Profesor::withTrashed()->findOrFail($id);
+            $datosAnteriores = $this->snapshotProfesor($profesor);
+
             $profesor->restore();
+
+            $this->historialService->registrarEvento(
+                'profesores',
+                'restaurar',
+                $datosAnteriores,
+                $this->snapshotProfesor($profesor),
+                'Profesor restaurado'
+            );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -194,10 +278,24 @@ class ProfesorController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al restaurar el profesor: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Snapshot del profesor para el historial.
+     */
+    private function snapshotProfesor(Profesor $profesor): array
+    {
+        return array_merge($profesor->toArray(), [
+            'modulo' => 'profesores',
+            'tipo_registro' => 'profesor',
+            'profesor_nombre' => $profesor->nombre_completo,
+            'institucion' => $profesor->institucion,
+        ]);
     }
 }

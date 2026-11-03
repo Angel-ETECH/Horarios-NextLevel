@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\DisponibilidadRequest;
+use App\Models\DisponibilidadProfesor;
 use App\Services\DisponibilidadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,36 +20,85 @@ class DisponibilidadController extends Controller
         $this->disponibilidadService = $disponibilidadService;
     }
 
+    public function reemplazar(Request $request, int $profesorId, string $institucion): JsonResponse
+    {
+        abort_unless(in_array($institucion, ['colegio', 'academia'], true), 404);
+        // Aceptar también clientes anteriores que envían los días sin tilde.
+        $franjas = $request->input('franjas');
+        if (is_array($franjas)) {
+            $request->merge(['franjas' => array_map(function ($franja) {
+                if (is_array($franja) && is_string($franja['dia_semana'] ?? null)) {
+                    $franja['dia_semana'] = $this->normalizarDia($franja['dia_semana']);
+                }
+                return $franja;
+            }, $franjas)]);
+        }
+        $data = $request->validate([
+            'franjas' => 'present|array|max:100',
+            'franjas.*' => 'array',
+            'franjas.*.dia_semana' => 'required|string|in:lunes,martes,miércoles,jueves,viernes,sábado',
+            'franjas.*.hora_inicio' => 'required|date_format:H:i',
+            'franjas.*.hora_fin' => 'required|date_format:H:i',
+            'franjas.*.turno' => 'nullable|in:mañana,tarde,noche',
+        ], [
+            'franjas.*.dia_semana.required' => 'Selecciona el día de cada horario disponible.',
+            'franjas.*.dia_semana.string' => 'El día de la disponibilidad debe ser un nombre válido.',
+            'franjas.*.dia_semana.in' => 'El día de la disponibilidad debe ser lunes, martes, miércoles, jueves, viernes o sábado.',
+        ]);
+        $disponibilidades = $this->disponibilidadService->reemplazar($profesorId, $institucion, $data['franjas']);
+        return response()->json(['success' => true, 'data' => $disponibilidades]);
+    }
+
+    private function normalizarDia(?string $dia): ?string
+    {
+        if ($dia === null || $dia === '') {
+            return $dia;
+        }
+
+        $dia = mb_strtolower(trim($dia), 'UTF-8');
+
+        return match ($dia) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => $dia,
+        };
+    }
+
     /**
      * GET /api/disponibilidades
      * Obtener todas las disponibilidades con filtros opcionales
      */
     public function index(Request $request): JsonResponse
     {
-        $filtros = $request->only(['profesor_id', 'dia', 'turno', 'institucion']);
-
         try {
-            if (!empty($filtros)) {
-                // Filtrar por profesor
-                if (isset($filtros['profesor_id'])) {
-                    $disponibilidades = $this->disponibilidadService->getByProfesor($filtros['profesor_id']);
-                }
-                // Filtrar por día
-                elseif (isset($filtros['dia'])) {
-                    $disponibilidades = $this->disponibilidadService->getByDia($filtros['dia']);
-                }
-                // Filtrar por turno
-                elseif (isset($filtros['turno'])) {
-                    $disponibilidades = $this->disponibilidadService->getByTurno($filtros['turno']);
-                }
-                // Filtrar por institución
-                elseif (isset($filtros['institucion'])) {
-                    $disponibilidades = $this->disponibilidadService->getByInstitucion($filtros['institucion']);
-                }
-            } else {
-                // Sin filtros, obtener todas
-                $disponibilidades = $this->disponibilidadService->getAll();
+            $query = DisponibilidadProfesor::with('profesor');
+
+            if ($request->filled('profesor_id')) {
+                $query->where('profesor_id', $request->integer('profesor_id'));
             }
+
+            if ($request->filled('dia')) {
+                $query->where('dia_semana', $this->normalizarDia($request->input('dia')));
+            }
+
+            if ($request->filled('dia_semana')) {
+                $query->where('dia_semana', $this->normalizarDia($request->input('dia_semana')));
+            }
+
+            if ($request->filled('turno')) {
+                $query->where('turno', $request->input('turno'));
+            }
+
+            if ($request->filled('institucion')) {
+                $query->where('institucion', $request->input('institucion'));
+            }
+
+            $disponibilidades = $query
+                ->orderBy('profesor_id')
+                ->orderBy('institucion')
+                ->orderBy('dia_semana')
+                ->orderBy('hora_inicio')
+                ->get();
 
             return response()->json([
                 'success' => true,
@@ -69,15 +119,19 @@ class DisponibilidadController extends Controller
      * GET /api/disponibilidades/profesor/{profesorId}
      * Obtener disponibilidades de un profesor específico
      */
-    public function getByProfesor(int $profesorId): JsonResponse
+    public function getByProfesor(Request $request, int $profesorId): JsonResponse
     {
         try {
-            $disponibilidades = $this->disponibilidadService->getByProfesor($profesorId);
+            $institucion = $request->input('institucion');
+            $disponibilidades = $institucion
+                ? $this->disponibilidadService->getByProfesorEInstitucion($profesorId, $institucion)
+                : $this->disponibilidadService->getByProfesor($profesorId);
 
             return response()->json([
                 'success' => true,
                 'data' => $disponibilidades,
                 'profesor_id' => $profesorId,
+                'institucion' => $institucion,
                 'total' => $disponibilidades->count()
             ]);
         } catch (\Exception $e) {
@@ -118,17 +172,24 @@ class DisponibilidadController extends Controller
      * GET /api/disponibilidades/bloques/{profesorId}
      * Obtener bloques disponibles de un profesor con parámetros
      */
-    public function getBloquesDisponibles(Request $request, int $profesorId): JsonResponse
+    public function getBloquesDisponibles(Request $request, int $profesorId, ?string $dia = null): JsonResponse
     {
         try {
             $request->validate([
-                'dia' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado,domingo',
+                'dia' => 'nullable|in:lunes,martes,miércoles,miercoles,jueves,viernes,sábado,sabado,domingo',
                 'institucion' => 'nullable|in:colegio,academia',
                 'duracion' => 'nullable|integer|in:30,45,60,90,120',
                 'intervalo' => 'nullable|integer|in:15,30'
             ]);
 
-            $dia = $request->input('dia');
+            $diaNormalizado = $this->normalizarDia($request->input('dia', $dia));
+
+            if (!$diaNormalizado) {
+                throw ValidationException::withMessages([
+                    'dia' => 'El día es obligatorio.',
+                ]);
+            }
+
             $institucion = $request->input('institucion', 'colegio');
             $duracion = $request->input('duracion', 60);
             $intervalo = $request->input('intervalo', 30);
@@ -137,14 +198,14 @@ class DisponibilidadController extends Controller
             if ($request->has('intervalo')) {
                 $bloques = $this->disponibilidadService->obtenerBloquesConIntervalos(
                     $profesorId,
-                    $dia,
+                    $diaNormalizado,
                     $institucion,
                     $intervalo
                 );
             } else {
                 $bloques = $this->disponibilidadService->obtenerBloquesDisponibles(
                     $profesorId,
-                    $dia,
+                    $diaNormalizado,
                     $institucion,
                     $duracion
                 );
@@ -153,7 +214,7 @@ class DisponibilidadController extends Controller
             return response()->json([
                 'success' => true,
                 'profesor_id' => $profesorId,
-                'dia' => $dia,
+                'dia' => $diaNormalizado,
                 'institucion' => $institucion,
                 'duracion' => $duracion,
                 'total_bloques' => count($bloques),
@@ -299,6 +360,8 @@ class DisponibilidadController extends Controller
                 'message' => 'Disponibilidad eliminada exitosamente'
             ]);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -323,6 +386,8 @@ class DisponibilidadController extends Controller
                 'total_eliminados' => $cantidad
             ]);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -347,6 +412,8 @@ class DisponibilidadController extends Controller
                 'total_eliminados' => $cantidad
             ]);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -365,16 +432,17 @@ class DisponibilidadController extends Controller
         try {
             $request->validate([
                 'profesor_id' => 'required|exists:profesores,id',
-                'dia_semana' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado,domingo',
+                'dia_semana' => 'required|in:lunes,martes,miércoles,miercoles,jueves,viernes,sábado,sabado,domingo',
                 'hora' => 'required|date_format:H:i',
                 'institucion' => 'nullable|in:colegio,academia'
             ]);
 
             $institucion = $request->input('institucion', 'colegio');
+            $dia = $this->normalizarDia($request->dia_semana);
 
             $disponible = $this->disponibilidadService->verificarDisponibilidadPuntual(
                 $request->profesor_id,
-                $request->dia_semana,
+                $dia,
                 $request->hora,
                 $institucion
             );
@@ -383,7 +451,7 @@ class DisponibilidadController extends Controller
                 'success' => true,
                 'disponible' => $disponible,
                 'profesor_id' => $request->profesor_id,
-                'dia' => $request->dia_semana,
+                'dia' => $dia,
                 'hora' => $request->hora,
                 'institucion' => $institucion,
                 'mensaje' => $disponible
@@ -415,17 +483,18 @@ class DisponibilidadController extends Controller
         try {
             $request->validate([
                 'profesor_id' => 'required|exists:profesores,id',
-                'dia_semana' => 'required|in:lunes,martes,miércoles,jueves,viernes,sábado,domingo',
+                'dia_semana' => 'required|in:lunes,martes,miércoles,miercoles,jueves,viernes,sábado,sabado,domingo',
                 'hora_inicio' => 'required|date_format:H:i',
                 'hora_fin' => 'required|date_format:H:i|after:hora_inicio',
                 'institucion' => 'nullable|in:colegio,academia'
             ]);
 
             $institucion = $request->input('institucion', 'colegio');
+            $dia = $this->normalizarDia($request->dia_semana);
 
             $esValida = $this->disponibilidadService->validarDisponibilidadParaClase(
                 $request->profesor_id,
-                $request->dia_semana,
+                $dia,
                 $request->hora_inicio,
                 $request->hora_fin,
                 $institucion
@@ -436,7 +505,7 @@ class DisponibilidadController extends Controller
                 'disponible' => true,
                 'mensaje' => 'El profesor está disponible en ese rango horario',
                 'profesor_id' => $request->profesor_id,
-                'dia' => $request->dia_semana,
+                'dia' => $dia,
                 'rango' => [
                     'inicio' => $request->hora_inicio,
                     'fin' => $request->hora_fin

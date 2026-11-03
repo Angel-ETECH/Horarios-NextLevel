@@ -1,195 +1,506 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $titulo ?? 'Horario Académico' }}</title>
     <style>
         @page {
-            margin: 20px;
+            size: A4 landscape;
+            margin: 18px;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
-            font-family: 'DejaVu Sans', Arial, sans-serif;
-            font-size: 12px;
-            color: #333;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #2C3E50;
-            padding-bottom: 10px;
-        }
-
-        .header h1 {
-            color: #2C3E50;
-            font-size: 24px;
             margin: 0;
+            padding: 0;
+            background: #ffffff;
+            color: #0f2749;
+            font-family: "DejaVu Sans", sans-serif;
+            font-size: 9px;
         }
 
-        .header .subtitle {
-            color: #7F8C8D;
-            font-size: 14px;
-            margin: 5px 0;
+        .document {
+            width: 100%;
+            padding: 4px 0;
         }
 
-        .header .info {
-            color: #95A5A6;
-            font-size: 11px;
-            margin: 2px 0;
-        }
-
-        table {
+        .top-table,
+        .meta-table,
+        .schedule-table,
+        .footer-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
         }
 
-        table thead th {
-            background-color: #2C3E50;
-            color: #FFFFFF;
-            padding: 10px 8px;
-            text-align: center;
+        .top-table td {
+            vertical-align: middle;
+        }
+
+        .brand-title {
+            color: #0f2749;
+            font-size: 22px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .brand-title span,
+        .title-red,
+        .footer-brand span {
+            color: #d90808;
+        }
+
+        .brand-subtitle {
+            margin-top: 3px;
+            color: #556987;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .generated {
+            text-align: right;
+            color: #0f2749;
+            font-weight: 700;
+        }
+
+        .generated-label {
+            color: #64748b;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .generated-date {
+            margin-top: 2px;
             font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
-        table tbody td {
-            padding: 8px 6px;
+        .main-title {
+            margin: 10px 0 9px;
+            color: #0f2749;
+            font-size: 19px;
+            font-weight: 700;
+            line-height: 1.18;
+        }
+
+        .meta-wrap {
+            margin-bottom: 9px;
+            border: 1px solid #dbe5f1;
+            border-radius: 9px;
+            background: #f4f8fd;
+        }
+
+        .meta-table td {
+            width: 20%;
+            min-height: 34px;
+            padding: 9px 10px 10px;
+            border-right: 1px solid #cbd8e8;
+            vertical-align: top;
+        }
+
+        .meta-table td:last-child {
+            border-right: 0;
+        }
+
+        .meta-label {
+            color: #5d708c;
+            font-size: 7px;
+            font-weight: 700;
+            line-height: 1.15;
+        }
+
+        .meta-value {
+            margin-top: 4px;
+            color: #0f2749;
+            font-size: 8px;
+            font-weight: 700;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+
+        .schedule-table {
+            table-layout: fixed;
+            border-spacing: 0;
+        }
+
+        .schedule-table th {
+            height: 32px;
+            padding: 8px 4px;
+            background: #102d52;
+            border: 2px solid #ffffff;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
             text-align: center;
-            border-bottom: 1px solid #ECF0F1;
+            vertical-align: middle;
+            line-height: 1.1;
         }
 
-        table tbody tr:nth-child(even) {
-            background-color: #F9F9F9;
+        .schedule-table th.time-cell {
+            background: #102d52 !important;
+            color: #ffffff;
         }
 
-        table tbody tr:hover {
-            background-color: #ECF0F1;
+        .schedule-table td {
+            min-height: 48px;
+            padding: 5px;
+            border: 2px solid #ffffff;
+            background: #f4f8fd;
+            color: #0f2749;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .time-cell {
+            width: 11%;
+            color: #1f314a;
+            background: #eef3f8 !important;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .day-cell {
+            width: 14.8%;
+        }
+
+        .class-card {
+            display: block;
+            text-align: left;
+            min-height: 42px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 7px 7px 6px;
+            border-radius: 6px;
+            border: 1px solid #e5eaf1;
+            border-left: 4px solid #2563eb;
+            background: #fff7f8;
+            line-height: 1.25;
+        }
+
+        .class-card + .class-card {
+            margin: 4px auto 0;
+        }
+
+        .tone-0,
+        .tone-1,
+        .tone-2 { background: #fff0f3; border-left-color: #e11d48; }
+        .tone-3,
+        .tone-4,
+        .tone-5 { background: #fff9e8; border-left-color: #f59e0b; }
+
+        .class-head {
+            display: block;
+            text-align: left;
+        }
+
+        .course {
+            display: inline-block;
+            vertical-align: top;
+            color: #09245a;
+            font-size: 9px;
+            font-weight: 700;
+            line-height: 1.15;
+            width: 74%;
+        }
+
+        .level-badge {
+            display: inline-block;
+            vertical-align: top;
+            padding: 2px 4px;
+            border-radius: 4px;
+            background: #fde2e8;
+            color: #be123c;
+            font-size: 6px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .level-sec,
+        .level-aca {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .grade {
+            display: block;
+            margin-top: 3px;
+            color: #0f2749;
+            font-size: 9px;
+        }
+
+        .room {
+            display: block;
+            margin-top: 5px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(15, 39, 73, 0.08);
+            background: transparent;
+            color: #0f2749;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .room-label {
+            color: #64748b;
+            font-size: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .room-value {
+            color: #09245a;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .empty-slot {
+            color: #64748b;
+            font-size: 15px;
+            text-align: center;
         }
 
         .footer {
-            margin-top: 20px;
-            padding-top: 10px;
-            border-top: 1px solid #BDC3C7;
-            text-align: center;
-            font-size: 10px;
-            color: #95A5A6;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .badge-activo {
-            background-color: #27AE60;
-            color: #FFFFFF;
-        }
-
-        .badge-modificado {
-            background-color: #F39C12;
-            color: #FFFFFF;
-        }
-
-        .badge-cancelado {
-            background-color: #E74C3C;
-            color: #FFFFFF;
-        }
-
-        .filter-info {
-            background-color: #F8F9FA;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 5px;
-            font-size: 11px;
-            border-left: 4px solid #3498DB;
-        }
-
-        .total-info {
-            font-weight: bold;
-            color: #2C3E50;
+            min-height: 34px;
             margin-top: 10px;
-            padding: 8px;
-            background-color: #ECF0F1;
-            border-radius: 4px;
-            text-align: center;
+            padding-top: 8px;
+            border-top: 1px solid #dbe5f1;
+        }
+
+        .footer-left {
+            color: #5d708c;
+            font-size: 10px;
+        }
+
+        .footer-table td {
+            vertical-align: middle;
+        }
+
+        .footer-brand {
+            color: #0f2749;
+            font-weight: 700;
+        }
+
+        .footer-total {
+            text-align: right;
+        }
+
+        .total-pill {
+            display: inline-block;
+            padding: 8px 15px;
+            border-radius: 9px;
+            background: #102d52;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.1;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🏫 Next Level School</h1>
-        <div class="subtitle">{{ $titulo ?? 'Horario Académico' }}</div>
-        <div class="info">Fecha de exportación: {{ now()->format('d/m/Y H:i:s') }}</div>
-        @if(!empty($filtros))
-            <div class="filter-info">
-                <strong>Filtros aplicados:</strong>
-                @foreach($filtros as $key => $value)
-                    {{ ucfirst($key) }}: {{ $value }}
-                @endforeach
-            </div>
+@php
+    $horariosOrdenados = $horarios->sortBy(function ($h) {
+        $diaOrden = [
+            'lunes' => 1,
+            'martes' => 2,
+            'miércoles' => 3,
+            'miercoles' => 3,
+            'jueves' => 4,
+            'viernes' => 5,
+            'sábado' => 6,
+            'sabado' => 6,
+        ];
+
+        $dia = strtolower((string) ($h->dia_semana ?? ''));
+        $inicio = substr((string) ($h->hora_inicio ?? '99:99'), 0, 5);
+
+        return str_pad((string) ($diaOrden[$dia] ?? 9), 2, '0', STR_PAD_LEFT) . '-' . $inicio;
+    })->values();
+
+    $primerHorario = $horariosOrdenados->first();
+    $institucionFiltro = $filtros['institucion'] ?? null;
+    $nombreInstitucion = match ($institucionFiltro) {
+        'colegio' => 'Colegio',
+        'academia' => 'Academia',
+        default => $primerHorario ? ucfirst($primerHorario->institucion ?? 'No especificada') : 'No especificada',
+    };
+    $nombreProfesor = $primerHorario?->profesor?->nombre_completo ?? 'No especificado';
+    $codigoProfesor = $primerHorario?->profesor?->codigo ?? 'N/A';
+    $esProfesor = !empty($filtros['profesor_id']);
+    $tipoConsulta = $esProfesor ? 'profesor' : (!empty($filtros['aula_id']) ? 'aula' : (!empty($filtros['grado_id']) ? 'grado' : (!empty($filtros['curso_id']) ? 'curso' : null)));
+    $registroConsulta = $tipoConsulta ? $primerHorario?->{$tipoConsulta} : null;
+    $etiquetaConsulta = $tipoConsulta ? ucfirst($tipoConsulta) : 'Consulta';
+    $nombreConsulta = $registroConsulta?->nombre_completo ?? $registroConsulta?->nombre ?? 'Horario general';
+    $codigoConsulta = $registroConsulta?->codigo ?? 'N/A';
+    $periodo = $primerHorario?->periodo_academico ?? 'No especificado';
+    $tituloBase = $titulo ?? 'Horario de ' . $nombreProfesor;
+    $tituloDocumento = preg_match('/-\s*' . preg_quote($nombreInstitucion, '/') . '\s*$/i', $tituloBase)
+        ? $tituloBase
+        : $tituloBase . ' - ' . $nombreInstitucion;
+    $dias = [
+        'lunes' => 'Lunes',
+        'martes' => 'Martes',
+        'miércoles' => 'Miércoles',
+        'jueves' => 'Jueves',
+        'viernes' => 'Viernes',
+        'sábado' => 'Sábado',
+        'domingo' => 'Domingo',
+    ];
+    $normalizarDia = function ($dia) {
+        $dia = strtolower(trim((string) $dia));
+        return match ($dia) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => $dia,
+        };
+    };
+    $formatearHora = function ($valor) {
+        try {
+            return \Carbon\Carbon::parse($valor)->format('H:i');
+        } catch (\Exception $e) {
+            return substr((string) $valor, 0, 5);
+        }
+    };
+    $bloques = [];
+    $celdas = [];
+
+    foreach ($horariosOrdenados as $horario) {
+        $inicio = $formatearHora($horario->hora_inicio);
+        $fin = $formatearHora($horario->hora_fin);
+        $bloqueKey = $inicio . '|' . $fin;
+        $diaKey = $normalizarDia($horario->dia_semana ?? '');
+
+        $bloques[$bloqueKey] = [
+            'inicio' => $inicio,
+            'fin' => $fin,
+        ];
+
+        $celdas[$bloqueKey][$diaKey][] = $horario;
+    }
+
+    uasort($bloques, fn ($a, $b) => strcmp($a['inicio'], $b['inicio']) ?: strcmp($a['fin'], $b['fin']));
+
+@endphp
+
+<div class="document">
+    <table class="top-table">
+        <tr>
+            <td>
+                <div class="brand-title">Next Level <span>School</span></div>
+                <div class="brand-subtitle">Sistema de Gestión Académica</div>
+            </td>
+            <td class="generated">
+                <div class="generated-label">Documento generado</div>
+                <div class="generated-date">{{ now()->format('d/m/Y H:i') }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="main-title">
+        {{ $tituloDocumento }}
+        @if(!empty($filtros['semana_inicio']))
+            <span style="display:block;font-size:12px;font-weight:normal;line-height:1.5">Semana del {{ app(\App\Services\HorarioCalendarioService::class)->inicioSemana($filtros['semana_inicio'])->format('d/m/Y') }}</span>
         @endif
     </div>
 
-    <table>
+    <div class="meta-wrap">
+        <table class="meta-table">
+            <tr>
+                <td>
+                    <div class="meta-label">{{ $etiquetaConsulta }}</div>
+                    <div class="meta-value">{{ $nombreConsulta }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Código</div>
+                    <div class="meta-value">{{ $codigoConsulta }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Institución</div>
+                    <div class="meta-value">{{ $nombreInstitucion }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Periodo académico</div>
+                    <div class="meta-value">{{ $periodo }}</div>
+                </td>
+                <td>
+                    <div class="meta-label">Total</div>
+                    <div class="meta-value">{{ $horariosOrdenados->count() }} {{ $horariosOrdenados->count() === 1 ? 'clase' : 'clases' }}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="schedule-table">
         <thead>
             <tr>
-                <th>#</th>
-                <th>Profesor</th>
-                <th>Curso</th>
-                <th>Grado</th>
-                <th>Aula</th>
-                <th>Institución</th>
-                <th>Día</th>
-                <th>Hora Inicio</th>
-                <th>Hora Fin</th>
-                <th>Turno</th>
-                <th>Estado</th>
+                <th class="time-cell">Hora</th>
+                @foreach($dias as $nombreDia)
+                    <th class="day-cell">{{ $nombreDia }}</th>
+                @endforeach
             </tr>
         </thead>
         <tbody>
-            @forelse($horarios as $index => $h)
+            @forelse($bloques as $bloqueKey => $bloque)
                 <tr>
-                    <td>{{ $index + 1 }}</td>
-                    <td>{{ $h->profesor->nombre_completo ?? 'N/A' }}</td>
-                    <td>{{ $h->curso->nombre ?? 'N/A' }}</td>
-                    <td>{{ $h->grado->nombre_completo ?? 'N/A' }}</td>
-                    <td>{{ $h->aula->nombre ?? 'N/A' }}</td>
-                    <td>{{ ucfirst($h->institucion ?? 'N/A') }}</td>
-                    <td>{{ ucfirst($h->dia_semana) }}</td>
-                    <td>{{ $h->hora_inicio }}</td>
-                    <td>{{ $h->hora_fin }}</td>
-                    <td>{{ ucfirst($h->turno) }}</td>
-                    <td>
-                        <span class="badge badge-{{ $h->estado }}">
-                            {{ ucfirst($h->estado) }}
-                        </span>
-                    </td>
+                    <td class="time-cell">{{ $bloque['inicio'] }} - {{ $bloque['fin'] }}</td>
+                    @foreach($dias as $diaKey => $nombreDia)
+                        <td class="day-cell">
+                            @forelse(($celdas[$bloqueKey][$diaKey] ?? []) as $item)
+                                @php
+                                    $aulaNombre = trim((string) ($item->aula->nombre ?? ''));
+                                    $aulaTexto = $aulaNombre !== ''
+                                        ? preg_replace('/^\s*aula\s+/i', '', $aulaNombre)
+                                        : 'No asignada';
+                                    $nivelTexto = strtolower((string) ($item->grado->nombre_completo ?? $item->curso->nombre ?? ''));
+                                    $institucionTexto = strtolower((string) ($item->institucion ?? $item->institucion_nombre ?? ''));
+                                    $nivelCodigo = str_contains($nivelTexto, 'secundaria')
+                                        ? 'SEC'
+                                        : (str_contains($nivelTexto, 'academia') || $institucionTexto === 'academia' ? 'ACA' : 'PRI');
+                                    $nivelClase = strtolower($nivelCodigo);
+                                    $tone = $nivelCodigo === 'PRI' ? 0 : 3;
+                                @endphp
+                                <span class="class-card tone-{{ $tone }}">
+                                    <span class="class-head">
+                                        <span class="course">{{ $item->tipo === 'recuperacion' ? 'Recuperacion: ' : '' }}{{ $item->curso->nombre ?? 'Curso no especificado' }}</span>
+                                        <span class="level-badge level-{{ $nivelClase }}">{{ $nivelCodigo }}</span>
+                                    </span>
+                                    <span class="grade">{{ $item->grado->nombre_completo ?? 'Grado no especificado' }}</span>
+                                    @unless($esProfesor)
+                                        <span class="grade">{{ $item->profesor->nombre_completo ?? 'Profesor no especificado' }}</span>
+                                    @endunless
+                                    <span class="room">
+                                        <span class="room-label">Aula</span>
+                                        <span class="room-value">{{ $aulaTexto }}</span>
+                                    </span>
+                                </span>
+                            @empty
+                                <div class="empty-slot">—</div>
+                            @endforelse
+                        </td>
+                    @endforeach
                 </tr>
             @empty
                 <tr>
-                    <td colspan="11" style="text-align: center; padding: 20px;">
-                        No hay horarios disponibles
-                    </td>
+                    <td colspan="8" class="empty-slot">No existen horarios disponibles para exportar.</td>
                 </tr>
             @endforelse
         </tbody>
     </table>
 
-    <div class="total-info">
-        Total de clases: {{ $horarios->count() }}
-    </div>
-
     <div class="footer">
-        Generado por Academia Next Level School - Sistema de Gestión de Horarios
-        <br>
-        © {{ date('Y') }} - Todos los derechos reservados
+        <table class="footer-table">
+            <tr>
+                <td class="footer-left">
+                    <span class="footer-brand">Next Level <span>School</span></span>
+                    · Sistema de Gestión de Horarios
+                </td>
+                <td class="footer-total">
+                    <span class="total-pill">Total: {{ $horariosOrdenados->count() }} {{ $horariosOrdenados->count() === 1 ? 'clase' : 'clases' }}</span>
+                </td>
+            </tr>
+        </table>
     </div>
+</div>
 </body>
 </html>

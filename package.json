@@ -3,6 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
+        "test": "node --test resources/js/tests/frontend-state.test.js",
         "build": "vite build",
         "dev": "vite"
     },

@@ -5,11 +5,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CursoRequest;
 use App\Models\Curso;
+use App\Services\HistorialService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class CursoController extends Controller
 {
+    public function __construct(
+        private HistorialService $historialService
+    ) {
+    }
+
     public function index(Request $request)
     {
         $query = Curso::query();
@@ -61,6 +67,14 @@ class CursoController extends Controller
 
             $curso = Curso::create($request->validated());
 
+            $this->historialService->registrarEvento(
+                'cursos',
+                'crear',
+                null,
+                $this->snapshotCurso($curso),
+                'Curso creado'
+            );
+
             DB::commit();
 
             return response()->json([
@@ -84,7 +98,28 @@ class CursoController extends Controller
             DB::beginTransaction();
 
             $curso = Curso::findOrFail($id);
-            $curso->update($request->validated());
+            $datosAnteriores = $this->snapshotCurso($curso);
+            $data = $request->validated();
+            $tieneAsignaciones = $curso->profesores()->wherePivot('activo', true)->exists();
+            if ($tieneAsignaciones && (
+                (array_key_exists('activo', $data) && !$data['activo']) ||
+                ($data['nivel'] ?? $curso->nivel) !== $curso->nivel
+            )) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Desactiva primero las asignaciones antes de desactivar el curso o cambiar su nivel.',
+                ], 422);
+            }
+            $curso->update($data);
+
+            $this->historialService->registrarEvento(
+                'cursos',
+                'actualizar',
+                $datosAnteriores,
+                $this->snapshotCurso($curso),
+                'Curso actualizado'
+            );
 
             DB::commit();
 
@@ -112,13 +147,24 @@ class CursoController extends Controller
 
             // Verificar si tiene asignaciones activas
             if ($curso->profesores()->wherePivot('activo', true)->count() > 0) {
+                DB::rollBack();
                 return response()->json([
                     'status' => 'error',
                     'message' => 'No se puede eliminar el curso porque tiene asignaciones activas'
                 ], 422);
             }
 
+            $datosAnteriores = $this->snapshotCurso($curso);
+
             $curso->delete();
+
+            $this->historialService->registrarEvento(
+                'cursos',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Curso eliminado'
+            );
 
             DB::commit();
 
@@ -156,8 +202,21 @@ class CursoController extends Controller
     public function restore($id)
     {
         try {
+            DB::beginTransaction();
             $curso = Curso::withTrashed()->findOrFail($id);
+            $datosAnteriores = $this->snapshotCurso($curso);
+
             $curso->restore();
+
+            $this->historialService->registrarEvento(
+                'cursos',
+                'restaurar',
+                $datosAnteriores,
+                $this->snapshotCurso($curso),
+                'Curso restaurado'
+            );
+
+            DB::commit();
 
             return response()->json([
                 'status' => 'success',
@@ -166,10 +225,23 @@ class CursoController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al restaurar el curso: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Snapshot del curso para el historial.
+     */
+    private function snapshotCurso(Curso $curso): array
+    {
+        return array_merge($curso->toArray(), [
+            'modulo' => 'cursos',
+            'tipo_registro' => 'curso',
+            'curso_nombre' => $curso->nombre,
+        ]);
     }
 }

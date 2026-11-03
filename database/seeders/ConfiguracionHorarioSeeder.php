@@ -16,144 +16,158 @@ class ConfiguracionHorarioSeeder extends Seeder
         // ==========================================
         // COLEGIO - PRIMARIA (Turno Mañana)
         // ==========================================
-        $primaria = ConfiguracionHorario::create([
-            'institucion' => 'colegio',
-            'nivel' => 'primaria',
-            'turno' => 'mañana',
-            'nombre' => 'Primaria Mañana ' . $añoActual,
-            'hora_inicio' => '07:00',
-            'hora_fin' => '12:55',
-            'duracion_bloque_minutos' => 45,
-            'año_academico' => $añoActual,
-            'activo' => true,
-        ]);
+        $primaria = ConfiguracionHorario::updateOrCreate(
+            [
+                'institucion' => 'colegio',
+                'nivel' => 'primaria',
+                'turno' => 'mañana',
+                'año_academico' => $añoActual,
+            ],
+            [
+                'nombre' => 'Primaria Mañana ' . $añoActual,
+                'hora_inicio' => '07:00',
+                'hora_fin' => '12:55',
+                'duracion_bloque_minutos' => 45,
+                'activo' => true,
+            ]
+        );
 
-        $this->crearBloques($primaria, [
-            ['orden' => 1, 'inicio' => '07:00', 'fin' => '07:45', 'tipo' => 'clase', 'numero' => 1],
-            ['orden' => 2, 'inicio' => '07:45', 'fin' => '08:30', 'tipo' => 'clase', 'numero' => 2],
-            ['orden' => 3, 'inicio' => '08:30', 'fin' => '08:50', 'tipo' => 'receso', 'nombre' => 'Recreo 1'],
-            ['orden' => 4, 'inicio' => '08:50', 'fin' => '09:35', 'tipo' => 'clase', 'numero' => 3],
-            ['orden' => 5, 'inicio' => '09:35', 'fin' => '10:20', 'tipo' => 'clase', 'numero' => 4],
-            ['orden' => 6, 'inicio' => '10:20', 'fin' => '10:40', 'tipo' => 'receso', 'nombre' => 'Recreo 2'],
-            ['orden' => 7, 'inicio' => '10:40', 'fin' => '11:25', 'tipo' => 'clase', 'numero' => 5],
-            ['orden' => 8, 'inicio' => '11:25', 'fin' => '12:15', 'tipo' => 'clase', 'numero' => 6],
-            ['orden' => 9, 'inicio' => '12:15', 'fin' => '12:55', 'tipo' => 'clase', 'numero' => 7],
-        ]);
+        $this->crearBloques($primaria);
 
         // ==========================================
         // COLEGIO - SECUNDARIA (Turno Mañana)
         // ==========================================
-        $secundaria = ConfiguracionHorario::create([
-            'institucion' => 'colegio',
-            'nivel' => 'secundaria',
-            'turno' => 'mañana',
-            'nombre' => 'Secundaria Mañana ' . $añoActual,
-            'hora_inicio' => '07:00',
-            'hora_fin' => '13:10',
-            'duracion_bloque_minutos' => 45,
-            'año_academico' => $añoActual,
-            'activo' => true,
-        ]);
+        $secundaria = ConfiguracionHorario::updateOrCreate(
+            [
+                'institucion' => 'colegio',
+                'nivel' => 'secundaria',
+                'turno' => 'mañana',
+                'año_academico' => $añoActual,
+            ],
+            [
+                'nombre' => 'Secundaria Mañana ' . $añoActual,
+                'hora_inicio' => '07:00',
+                'hora_fin' => '13:10',
+                'duracion_bloque_minutos' => 45,
+                'activo' => true,
+            ]
+        );
 
-        $this->crearBloques($secundaria, [
-            ['orden' => 1, 'inicio' => '07:00', 'fin' => '07:45', 'tipo' => 'clase', 'numero' => 1],
-            ['orden' => 2, 'inicio' => '07:45', 'fin' => '08:30', 'tipo' => 'clase', 'numero' => 2],
-            ['orden' => 3, 'inicio' => '08:30', 'fin' => '09:15', 'tipo' => 'clase', 'numero' => 3],
-            ['orden' => 4, 'inicio' => '09:15', 'fin' => '09:35', 'tipo' => 'receso', 'nombre' => 'Receso 1'],
-            ['orden' => 5, 'inicio' => '09:35', 'fin' => '10:25', 'tipo' => 'clase', 'numero' => 4],
-            ['orden' => 6, 'inicio' => '10:25', 'fin' => '11:10', 'tipo' => 'clase', 'numero' => 5],
-            ['orden' => 7, 'inicio' => '11:10', 'fin' => '11:25', 'tipo' => 'receso', 'nombre' => 'Receso 2'],
-            ['orden' => 8, 'inicio' => '11:25', 'fin' => '12:15', 'tipo' => 'clase', 'numero' => 6],
-            ['orden' => 9, 'inicio' => '12:15', 'fin' => '13:10', 'tipo' => 'clase', 'numero' => 7],
-        ]);
+        $this->crearBloques($secundaria);
+
+        // ==========================================
+        // COLEGIO - PRIMARIA (Turno Tarde)
+        // ==========================================
+        $primariaTarde = ConfiguracionHorario::updateOrCreate(
+            [
+                'institucion' => 'colegio',
+                'nivel' => 'primaria',
+                'turno' => 'tarde',
+                'año_academico' => $añoActual,
+            ],
+            [
+                'nombre' => 'Primaria Tarde ' . $añoActual,
+                'hora_inicio' => '13:00',
+                'hora_fin' => '18:55',
+                'duracion_bloque_minutos' => 45,
+                'activo' => true,
+            ]
+        );
+
+        $this->crearBloques($primariaTarde);
+
+        // ==========================================
+        // COLEGIO - SECUNDARIA (Turno Tarde)
+        // ==========================================
+        $secundariaTarde = ConfiguracionHorario::updateOrCreate(
+            [
+                'institucion' => 'colegio',
+                'nivel' => 'secundaria',
+                'turno' => 'tarde',
+                'año_academico' => $añoActual,
+            ],
+            [
+                'nombre' => 'Secundaria Tarde ' . $añoActual,
+                'hora_inicio' => '13:00',
+                'hora_fin' => '19:00',
+                'duracion_bloque_minutos' => 45,
+                'activo' => true,
+            ]
+        );
+
+        $this->crearBloques($secundariaTarde);
 
         // ==========================================
         // ACADEMIA - Turno Mañana
         // ==========================================
-        $academiaMañana = ConfiguracionHorario::create([
-            'institucion' => 'academia',
-            'nivel' => 'academia',
-            'turno' => 'mañana',
-            'nombre' => 'Academia Mañana ' . $añoActual,
-            'hora_inicio' => '07:00',
-            'hora_fin' => '13:15',
-            'duracion_bloque_minutos' => 45,
-            'año_academico' => $añoActual,
-            'activo' => true,
-        ]);
+        $academiaMañana = ConfiguracionHorario::updateOrCreate(
+            [
+                'institucion' => 'academia',
+                'nivel' => 'academia',
+                'turno' => 'mañana',
+                'año_academico' => $añoActual,
+            ],
+            [
+                'nombre' => 'Academia Mañana ' . $añoActual,
+                'hora_inicio' => '07:00',
+                'hora_fin' => '13:15',
+                'duracion_bloque_minutos' => 45,
+                'activo' => true,
+            ]
+        );
 
-        $this->crearBloques($academiaMañana, [
-            ['orden' => 1, 'inicio' => '07:00', 'fin' => '07:55', 'tipo' => 'clase', 'numero' => 1],
-            ['orden' => 2, 'inicio' => '07:55', 'fin' => '08:50', 'tipo' => 'clase', 'numero' => 2],
-            ['orden' => 3, 'inicio' => '08:50', 'fin' => '09:10', 'tipo' => 'receso', 'nombre' => 'Receso 1'],
-            ['orden' => 4, 'inicio' => '09:10', 'fin' => '09:55', 'tipo' => 'clase', 'numero' => 3],
-            ['orden' => 5, 'inicio' => '09:55', 'fin' => '10:40', 'tipo' => 'clase', 'numero' => 4],
-            ['orden' => 6, 'inicio' => '10:40', 'fin' => '10:50', 'tipo' => 'receso', 'nombre' => 'Receso 2'],
-            ['orden' => 7, 'inicio' => '10:50', 'fin' => '11:35', 'tipo' => 'clase', 'numero' => 5],
-            ['orden' => 8, 'inicio' => '11:35', 'fin' => '12:15', 'tipo' => 'clase', 'numero' => 6],
-            ['orden' => 9, 'inicio' => '12:15', 'fin' => '13:15', 'tipo' => 'clase', 'numero' => 7],
-        ]);
+        $this->crearBloques($academiaMañana);
 
         // ==========================================
         // ACADEMIA - Turno Tarde
         // ==========================================
-        $academiaTarde = ConfiguracionHorario::create([
-            'institucion' => 'academia',
-            'nivel' => 'academia',
-            'turno' => 'tarde',
-            'nombre' => 'Academia Tarde ' . $añoActual,
-            'hora_inicio' => '15:30',
-            'hora_fin' => '20:00',
-            'duracion_bloque_minutos' => 90,
-            'año_academico' => $añoActual,
-            'activo' => true,
-        ]);
+        $academiaTarde = ConfiguracionHorario::updateOrCreate(
+            [
+                'institucion' => 'academia',
+                'nivel' => 'academia',
+                'turno' => 'tarde',
+                'año_academico' => $añoActual,
+            ],
+            [
+                'nombre' => 'Academia Tarde ' . $añoActual,
+                'hora_inicio' => '15:30',
+                'hora_fin' => '20:00',
+                'duracion_bloque_minutos' => 90,
+                'activo' => true,
+            ]
+        );
 
-        $this->crearBloques($academiaTarde, [
-            ['orden' => 1, 'inicio' => '15:30', 'fin' => '17:00', 'tipo' => 'clase', 'numero' => 1],
-            ['orden' => 2, 'inicio' => '17:00', 'fin' => '17:10', 'tipo' => 'receso', 'nombre' => 'Receso 1'],
-            ['orden' => 3, 'inicio' => '17:10', 'fin' => '18:30', 'tipo' => 'clase', 'numero' => 2],
-            ['orden' => 4, 'inicio' => '18:30', 'fin' => '18:40', 'tipo' => 'receso', 'nombre' => 'Receso 2'],
-            ['orden' => 5, 'inicio' => '18:40', 'fin' => '20:00', 'tipo' => 'clase', 'numero' => 3],
-        ]);
+        $this->crearBloques($academiaTarde);
 
         // ==========================================
         // ACADEMIA - Turno Completo (A1)
         // ==========================================
-        $academiaCompleto = ConfiguracionHorario::create([
-            'institucion' => 'academia',
-            'nivel' => 'academia',
-            'turno' => 'completo',
-            'nombre' => 'Academia Completo ' . $añoActual,
-            'hora_inicio' => '07:00',
-            'hora_fin' => '18:30',
-            'duracion_bloque_minutos' => 45,
-            'año_academico' => $añoActual,
-            'activo' => true,
-        ]);
+        $academiaCompleto = ConfiguracionHorario::updateOrCreate(
+            [
+                'institucion' => 'academia',
+                'nivel' => 'academia',
+                'turno' => 'completo',
+                'año_academico' => $añoActual,
+            ],
+            [
+                'nombre' => 'Academia Completo ' . $añoActual,
+                'hora_inicio' => '07:00',
+                'hora_fin' => '18:30',
+                'duracion_bloque_minutos' => 45,
+                'activo' => true,
+            ]
+        );
 
-        $this->crearBloques($academiaCompleto, [
-            // Mañana
-            ['orden' => 1, 'inicio' => '07:00', 'fin' => '07:55', 'tipo' => 'clase', 'numero' => 1],
-            ['orden' => 2, 'inicio' => '07:55', 'fin' => '08:50', 'tipo' => 'clase', 'numero' => 2],
-            ['orden' => 3, 'inicio' => '08:50', 'fin' => '09:10', 'tipo' => 'receso', 'nombre' => 'Receso 1'],
-            ['orden' => 4, 'inicio' => '09:10', 'fin' => '09:55', 'tipo' => 'clase', 'numero' => 3],
-            ['orden' => 5, 'inicio' => '09:55', 'fin' => '10:40', 'tipo' => 'clase', 'numero' => 4],
-            ['orden' => 6, 'inicio' => '10:40', 'fin' => '10:50', 'tipo' => 'receso', 'nombre' => 'Receso 2'],
-            ['orden' => 7, 'inicio' => '10:50', 'fin' => '11:35', 'tipo' => 'clase', 'numero' => 5],
-            ['orden' => 8, 'inicio' => '11:35', 'fin' => '12:15', 'tipo' => 'clase', 'numero' => 6],
-            ['orden' => 9, 'inicio' => '12:15', 'fin' => '13:15', 'tipo' => 'clase', 'numero' => 7],
-            // Almuerzo
-            ['orden' => 10, 'inicio' => '13:15', 'fin' => '15:30', 'tipo' => 'receso', 'nombre' => 'Almuerzo'],
-            // Tarde
-            ['orden' => 11, 'inicio' => '15:30', 'fin' => '17:00', 'tipo' => 'clase', 'numero' => 8],
-            ['orden' => 12, 'inicio' => '17:00', 'fin' => '17:10', 'tipo' => 'receso', 'nombre' => 'Receso 3'],
-            ['orden' => 13, 'inicio' => '17:10', 'fin' => '18:30', 'tipo' => 'clase', 'numero' => 9],
-        ]);
+        $this->crearBloques($academiaCompleto);
     }
 
-    private function crearBloques(ConfiguracionHorario $config, array $bloques): void
+    private function crearBloques(ConfiguracionHorario $config): void
     {
+        // Eliminar bloques previos de esta configuración para evitar duplicados
+        BloqueHorario::where('configuracion_horario_id', $config->id)->delete();
+
+        $bloques = $this->generarBloquesNormalizados($config);
+
         foreach ($bloques as $bloque) {
             BloqueHorario::create([
                 'configuracion_horario_id' => $config->id,
@@ -165,5 +179,18 @@ class ConfiguracionHorarioSeeder extends Seeder
                 'numero_bloque' => $bloque['numero'] ?? null,
             ]);
         }
+    }
+
+    private function generarBloquesNormalizados(ConfiguracionHorario $config): array
+    {
+        return app(\App\Services\HorarioRecesoService::class)->bloquesFijos($config)
+            ->map(fn ($bloque) => [
+                'orden' => $bloque->orden,
+                'inicio' => $bloque->hora_inicio->format('H:i'),
+                'fin' => $bloque->hora_fin->format('H:i'),
+                'tipo' => $bloque->tipo,
+                'nombre' => $bloque->nombre,
+                'numero' => $bloque->numero_bloque,
+            ])->all();
     }
 }

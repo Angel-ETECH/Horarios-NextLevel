@@ -15,11 +15,25 @@ class ExportService
 {
     protected string $path = 'exports/';
 
+    private function normalizarDiaSemana(string $dia): string
+    {
+        $dia = strtolower(trim($dia));
+
+        return match ($dia) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => $dia,
+        };
+    }
+
     /**
      * Preparar datos para la exportación
      */
     public function prepareData(array $params): Collection
     {
+        if (!empty($params['semana_inicio'])) {
+            return app(HorarioCalendarioService::class)->consultar($params);
+        }
         $query = Horario::with(['profesor', 'curso', 'aula', 'grado'])
             ->where('estado', 'activo');
 
@@ -33,7 +47,7 @@ class ExportService
         }
 
         if (!empty($params['dia_semana'])) {
-            $query->where('dia_semana', $params['dia_semana']);
+            $query->where('dia_semana', $this->normalizarDiaSemana($params['dia_semana']));
         }
 
         if (!empty($params['turno'])) {
@@ -89,11 +103,35 @@ class ExportService
             });
         }
 
-        // Ordenamiento
+        // Ordenamiento seguro y coherente con la semana académica.
         $sortBy = $params['sort_by'] ?? 'dia_semana';
-        $sortOrder = $params['sort_order'] ?? 'asc';
-        $query->orderBy($sortBy, $sortOrder)
-              ->orderBy('hora_inicio', 'asc');
+        $sortOrder = strtolower($params['sort_order'] ?? 'asc') === 'desc'
+            ? 'desc'
+            : 'asc';
+
+        $columnasPermitidas = [
+            'dia_semana',
+            'hora_inicio',
+            'profesor_id',
+            'grado_id',
+            'curso_id',
+            'aula_id',
+            'institucion',
+            'turno',
+        ];
+
+        if (!in_array($sortBy, $columnasPermitidas, true)) {
+            $sortBy = 'dia_semana';
+        }
+
+        if ($sortBy === 'dia_semana') {
+            $query->ordenSemanal($sortOrder);
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+            $query->ordenSemanal();
+        }
+
+        $query->orderBy('hora_inicio', 'asc');
 
         return $query->get();
     }
@@ -133,7 +171,7 @@ class ExportService
 
         Excel::store($export, $ruta, 'public');
 
-        return Storage::url($ruta);
+        return Storage::disk('public')->url($ruta);
     }
 
     /**
@@ -161,9 +199,9 @@ class ExportService
         $nombre = 'horario_' . now()->format('Y-m-d_H-i-s') . '.pdf';
         $ruta = $this->path . $nombre;
 
-        Storage::put('public/' . $ruta, $pdf->output());
+        Storage::disk('public')->put($ruta, $pdf->output());
 
-        return Storage::url($ruta);
+        return Storage::disk('public')->url($ruta);
     }
 
     /**
@@ -202,7 +240,7 @@ class ExportService
         $nombre = 'horario_' . now()->format('Y-m-d_H-i-s') . '.csv';
         $ruta = $this->path . $nombre;
 
-        $handle = fopen(storage_path('app/public/' . $ruta), 'w');
+        $handle = fopen('php://temp', 'r+');
 
         // Encabezados de la tabla
         fputcsv($handle, [
@@ -219,16 +257,35 @@ class ExportService
                 $h->aula->nombre ?? 'N/A',
                 ucfirst($h->institucion ?? 'N/A'),
                 $h->dia_semana,
-                $h->hora_inicio,
-                $h->hora_fin,
+                $this->formatearHora($h->hora_inicio),
+                $this->formatearHora($h->hora_fin),
                 $h->turno,
                 $h->estado,
             ]);
         }
 
+        rewind($handle);
+
+        $contenido = stream_get_contents($handle);
+
+        Storage::disk('public')->put($ruta, $contenido);
+
         fclose($handle);
 
-        return Storage::url($ruta);
+        return Storage::disk('public')->url($ruta);
+    }
+
+    private function formatearHora($valor): string
+    {
+        if (!$valor) {
+            return 'N/A';
+        }
+
+        try {
+            return \Carbon\Carbon::parse($valor)->format('H:i');
+        } catch (\Throwable $e) {
+            return substr((string) $valor, 0, 5);
+        }
     }
 
 }

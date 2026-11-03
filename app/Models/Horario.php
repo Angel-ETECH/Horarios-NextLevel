@@ -13,6 +13,16 @@ class Horario extends Model
 
     protected $table = 'horarios';
 
+    protected static function booted(): void
+    {
+        static::updating(function (Horario $horario) {
+            if ($horario->isDirty(['profesor_id', 'curso_id', 'grado_id', 'aula_id', 'dia_semana', 'hora_inicio', 'hora_fin', 'periodo_academico', 'institucion', 'estado'])) {
+                app(\App\Services\RecuperacionHorarioService::class)->protegerPlantilla($horario->id);
+            }
+        });
+        static::deleting(fn (Horario $horario) => app(\App\Services\RecuperacionHorarioService::class)->protegerPlantilla($horario->id));
+    }
+
     protected $fillable = [
         'profesor_id',
         'curso_id',
@@ -70,6 +80,16 @@ class Horario extends Model
     public function scopeActivos($query)
     {
         return $query->where('estado', 'activo');
+    }
+
+    public function scopeOrdenSemanal($query, string $direccion = 'asc')
+    {
+        $direccion = $direccion === 'desc' ? 'desc' : 'asc';
+        return $query->orderByRaw("CASE dia_semana
+            WHEN 'lunes' THEN 1 WHEN 'martes' THEN 2
+            WHEN 'miércoles' THEN 3 WHEN 'miercoles' THEN 3
+            WHEN 'jueves' THEN 4 WHEN 'viernes' THEN 5
+            WHEN 'sábado' THEN 6 WHEN 'sabado' THEN 6 ELSE 7 END {$direccion}");
     }
 
     public function scopePeriodo($query, $periodo)

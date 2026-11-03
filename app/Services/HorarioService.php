@@ -8,6 +8,7 @@ use App\Models\Profesor;
 use App\Models\Aula;
 use App\Models\Grado;
 use App\Models\Curso;
+use App\Models\ProfesorCurso;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,10 +17,15 @@ use Illuminate\Validation\ValidationException;
 class HorarioService
 {
     protected $disponibilidadService;
+    protected $recesoService;
 
-    public function __construct(DisponibilidadService $disponibilidadService)
+    public function __construct(
+        DisponibilidadService $disponibilidadService,
+        HorarioRecesoService $recesoService
+    )
     {
         $this->disponibilidadService = $disponibilidadService;
+        $this->recesoService = $recesoService;
     }
 
     /**
@@ -27,6 +33,8 @@ class HorarioService
      */
     private function validarHorarioCompleto(array $data, ?int $excludeId = null): void
     {
+        $data = $this->normalizarDatosHorario($data);
+
         $profesorId = $data['profesor_id'];
         $aulaId = $data['aula_id'];
         $gradoId = $data['grado_id'];
@@ -35,6 +43,10 @@ class HorarioService
         $horaInicio = $data['hora_inicio'];
         $horaFin = $data['hora_fin'];
         $institucion = $data['institucion'];
+        $periodoAcademico = $data['periodo_academico'];
+
+        // 0. VALIDAR RANGO HORARIO BÁSICO
+        $this->validarRangoHorarioBasico($horaInicio, $horaFin);
 
         // 1. VALIDAR DISPONIBILIDAD DEL PROFESOR
         $this->disponibilidadService->validarDisponibilidadParaClase(
@@ -47,13 +59,13 @@ class HorarioService
         );
 
         // 2. VALIDAR QUE EL PROFESOR NO TENGA CONFLICTO CON OTRO HORARIO
-        $this->validarConflictoProfesor($profesorId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
+        $this->validarConflictoProfesor($profesorId, $dia, $horaInicio, $horaFin, $institucion, $periodoAcademico, $excludeId);
 
         // 3. VALIDAR QUE EL AULA ESTÉ DISPONIBLE (sin conflictos)
-        $this->validarConflictoAula($aulaId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
+        $this->validarConflictoAula($aulaId, $dia, $horaInicio, $horaFin, $institucion, $periodoAcademico, $excludeId);
 
         // 4. VALIDAR QUE EL GRADO ESTÉ DISPONIBLE (sin conflictos)
-        $this->validarConflictoGrado($gradoId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
+        $this->validarConflictoGrado($gradoId, $dia, $horaInicio, $horaFin, $institucion, $periodoAcademico, $excludeId);
 
         // 5. VALIDAR QUE EL CURSO EXISTA Y ESTÉ ACTIVO
         $curso = Curso::findOrFail($cursoId);
@@ -87,12 +99,14 @@ class HorarioService
             ]);
         }
 
-        // 9. VALIDAR CAPACIDAD DEL AULA VS GRADO
-        if ($aula->capacidad < $grado->numero_estudiantes) {
+        if (!in_array($aula->institucion, [$institucion, 'ambos'], true)) {
             throw ValidationException::withMessages([
-                'aula_id' => "El aula tiene capacidad para {$aula->capacidad} estudiantes, pero el grado tiene {$grado->numero_estudiantes}"
+                'aula_id' => 'El aula no pertenece a la institucion del horario.',
             ]);
         }
+
+        // 9. VALIDAR QUE LA INSTITUCIÓN SEA COHERENTE CON CURSO Y GRADO
+        $this->validarInstitucionAcademica($institucion, $curso, $grado);
 
         // 10. VALIDAR COMPATIBILIDAD DE NIVELES (curso - grado)
         if ($curso->nivel !== 'todos' && $curso->nivel !== $grado->nivel) {
@@ -101,15 +115,11 @@ class HorarioService
             ]);
         }
 
-        // 11. VALIDAR COMPATIBILIDAD DE NIVELES (aula - grado)
-        if ($aula->nivel !== 'todos' && $aula->nivel !== $grado->nivel) {
-            throw ValidationException::withMessages([
-                'aula_id' => "El aula es de nivel '{$aula->nivel}' pero el grado es de nivel '{$grado->nivel}'"
-            ]);
-        }
-
-        // 12. VALIDAR QUE EL TURNO COINCIDA CON EL HORARIO
+        // 11. VALIDAR QUE EL TURNO COINCIDA CON EL HORARIO
         $this->validarTurno($horaInicio, $data['turno']);
+
+        // 12. VALIDAR QUE NO CHOQUE CON RECESOS CONFIGURADOS
+        $this->recesoService->validarNoChocaConReceso($institucion, $grado->nivel, $data['turno'], $horaInicio, $horaFin);
 
         // 13. VALIDAR QUE LA INSTITUCIÓN COINCIDA CON LA DEL PROFESOR
         if (!in_array($institucion, ['colegio', 'academia']) ||
@@ -118,16 +128,163 @@ class HorarioService
                 'institucion' => "El profesor no está asignado a la institución '{$institucion}'"
             ]);
         }
+
+        // 14. VALIDAR QUE EXISTA UNA ASIGNACIÓN ACTIVA PARA ESTE HORARIO
+        $asignacion = $this->obtenerAsignacionActiva($profesorId, $cursoId, $gradoId, $institucion);
+
+        if ((int) $asignacion->aula_id !== (int) $aulaId) {
+            throw ValidationException::withMessages([
+                'aula_id' => 'El aula debe coincidir con la seleccionada en la asignacion.',
+            ]);
+        }
+
+        // 15. VALIDAR QUE NO SE PROGRAMEN MÁS CLASES QUE LAS ASIGNADAS
+        $this->validarLimiteHorasAsignadas($asignacion, $periodoAcademico, $excludeId);
+        app(RecuperacionHorarioService::class)->validarNuevaPlantilla($data, $excludeId);
+    }
+
+    /**
+     * Validar que el rango sea usable dentro de la jornada general.
+     */
+    private function validarRangoHorarioBasico(string $horaInicio, string $horaFin): void
+    {
+        $inicio = Carbon::parse($horaInicio);
+        $fin = Carbon::parse($horaFin);
+
+        if ($inicio->gte($fin)) {
+            throw ValidationException::withMessages([
+                'hora_fin' => 'La hora de fin debe ser después de la hora de inicio'
+            ]);
+        }
+
+        $minHora = Carbon::parse('07:00');
+        $maxHora = Carbon::parse('20:00');
+
+        if ($inicio->lt($minHora) || $fin->gt($maxHora)) {
+            throw ValidationException::withMessages([
+                'hora_inicio' => 'El horario debe estar entre las 07:00 y las 20:00'
+            ]);
+        }
+    }
+
+    /**
+     * Normalizar campos que pueden venir desde la UI en formato amigable.
+     */
+    private function normalizarDatosHorario(array $data): array
+    {
+        if (isset($data['dia_semana'])) {
+            $data['dia_semana'] = $this->normalizarDiaSemana($data['dia_semana']);
+        }
+
+        return $data;
+    }
+
+    private function normalizarDiaSemana(string $dia): string
+    {
+        $normal = strtolower(trim($dia));
+
+        return match ($normal) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => $normal,
+        };
+    }
+
+    /**
+     * Validar que Colegio use Primaria/Secundaria y Academia use Academia.
+     */
+    private function validarInstitucionAcademica(string $institucion, Curso $curso, Grado $grado): void
+    {
+        $cursoNivel = strtolower((string) ($curso->nivel ?? ''));
+        $gradoNivel = strtolower((string) ($grado->nivel ?? ''));
+
+        if ($institucion === 'academia') {
+            if ($gradoNivel !== 'academia') {
+                throw ValidationException::withMessages([
+                    'grado_id' => 'Para Academia solo puedes seleccionar grados de Academia.'
+                ]);
+            }
+
+            if (!in_array($cursoNivel, ['academia', 'todos'], true)) {
+                throw ValidationException::withMessages([
+                    'curso_id' => 'Para Academia solo puedes seleccionar cursos de Academia.'
+                ]);
+            }
+
+            return;
+        }
+
+        if ($institucion === 'colegio') {
+            if (!in_array($gradoNivel, ['primaria', 'secundaria'], true)) {
+                throw ValidationException::withMessages([
+                    'grado_id' => 'Para Colegio solo puedes seleccionar grados de Primaria o Secundaria.'
+                ]);
+            }
+
+            if (!in_array($cursoNivel, ['primaria', 'secundaria', 'todos'], true)) {
+                throw ValidationException::withMessages([
+                    'curso_id' => 'Para Colegio solo puedes seleccionar cursos de Primaria o Secundaria.'
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Obtener la asignación activa que respalda el horario.
+     */
+    private function obtenerAsignacionActiva(
+        int $profesorId,
+        int $cursoId,
+        int $gradoId,
+        string $institucion
+    ): ProfesorCurso {
+        $asignacion = ProfesorCurso::where('profesor_id', $profesorId)
+            ->where('curso_id', $cursoId)
+            ->where('grado_id', $gradoId)
+            ->where('institucion', $institucion)
+            ->where('activo', true)
+            ->first();
+
+        if (!$asignacion) {
+            throw ValidationException::withMessages([
+                'asignacion' => 'No existe una asignación activa para este profesor, curso, grado e institución.'
+            ]);
+        }
+
+        return $asignacion;
+    }
+
+    /**
+     * Evitar que se creen más bloques que las horas asignadas.
+     */
+    private function validarLimiteHorasAsignadas(ProfesorCurso $asignacion, string $periodoAcademico, ?int $excludeId = null): void
+    {
+        $query = Horario::where('profesor_id', $asignacion->profesor_id)
+            ->where('periodo_academico', $periodoAcademico)
+            ->where('curso_id', $asignacion->curso_id)
+            ->where('grado_id', $asignacion->grado_id)
+            ->where('institucion', $asignacion->institucion ?? 'colegio')
+            ->where('estado', 'activo');
+
+        if ($excludeId) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        if ($query->count() >= $asignacion->horas_asignadas) {
+            throw ValidationException::withMessages([
+                'horas_asignadas' => "La asignación ya tiene programadas sus {$asignacion->horas_asignadas} horas."
+            ]);
+        }
     }
 
     /**
      * Validar que el profesor no tenga conflicto con otro horario
      */
-    private function validarConflictoProfesor(int $profesorId, string $dia, string $horaInicio, string $horaFin, string $institucion, ?int $excludeId = null): void
+    private function validarConflictoProfesor(int $profesorId, string $dia, string $horaInicio, string $horaFin, string $institucion, string $periodoAcademico, ?int $excludeId = null): void
     {
         $query = Horario::where('profesor_id', $profesorId)
+            ->where('periodo_academico', $periodoAcademico)
             ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
             ->where('estado', 'activo');
 
         if ($excludeId) {
@@ -146,7 +303,7 @@ class HorarioService
             // Verificar solapamiento REAL
             if ($nuevoInicio->lt($horarioFin) && $nuevoFin->gt($horarioInicio)) {
                 throw ValidationException::withMessages([
-                    'conflicto_profesor' => "El profesor ya tiene una clase en ese horario ({$horario->hora_inicio} - {$horario->hora_fin}) con el curso '{$horario->curso->nombre}'"
+                    'conflicto_profesor' => "El profesor ya tiene una clase en ese horario ({$horario->hora_inicio} - {$horario->hora_fin}) en {$horario->institucion} con el curso '{$horario->curso->nombre}'"
                 ]);
             }
         }
@@ -155,11 +312,11 @@ class HorarioService
     /**
      * Validar que el aula no tenga conflicto con otro horario
      */
-    private function validarConflictoAula(int $aulaId, string $dia, string $horaInicio, string $horaFin, string $institucion, ?int $excludeId = null): void
+    private function validarConflictoAula(int $aulaId, string $dia, string $horaInicio, string $horaFin, string $institucion, string $periodoAcademico, ?int $excludeId = null): void
     {
         $query = Horario::where('aula_id', $aulaId)
+            ->where('periodo_academico', $periodoAcademico)
             ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
             ->where('estado', 'activo');
 
         if ($excludeId) {
@@ -178,7 +335,7 @@ class HorarioService
             // Verificar solapamiento REAL
             if ($nuevoInicio->lt($horarioFin) && $nuevoFin->gt($horarioInicio)) {
                 throw ValidationException::withMessages([
-                    'conflicto_aula' => "El aula ya está ocupada en ese horario ({$horario->hora_inicio} - {$horario->hora_fin})"
+                    'conflicto_aula' => "El aula ya está ocupada en ese horario ({$horario->hora_inicio} - {$horario->hora_fin}) en {$horario->institucion}"
                 ]);
             }
         }
@@ -187,9 +344,10 @@ class HorarioService
     /**
      * Validar que el grado no tenga conflicto con otro horario
      */
-    private function validarConflictoGrado(int $gradoId, string $dia, string $horaInicio, string $horaFin, string $institucion, ?int $excludeId = null): void
+    private function validarConflictoGrado(int $gradoId, string $dia, string $horaInicio, string $horaFin, string $institucion, string $periodoAcademico, ?int $excludeId = null): void
     {
         $query = Horario::where('grado_id', $gradoId)
+            ->where('periodo_academico', $periodoAcademico)
             ->where('dia_semana', $dia)
             ->where('institucion', $institucion)
             ->where('estado', 'activo');
@@ -225,9 +383,9 @@ class HorarioService
         $horaNumero = (int)$horaCarbon->format('H');
 
         $turnos = [
-            'mañana' => ['min' => 6, 'max' => 12],
-            'tarde' => ['min' => 12, 'max' => 18],
-            'noche' => ['min' => 18, 'max' => 23]
+            'mañana' => ['min' => 6, 'max' => 14],
+            'tarde' => ['min' => 12, 'max' => 20],
+            'noche' => ['min' => 18, 'max' => 20]
         ];
 
         $rango = $turnos[$turno] ?? null;
@@ -242,9 +400,19 @@ class HorarioService
     /**
      * Crear un nuevo horario
      */
+    public function validarParaRestaurar(array $data, ?int $excludeId = null): void
+    {
+        $data['hora_inicio'] = Carbon::parse($data['hora_inicio'])->format('H:i');
+        $data['hora_fin'] = Carbon::parse($data['hora_fin'])->format('H:i');
+        $this->validarHorarioCompleto($data, $excludeId);
+    }
+
     public function create(array $data): Horario
     {
         return DB::transaction(function () use ($data) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $data = $this->normalizarDatosHorario($data);
+
             // Validación completa
             $this->validarHorarioCompleto($data);
 
@@ -261,16 +429,106 @@ class HorarioService
     /**
      * Actualizar un horario existente
      */
+    public function opcionesMovimiento(int $id): array
+    {
+        $h = Horario::findOrFail($id);
+        $a = $this->obtenerAsignacionActiva($h->profesor_id, $h->curso_id, $h->grado_id, $h->institucion);
+        $opciones = app(HorarioGeneratorService::class)->opcionesManuales(array_merge($a->toArray(), [
+            'asignacion_id' => $a->id, 'periodo_academico' => $h->periodo_academico,
+        ]));
+        $duracion = $h->hora_inicio->diffInMinutes($h->hora_fin);
+        return array_values(array_map(function ($b) use ($h, $duracion) {
+            $minutos = fn ($t) => (int) substr($t, 0, 2) * 60 + (int) substr($t, 3, 2);
+            if ($minutos($b['hora_fin']) - $minutos($b['hora_inicio']) != $duracion) {
+                $b['disponible'] = false;
+                $b['motivo'] = 'Este espacio no tiene la misma duración que la clase.';
+            } elseif ($b['disponible']) {
+                try {
+                    $this->validarHorarioCompleto(array_merge($h->toArray(), [
+                        'dia_semana' => $b['dia_semana'], 'hora_inicio' => $b['hora_inicio'], 'hora_fin' => $b['hora_fin'],
+                        'turno' => $b['hora_inicio'] < '12:00' ? 'mañana' : 'tarde',
+                    ]), $h->id);
+                } catch (ValidationException $e) {
+                    $b['disponible'] = false;
+                    $b['motivo'] = collect($e->errors())->flatten()->implode(' ');
+                }
+            }
+            return $b;
+        }, $opciones));
+    }
+
+    public function mover(int $id, array $destino): Horario
+    {
+        return DB::transaction(function () use ($id, $destino) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $h = Horario::findOrFail($id);
+            $origen = ['dia_semana' => $h->dia_semana, 'hora_inicio' => $h->hora_inicio->format('H:i'), 'hora_fin' => $h->hora_fin->format('H:i')];
+            if ($h->estado !== 'activo' || $destino['origen'] != $origen) {
+                throw ValidationException::withMessages(['horario' => 'La clase cambió. Actualiza el horario antes de reorganizarlo.']);
+            }
+            $nuevo = array_intersect_key($destino, $origen);
+            if (!collect($this->opcionesMovimiento($id))->contains(fn ($b) => $b['disponible'] && array_intersect_key($b, $origen) == $nuevo)) {
+                throw ValidationException::withMessages(['horario' => 'El destino no está disponible para esta duración. Revisa disponibilidad, recesos y ocupación del profesor, aula o grado.']);
+            }
+            $a = $this->obtenerAsignacionActiva($h->profesor_id, $h->curso_id, $h->grado_id, $h->institucion);
+            if ($a->modo_programacion !== 'manual') {
+                $plan = Horario::where('profesor_id', $h->profesor_id)->where('curso_id', $h->curso_id)
+                    ->where('grado_id', $h->grado_id)->where('institucion', $h->institucion)
+                    ->where('periodo_academico', $h->periodo_academico)->where('estado', 'activo')
+                    ->orderBy('id')->get()->map(fn ($b) => ['dia_semana' => $b->dia_semana,
+                        'hora_inicio' => $b->hora_inicio->format('H:i'), 'hora_fin' => $b->hora_fin->format('H:i')])->all();
+                if (count($plan) !== (int) $a->horas_asignadas) {
+                    throw ValidationException::withMessages(['asignacion' => 'Completa los bloques pendientes desde Asignaciones antes de reorganizar esta clase.']);
+                }
+                $a->update(['modo_programacion' => 'manual', 'bloques_manuales' => $plan]);
+            }
+            return $this->update($id, $nuevo + ['turno' => $nuevo['hora_inicio'] < '12:00' ? 'mañana' : 'tarde']);
+        });
+    }
+
     public function update(int $id, array $data): Horario
     {
         return DB::transaction(function () use ($id, $data) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
             $horario = Horario::findOrFail($id);
+            $data = $this->normalizarDatosHorario($data);
 
             // Fusionar datos existentes con los nuevos para validación
             $mergedData = array_merge($horario->toArray(), $data);
+            $mergedData['hora_inicio'] = $data['hora_inicio'] ?? $horario->hora_inicio->format('H:i');
+            $mergedData['hora_fin'] = $data['hora_fin'] ?? $horario->hora_fin->format('H:i');
 
             // Validación completa (excluyendo el horario actual)
             $this->validarHorarioCompleto($mergedData, $id);
+
+            // Mantener la elección manual al editar un bloque desde Horarios.
+            $asignacion = \App\Models\ProfesorCurso::where('profesor_id', $horario->profesor_id)
+                ->where('curso_id', $horario->curso_id)->where('grado_id', $horario->grado_id)
+                ->where('institucion', $horario->institucion)->where('modo_programacion', 'manual')->first();
+            if ($asignacion) {
+                foreach (['profesor_id', 'curso_id', 'grado_id', 'aula_id', 'institucion'] as $campo) {
+                    if ((string) $mergedData[$campo] !== (string) $horario->$campo) {
+                        throw ValidationException::withMessages(['asignacion' => 'Cambia el profesor, curso, grado o aula desde Asignaciones para mantener todos sus bloques conectados.']);
+                    }
+                }
+                $anterior = ['dia_semana' => $horario->dia_semana, 'hora_inicio' => $horario->hora_inicio->format('H:i'), 'hora_fin' => $horario->hora_fin->format('H:i')];
+                $nuevo = array_intersect_key($mergedData, $anterior);
+                if ($nuevo != $anterior) {
+                    $opciones = app(HorarioGeneratorService::class)->opcionesManuales(array_merge($asignacion->toArray(), [
+                        'asignacion_id' => $asignacion->id, 'periodo_academico' => $horario->periodo_academico,
+                    ]));
+                    if (!collect($opciones)->contains(fn ($b) => $b['disponible'] && array_intersect_key($b, $anterior) == $nuevo)) {
+                        throw ValidationException::withMessages(['hora_inicio' => 'Selecciona un bloque lectivo disponible del grado. También puedes cambiar la selección desde Asignaciones.']);
+                    }
+                    $plan = $asignacion->bloques_manuales ?? [];
+                    $indice = collect($plan)->search(fn ($b) => $b == $anterior);
+                    if ($indice === false) {
+                        throw ValidationException::withMessages(['asignacion' => 'Actualiza la selección de esta clase desde Asignaciones.']);
+                    }
+                    $plan[$indice] = $nuevo;
+                    $asignacion->update(['bloques_manuales' => $plan]);
+                }
+            }
 
             // Actualizar
             $horario->update($data);
@@ -283,12 +541,12 @@ class HorarioService
     }
 
     /**
-     * Eliminar (soft delete) un horario
+     * Eliminar un horario y liberar su bloque
      */
     public function delete(int $id): bool
     {
         $horario = Horario::findOrFail($id);
-        return $horario->delete();
+        return (bool) $horario->forceDelete();
     }
 
     /**
@@ -328,7 +586,7 @@ class HorarioService
         }
 
         if (!empty($filtros['dia_semana'])) {
-            $query->where('dia_semana', $filtros['dia_semana']);
+            $query->where('dia_semana', $this->normalizarDiaSemana($filtros['dia_semana']));
         }
 
         if (!empty($filtros['turno'])) {

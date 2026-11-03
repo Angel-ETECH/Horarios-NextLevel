@@ -1,181 +1,83 @@
 <?php
-// app/Http/Controllers/Api/ConfiguracionHorarioController.php
 
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ConfiguracionHorario;
+use App\Services\HorarioRecesoService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class ConfiguracionHorarioController extends Controller
 {
-    /**
-     * GET /api/configuraciones-horario
-     */
+    public function __construct(private HorarioRecesoService $recesoService) {}
+
     public function index(Request $request): JsonResponse
     {
         $query = ConfiguracionHorario::with('bloques');
-
-        if ($request->has('institucion')) {
-            $query->where('institucion', $request->institucion);
+        foreach (['institucion', 'nivel', 'turno', 'año_academico'] as $campo) {
+            if ($request->filled($campo)) {
+                $query->where($campo, $request->input($campo));
+            }
         }
-
-        if ($request->has('nivel')) {
-            $query->where('nivel', $request->nivel);
-        }
-
-        if ($request->has('turno')) {
-            $query->where('turno', $request->turno);
-        }
-
-        if ($request->has('año_academico')) {
-            $query->where('año_academico', $request->año_academico);
-        }
-
         if ($request->has('activo')) {
             $query->where('activo', $request->boolean('activo'));
         }
-
-        return response()->json([
-            'success' => true,
-            'data' => $query->orderBy('institucion')
-                           ->orderBy('nivel')
-                           ->orderBy('turno')
-                           ->get(),
-        ]);
+        return response()->json(['success' => true, 'data' => $query->orderBy('institucion')->orderBy('nivel')->orderBy('turno')
+            ->get()->map(fn ($config) => $this->recesoService->normalizarConfiguracion($config)), 'recesos_fijos' => true]);
     }
 
-    /**
-     * GET /api/configuraciones-horario/{id}
-     */
     public function show(int $id): JsonResponse
     {
-        $config = ConfiguracionHorario::with('bloques')->findOrFail($id);
-
-        return response()->json([
-            'success' => true,
-            'data' => $config,
-        ]);
+        return response()->json(['success' => true, 'data' => $this->recesoService->normalizarConfiguracion(ConfiguracionHorario::findOrFail($id))]);
     }
 
-    /**
-     * POST /api/configuraciones-horario
-     */
     public function store(Request $request): JsonResponse
     {
-        $request->validate([
-            'institucion' => 'required|in:colegio,academia',
-            'nivel' => 'required|in:primaria,secundaria,academia',
-            'turno' => 'required|in:mañana,tarde,completo',
-            'nombre' => 'required|string|max:100',
-            'hora_inicio' => 'required|date_format:H:i',
-            'hora_fin' => 'required|date_format:H:i|after:hora_inicio',
-            'duracion_bloque_minutos' => 'required|integer|min:30|max:120',
-            'año_academico' => 'required|integer|min:2020|max:2100',
-            'bloques' => 'required|array|min:1',
-            'bloques.*.orden' => 'required|integer',
-            'bloques.*.hora_inicio' => 'required|date_format:H:i',
-            'bloques.*.hora_fin' => 'required|date_format:H:i',
-            'bloques.*.tipo' => 'required|in:clase,receso',
-        ]);
-
-        $config = ConfiguracionHorario::create($request->except('bloques'));
-
-        foreach ($request->bloques as $bloque) {
-            $config->bloques()->create($bloque);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Configuración creada exitosamente',
-            'data' => $config->load('bloques'),
-        ], 201);
+        return $this->rechazarEdicion();
     }
 
-    /**
-     * PUT /api/configuraciones-horario/{id}
-     */
     public function update(Request $request, int $id): JsonResponse
     {
-        $config = ConfiguracionHorario::findOrFail($id);
-
-        $request->validate([
-            'institucion' => 'sometimes|in:colegio,academia',
-            'nivel' => 'sometimes|in:primaria,secundaria,academia',
-            'turno' => 'sometimes|in:mañana,tarde,completo',
-            'nombre' => 'sometimes|string|max:100',
-            'hora_inicio' => 'sometimes|date_format:H:i',
-            'hora_fin' => 'sometimes|date_format:H:i|after:hora_inicio',
-            'duracion_bloque_minutos' => 'sometimes|integer|min:30|max:120',
-            'año_academico' => 'sometimes|integer',
-            'bloques' => 'sometimes|array',
-        ]);
-
-        $config->update($request->except('bloques'));
-
-        if ($request->has('bloques')) {
-            $config->bloques()->delete();
-            foreach ($request->bloques as $bloque) {
-                $config->bloques()->create($bloque);
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Configuración actualizada exitosamente',
-            'data' => $config->fresh()->load('bloques'),
-        ]);
+        return $this->rechazarEdicion();
     }
 
-    /**
-     * DELETE /api/configuraciones-horario/{id}
-     */
     public function destroy(int $id): JsonResponse
     {
-        $config = ConfiguracionHorario::findOrFail($id);
-
-        // Verificar que no tenga horarios generados
-        // (opcional: podrías bloquear la eliminación si hay horarios asociados)
-
-        $config->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Configuración eliminada exitosamente',
-        ]);
+        return $this->rechazarEdicion();
     }
 
-    /**
-     * GET /api/configuraciones-horario/vigente
-     * Obtener la configuración vigente para una institución/nivel/turno
-     */
+    private function rechazarEdicion(): never
+    {
+        throw ValidationException::withMessages(['configuracion' => 'Los recesos institucionales son fijos y no se pueden editar ni eliminar.']);
+    }
+
     public function vigente(Request $request): JsonResponse
     {
         $request->validate([
-            'institucion' => 'required|in:colegio,academia',
-            'nivel' => 'required|in:primaria,secundaria,academia',
+            'institucion' => 'required|in:colegio,academia', 'nivel' => 'required|in:primaria,secundaria,academia',
             'turno' => 'required|in:mañana,tarde,completo',
         ]);
+        $config = $this->recesoService->configuracionVigente($request->institucion, $request->nivel, $request->turno);
+        return $config ? response()->json(['success' => true, 'data' => $config])
+            : response()->json(['success' => false, 'message' => 'No hay jornada vigente para estos parametros'], 404);
+    }
 
-        $config = ConfiguracionHorario::with('bloques')
-            ->where('institucion', $request->institucion)
-            ->where('nivel', $request->nivel)
-            ->where('turno', $request->turno)
-            ->where('activo', true)
-            ->orderBy('año_academico', 'desc')
-            ->first();
-
-        if (!$config) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No hay configuración vigente para estos parámetros',
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $config,
+    public function recesos(Request $request): JsonResponse
+    {
+        $request->validate([
+            'institucion' => 'sometimes|in:colegio,academia', 'nivel' => 'sometimes|in:primaria,secundaria,academia',
+            'turno' => 'sometimes|in:mañana,tarde,completo', 'alcance' => 'sometimes|in:disponibilidad',
         ]);
+        $recesos = $request->input('alcance') === 'disponibilidad'
+            ? $this->recesoService->recesosParaDisponibilidad($request->input('institucion', 'colegio'), $request->input('nivel'), $request->input('turno'))
+            : $this->recesoService->recesosVigentes($request->input('institucion'), $request->input('nivel'), $request->input('turno'));
+        $data = $recesos->map(fn ($receso) => [
+            'id' => null, 'nombre' => $receso->nombre, 'hora_inicio' => Carbon::parse($receso->hora_inicio)->format('H:i'),
+            'hora_fin' => Carbon::parse($receso->hora_fin)->format('H:i'),
+        ])->values();
+        return response()->json(['success' => true, 'data' => $data, 'total' => $data->count(), 'recesos_fijos' => true]);
     }
 }

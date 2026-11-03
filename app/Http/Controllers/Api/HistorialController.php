@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\HistorialService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class HistorialController extends Controller
 {
@@ -83,7 +85,7 @@ class HistorialController extends Controller
     public function revertir(int $historialId, Request $request): JsonResponse
     {
         try {
-            $horario = $this->historialService->revertirCambio(
+            $resultado = $this->historialService->revertirCambio(
                 $historialId,
                 $request->motivo ?? 'Revertido desde historial'
             );
@@ -91,15 +93,20 @@ class HistorialController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Cambio revertido exitosamente',
-                'data' => $horario->load(['profesor', 'curso', 'aula', 'grado']),
+                'data' => $resultado,
             ]);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error de validación',
-                'errors' => $e->errors()
+                'message' => $this->primerMensajeDeError($e),
+                'errors' => $e->errors(),
             ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El registro indicado ya no existe.',
+            ], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -107,6 +114,15 @@ class HistorialController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Primer mensaje legible de un error de validación.
+     */
+    private function primerMensajeDeError(ValidationException $e): string
+    {
+        return collect($e->errors())->flatten()->first()
+            ?? 'No se puede revertir este cambio.';
     }
 
     /**
@@ -127,12 +143,17 @@ class HistorialController extends Controller
                 'data' => $horario->load(['profesor', 'curso', 'aula', 'grado']),
             ]);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error de validación',
-                'errors' => $e->errors()
+                'message' => $this->primerMensajeDeError($e),
+                'errors' => $e->errors(),
             ], 422);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El horario indicado ya no existe.',
+            ], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

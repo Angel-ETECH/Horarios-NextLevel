@@ -12,8 +12,109 @@ use Illuminate\Validation\ValidationException;
 
 class DisponibilidadService
 {
+    public function reemplazar(int $profesorId, string $institucion, array $franjas): Collection
+    {
+        return DB::transaction(function () use ($profesorId, $institucion, $franjas) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $profesor = Profesor::lockForUpdate()->findOrFail($profesorId);
+            if (!in_array($profesor->institucion, [$institucion, 'ambos'], true)) {
+                throw ValidationException::withMessages([
+                    'institucion' => 'El profesor no pertenece a esta institucion.',
+                ]);
+            }
+            $anteriores = DisponibilidadProfesor::where('profesor_id', $profesorId)->get();
+            $this->deleteByInstitucion($profesorId, $institucion, false);
+            foreach ($franjas as $franja) {
+                $this->create(array_merge($franja, [
+                    'profesor_id' => $profesorId, 'institucion' => $institucion, 'tipo' => 'disponible',
+                ]));
+            }
+            $this->validarHorariosGuardados($profesorId, $institucion, $anteriores);
+            return $this->getByProfesorEInstitucion($profesorId, $institucion);
+        });
+    }
+
+    public function rangoEstaCubierto(\Illuminate\Support\Collection $rangos, string $inicio, string $fin): bool
+    {
+        $cursor = Carbon::parse($inicio);
+        $limite = Carbon::parse($fin);
+        foreach ($rangos->sortBy(fn ($rango) => Carbon::parse($rango->hora_inicio)->format('H:i')) as $rango) {
+            $desde = Carbon::parse($rango->hora_inicio);
+            $hasta = Carbon::parse($rango->hora_fin);
+            if ($hasta->lte($cursor)) {
+                continue;
+            }
+            if ($desde->gt($cursor)) {
+                return false;
+            }
+            $cursor = $hasta;
+            if ($cursor->gte($limite)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private function validarHorariosGuardados(int $profesorId, ?string $institucion = null, ?Collection $anteriores = null): void
+    {
+        $actuales = DisponibilidadProfesor::where('profesor_id', $profesorId)->where('tipo', 'disponible')->get();
+        // Solo proteger minutos utilizados que el cambio realmente quita. Una ampliación
+        // no debe bloquearse por inconsistencias anteriores ajenas al rango editado.
+        $quitaMinutos = function ($dia, $inicio, $fin, $institucionClase) use ($anteriores, $actuales): bool {
+            if ($anteriores === null) return true;
+            $nuevos = $actuales->where('dia_semana', $dia)->where('institucion', $institucionClase);
+            foreach ($anteriores->where('tipo', 'disponible')->where('dia_semana', $dia)->where('institucion', $institucionClase) as $anterior) {
+                $desde = max(Carbon::parse($inicio)->format('H:i'), Carbon::parse($anterior->hora_inicio)->format('H:i'));
+                $hasta = min(Carbon::parse($fin)->format('H:i'), Carbon::parse($anterior->hora_fin)->format('H:i'));
+                if ($desde < $hasta && !$this->rangoEstaCubierto($nuevos, $desde, $hasta)) return true;
+            }
+            return false;
+        };
+        $query = \App\Models\Horario::with(['curso', 'grado', 'aula'])->where('profesor_id', $profesorId)->where('estado', 'activo');
+        if ($institucion !== null) {
+            $query->where('institucion', $institucion);
+        }
+        $errores = [];
+        foreach ($query->get() as $horario) {
+            try {
+                $this->validarRangoEnDisponibilidad($profesorId, $horario->dia_semana,
+                    $horario->hora_inicio->format('H:i'), $horario->hora_fin->format('H:i'), $horario->institucion);
+            } catch (ValidationException $e) {
+                if (!$quitaMinutos($horario->dia_semana, $horario->hora_inicio, $horario->hora_fin, $horario->institucion)) continue;
+                $errores[] = "No puedes quitar este horario: {$horario->curso?->nombre}, {$horario->grado?->nombre_completo}, "
+                    .ucfirst($horario->dia_semana).' '.$horario->hora_inicio->format('H:i').'–'.$horario->hora_fin->format('H:i')
+                    ." ({$horario->aula?->nombre}). Conserva el rango completo de esta clase.";
+            }
+        }
+        if (app(HorarioCalendarioService::class)->instalado()) {
+            $recuperaciones = \App\Models\RecuperacionHorario::with('horario.curso')
+                ->where('estado', 'programada')->whereDate('fecha_recuperacion', '>=', today())
+                ->where('disponibilidad_excepcional', false)
+                ->whereHas('horario', fn ($q) => $q->where('profesor_id', $profesorId)
+                    ->when($institucion, fn ($q) => $q->where('institucion', $institucion)))->get();
+            foreach ($recuperaciones as $r) {
+                try {
+                    $this->validarRangoEnDisponibilidad($profesorId, HorarioCalendarioService::DIAS[$r->fecha_recuperacion->dayOfWeekIso],
+                        $r->hora_inicio, $r->hora_fin, $r->horario->institucion);
+                } catch (ValidationException $e) {
+                    if (!$quitaMinutos(HorarioCalendarioService::DIAS[$r->fecha_recuperacion->dayOfWeekIso], $r->hora_inicio, $r->hora_fin, $r->horario->institucion)) continue;
+                    $errores[] = 'La recuperación de '.$r->horario->curso?->nombre.' del '.$r->fecha_recuperacion->format('d/m/Y')
+                        .' '.substr($r->hora_inicio, 0, 5).'–'.substr($r->hora_fin, 0, 5).' utiliza esta disponibilidad.';
+                }
+            }
+        }
+        if ($errores) {
+            throw ValidationException::withMessages(['disponibilidad' => $errores]);
+        }
+    }
+    public function __construct(
+        private HorarioRecesoService $recesoService,
+        private HistorialService $historialService
+    ) {
+    }
+
     /**
-     * Obtener todas las disponibilidades con sus relaciones
+     * Obtener todas las disponibilidades.
      */
     public function getAll(): Collection
     {
@@ -25,71 +126,132 @@ class DisponibilidadService
     }
 
     /**
-     * Obtener disponibilidades de un profesor específico
+     * Obtener disponibilidades de un profesor.
      */
-    public function getByProfesor(int $profesorId): Collection
-    {
-        $profesor = Profesor::findOrFail($profesorId);
+    public function getByProfesor(
+        int $profesorId
+    ): Collection {
 
-        return $profesor->disponibilidades()
+        $profesor =
+            Profesor::findOrFail(
+                $profesorId
+            );
+
+        return $profesor
+            ->disponibilidades()
             ->orderBy('dia_semana')
             ->orderBy('hora_inicio')
             ->get();
     }
 
     /**
-     * Obtener disponibilidades por día
+     * Obtener disponibilidades por día.
      */
-    public function getByDia(string $dia): Collection
-    {
-        return DisponibilidadProfesor::with('profesor')
-            ->where('dia_semana', $dia)
-            ->where('tipo', 'disponible')
-            ->orderBy('hora_inicio')
+    public function getByDia(
+        string $dia
+    ): Collection {
+
+        return DisponibilidadProfesor::with(
+            'profesor'
+        )
+            ->where(
+                'dia_semana',
+                $dia
+            )
+            ->where(
+                'tipo',
+                'disponible'
+            )
+            ->orderBy(
+                'hora_inicio'
+            )
             ->get();
     }
 
     /**
-     * Obtener disponibilidades por turno
+     * Obtener disponibilidades por turno.
      */
-    public function getByTurno(string $turno): Collection
-    {
-        return DisponibilidadProfesor::with('profesor')
-            ->where('turno', $turno)
-            ->where('tipo', 'disponible')
-            ->orderBy('profesor_id')
-            ->orderBy('dia_semana')
+    public function getByTurno(
+        string $turno
+    ): Collection {
+
+        return DisponibilidadProfesor::with(
+            'profesor'
+        )
+            ->where(
+                'turno',
+                $turno
+            )
+            ->where(
+                'tipo',
+                'disponible'
+            )
+            ->orderBy(
+                'profesor_id'
+            )
+            ->orderBy(
+                'dia_semana'
+            )
             ->get();
     }
 
     /**
-     * Obtener disponibilidades por institución
+     * Obtener disponibilidades por institución.
      */
-    public function getByInstitucion(string $institucion): Collection
-    {
-        return DisponibilidadProfesor::with('profesor')
-            ->where('institucion', $institucion)
-            ->where('tipo', 'disponible')
-            ->orderBy('profesor_id')
-            ->orderBy('dia_semana')
-            ->orderBy('hora_inicio')
+    public function getByInstitucion(
+        string $institucion
+    ): Collection {
+
+        return DisponibilidadProfesor::with(
+            'profesor'
+        )
+            ->where(
+                'institucion',
+                $institucion
+            )
+            ->where(
+                'tipo',
+                'disponible'
+            )
+            ->orderBy(
+                'profesor_id'
+            )
+            ->orderBy(
+                'dia_semana'
+            )
+            ->orderBy(
+                'hora_inicio'
+            )
             ->get();
     }
 
     /**
-     * Obtener disponibilidades por profesor e institución
+     * Obtener disponibilidades por profesor e institución.
      */
-    public function getByProfesorEInstitucion(int $profesorId, string $institucion): Collection
-    {
-        return DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('institucion', $institucion)
-            ->orderBy('dia_semana')
-            ->orderBy('hora_inicio')
+    public function getByProfesorEInstitucion(
+        int $profesorId,
+        string $institucion
+    ): Collection {
+
+        return DisponibilidadProfesor::where(
+            'profesor_id',
+            $profesorId
+        )
+            ->where(
+                'institucion',
+                $institucion
+            )
+            ->orderBy(
+                'dia_semana'
+            )
+            ->orderBy(
+                'hora_inicio'
+            )
             ->get();
     }
 
     /**
-     * Validar que un rango horario esté dentro de la disponibilidad del profesor
+     * Validar que una clase esté dentro de una disponibilidad.
      */
     public function validarRangoEnDisponibilidad(
         int $profesorId,
@@ -99,38 +261,45 @@ class DisponibilidadService
         string $institucion,
         ?int $excludeId = null
     ): bool {
-        // Obtener la disponibilidad del profesor para ese día e institución
-        $disponibilidades = DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
-            ->where('tipo', 'disponible')
-            ->get();
 
-        if ($disponibilidades->isEmpty()) {
+        $disponibilidades =
+            DisponibilidadProfesor::where(
+                'profesor_id',
+                $profesorId
+            )
+                ->where(
+                    'dia_semana',
+                    $dia
+                )
+                ->where(
+                    'institucion',
+                    $institucion
+                )
+                ->where(
+                    'tipo',
+                    'disponible'
+                )
+                ->get();
+
+        if (
+            $disponibilidades->isEmpty()
+        ) {
+
             throw ValidationException::withMessages([
-                'disponibilidad' => "El profesor no tiene disponibilidad registrada para {$dia} en {$institucion}"
+                'disponibilidad' =>
+                    "El profesor no tiene disponibilidad registrada para {$dia} en {$institucion}",
             ]);
         }
 
-        $horaInicioCarbon = Carbon::parse($horaInicio);
-        $horaFinCarbon = Carbon::parse($horaFin);
+        $rangoValido = $this->rangoEstaCubierto($disponibilidades, $horaInicio, $horaFin);
 
-        $rangoValido = false;
+        if (
+            !$rangoValido
+        ) {
 
-        foreach ($disponibilidades as $disponibilidad) {
-            $dispInicio = Carbon::parse($disponibilidad->hora_inicio);
-            $dispFin = Carbon::parse($disponibilidad->hora_fin);
-
-            // Verificar que el rango COMPLETO esté dentro de la disponibilidad
-            if ($horaInicioCarbon >= $dispInicio && $horaFinCarbon <= $dispFin) {
-                $rangoValido = true;
-                break;
-            }
-        }
-
-        if (!$rangoValido) {
             throw ValidationException::withMessages([
-                'disponibilidad' => "El rango horario {$horaInicio} - {$horaFin} no está completamente dentro de la disponibilidad del profesor para {$dia} en {$institucion}"
+                'disponibilidad' =>
+                    "El rango horario {$horaInicio} - {$horaFin} no está completamente dentro de la disponibilidad del profesor para {$dia} en {$institucion}",
             ]);
         }
 
@@ -138,7 +307,7 @@ class DisponibilidadService
     }
 
     /**
-     * Verificar que no haya solapamientos en la disponibilidad del profesor
+     * Verificar solapamientos.
      */
     public function verificarSolapamientos(
         int $profesorId,
@@ -148,29 +317,78 @@ class DisponibilidadService
         string $institucion,
         ?int $excludeId = null
     ): bool {
-        $query = DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
-            ->where('tipo', 'disponible');
 
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
+        $query =
+            DisponibilidadProfesor::where(
+                'profesor_id',
+                $profesorId
+            )
+                ->where(
+                    'dia_semana',
+                    $dia
+                )
+                ->where(
+                    'institucion',
+                    $institucion
+                )
+                ->where(
+                    'tipo',
+                    'disponible'
+                );
+
+        if (
+            $excludeId
+        ) {
+
+            $query->where(
+                'id',
+                '!=',
+                $excludeId
+            );
         }
 
-        $existentes = $query->get();
+        $existentes =
+            $query->get();
 
-        $nuevoInicio = Carbon::parse($horaInicio);
-        $nuevoFin = Carbon::parse($horaFin);
+        $nuevoInicio =
+            Carbon::parse(
+                $horaInicio
+            );
 
-        foreach ($existentes as $existente) {
-            $existenteInicio = Carbon::parse($existente->hora_inicio);
-            $existenteFin = Carbon::parse($existente->hora_fin);
+        $nuevoFin =
+            Carbon::parse(
+                $horaFin
+            );
 
-            // Verificar solapamiento REAL:
-            // nuevo_inicio < existente_fin Y nuevo_fin > existente_inicio
-            if ($nuevoInicio->lt($existenteFin) && $nuevoFin->gt($existenteInicio)) {
+        foreach (
+            $existentes
+            as $existente
+        ) {
+
+            $existenteInicio =
+                Carbon::parse(
+                    $existente
+                        ->hora_inicio
+                );
+
+            $existenteFin =
+                Carbon::parse(
+                    $existente
+                        ->hora_fin
+                );
+
+            if (
+                $nuevoInicio->lt(
+                    $existenteFin
+                ) &&
+                $nuevoFin->gt(
+                    $existenteInicio
+                )
+            ) {
+
                 throw ValidationException::withMessages([
-                    'solapamiento' => "El rango {$horaInicio} - {$horaFin} se solapa con una disponibilidad existente ({$existente->hora_inicio} - {$existente->hora_fin}) para {$dia} en {$institucion}"
+                    'solapamiento' =>
+                        "El rango {$horaInicio} - {$horaFin} se solapa con una disponibilidad existente ({$existente->hora_inicio} - {$existente->hora_fin}) para {$dia} en {$institucion}",
                 ]);
             }
         }
@@ -179,7 +397,7 @@ class DisponibilidadService
     }
 
     /**
-     * Validar disponibilidad completa para una clase específica
+     * Validar disponibilidad completa para una clase.
      */
     public function validarDisponibilidadParaClase(
         int $profesorId,
@@ -189,182 +407,681 @@ class DisponibilidadService
         string $institucion,
         ?int $excludeId = null
     ): bool {
-        // 1. Validar que el rango COMPLETO esté dentro de la disponibilidad
-        $this->validarRangoEnDisponibilidad($profesorId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
 
-        // 2. Validar que no haya SOLAPAMIENTOS
-        $this->verificarSolapamientos($profesorId, $dia, $horaInicio, $horaFin, $institucion, $excludeId);
+        $this->validarRangoEnDisponibilidad(
+            $profesorId,
+            $dia,
+            $horaInicio,
+            $horaFin,
+            $institucion,
+            $excludeId
+        );
 
         return true;
     }
 
     /**
-     * Validar que el rango horario sea válido
+     * Validar rango horario.
      */
-    private function validarRangoHorario(array $data): void
-    {
-        $horaInicio = Carbon::parse($data['hora_inicio']);
-        $horaFin = Carbon::parse($data['hora_fin']);
+    private function validarRangoHorario(
+        array $data
+    ): void {
 
-        // 1. Verificar que hora_inicio < hora_fin
-        if ($horaInicio >= $horaFin) {
+        $horaInicio =
+            Carbon::parse(
+                $data['hora_inicio']
+            );
+
+        $horaFin =
+            Carbon::parse(
+                $data['hora_fin']
+            );
+
+        if (
+            $horaInicio >=
+            $horaFin
+        ) {
+
             throw ValidationException::withMessages([
-                'hora_inicio' => 'La hora de inicio debe ser menor que la hora de fin'
+                'hora_inicio' =>
+                    'La hora de inicio debe ser menor que la hora de fin',
             ]);
         }
 
-        // 2. Verificar rango dentro del horario permitido (6:00 - 23:00)
-        $minHora = Carbon::parse('06:00');
-        $maxHora = Carbon::parse('23:00');
+        $minHora =
+            Carbon::parse(
+                '07:00'
+            );
 
-        if ($horaInicio < $minHora || $horaFin > $maxHora) {
+        $maxHora =
+            Carbon::parse(
+                '20:00'
+            );
+
+        if (
+            $horaInicio <
+                $minHora ||
+            $horaFin >
+                $maxHora
+        ) {
+
             throw ValidationException::withMessages([
-                'hora_inicio' => 'El rango horario debe estar entre 06:00 y 23:00'
+                'hora_inicio' =>
+                    'El rango horario debe estar entre 07:00 y 20:00',
             ]);
         }
 
-        // 3. Verificar que no exceda las 12 horas continuas
-        $horas = $horaInicio->diffInHours($horaFin);
-        if ($horas > 12) {
+        $horas =
+            $horaInicio
+                ->diffInHours(
+                    $horaFin
+                );
+
+        if (
+            $horas >
+            13
+        ) {
+
             throw ValidationException::withMessages([
-                'hora_fin' => 'El bloque de disponibilidad no puede exceder las 12 horas continuas'
+                'hora_fin' =>
+                    'El bloque de disponibilidad no puede exceder las 13 horas continuas',
             ]);
         }
 
-        // 4. Verificar que sea un bloque mínimo de 30 minutos
-        $minutos = $horaInicio->diffInMinutes($horaFin);
-        if ($minutos < 30) {
+        $minutos =
+            $horaInicio
+                ->diffInMinutes(
+                    $horaFin
+                );
+
+        if (
+            $minutos <
+            30
+        ) {
+
             throw ValidationException::withMessages([
-                'hora_fin' => 'El bloque de disponibilidad debe tener al menos 30 minutos de duración'
+                'hora_fin' =>
+                    'El bloque de disponibilidad debe tener al menos 30 minutos de duración',
+            ]);
+        }
+
+        $receso = $this->recesoService->rangoChocaConRecesoInstitucion(
+            $data['institucion'] ?? 'colegio',
+            $data['hora_inicio'],
+            $data['hora_fin']
+        );
+
+        if ($receso) {
+            throw ValidationException::withMessages([
+                'receso' =>
+                    "No se puede guardar disponibilidad durante {$receso['nombre']} ({$receso['hora_inicio']} - {$receso['hora_fin']}).",
             ]);
         }
     }
 
     /**
-     * Validar que no exista una disponibilidad duplicada o solapada
+     * Validar duplicados y solapamientos.
      */
-    private function validarUnicidadYSolapamiento(array $data, ?int $excludeId = null): void
-    {
-        // 1. Validar duplicados exactos (mismo inicio y fin)
-        $query = DisponibilidadProfesor::where('profesor_id', $data['profesor_id'])
-            ->where('dia_semana', $data['dia_semana'])
-            ->where('hora_inicio', $data['hora_inicio'])
-            ->where('hora_fin', $data['hora_fin'])
-            ->where('institucion', $data['institucion'] ?? 'colegio');
+    private function validarUnicidadYSolapamiento(
+        array $data,
+        ?int $excludeId = null
+    ): void {
 
-        if ($excludeId) {
-            $query->where('id', '!=', $excludeId);
+        $query =
+            DisponibilidadProfesor::where(
+                'profesor_id',
+                $data['profesor_id']
+            )
+                ->where(
+                    'dia_semana',
+                    $data['dia_semana']
+                )
+                ->where(
+                    'hora_inicio',
+                    $data['hora_inicio']
+                )
+                ->where(
+                    'hora_fin',
+                    $data['hora_fin']
+                )
+                ->where(
+                    'institucion',
+                    $data['institucion'] ??
+                    'colegio'
+                );
+
+        if (
+            $excludeId
+        ) {
+
+            $query->where(
+                'id',
+                '!=',
+                $excludeId
+            );
         }
 
-        if ($query->exists()) {
+        if (
+            $query->exists()
+        ) {
+
             throw ValidationException::withMessages([
-                'disponibilidad' => 'Ya existe una disponibilidad con el mismo rango horario para este profesor'
+                'disponibilidad' =>
+                    'Ya existe una disponibilidad con el mismo rango horario para este profesor',
             ]);
         }
 
-        // 2. Validar solapamientos (rangos que se cruzan)
         $this->verificarSolapamientos(
             $data['profesor_id'],
             $data['dia_semana'],
             $data['hora_inicio'],
             $data['hora_fin'],
-            $data['institucion'] ?? 'colegio',
+            $data['institucion'] ??
+                'colegio',
             $excludeId
         );
     }
 
     /**
-     * Crear una nueva disponibilidad
+     * Crear disponibilidad.
+     *
+     * Si existe un registro eliminado mediante SoftDeletes
+     * con la misma clave única, se restaura y reutiliza.
      */
-    public function create(array $data): DisponibilidadProfesor
-    {
-        return DB::transaction(function () use ($data) {
-            // Validar que el profesor existe
-            $profesor = Profesor::findOrFail($data['profesor_id']);
+    public function create(
+        array $data
+    ): DisponibilidadProfesor {
 
-            // Validar rango horario
-            $this->validarRangoHorario($data);
+        return DB::transaction(
+            function () use ($data) {
+                app(RecuperacionHorarioService::class)->bloquearAgenda();
 
-            // Validar unicidad y solapamientos
-            $this->validarUnicidadYSolapamiento($data);
+                /*
+                |--------------------------------------------------------------------------
+                | VALORES POR DEFECTO
+                |--------------------------------------------------------------------------
+                */
 
-            // Crear la disponibilidad
-            $disponibilidad = DisponibilidadProfesor::create($data);
+                $data['institucion'] =
+                    $data['institucion'] ??
+                    'colegio';
 
-            // Cargar la relación profesor
-            $disponibilidad->load('profesor');
 
-            return $disponibilidad;
+                /*
+                |--------------------------------------------------------------------------
+                | VALIDAR PROFESOR
+                |--------------------------------------------------------------------------
+                */
+
+                Profesor::findOrFail(
+                    $data['profesor_id']
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | VALIDAR RANGO
+                |--------------------------------------------------------------------------
+                */
+
+                $this->validarRangoHorario(
+                    $data
+                );
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | BUSCAR REGISTRO ELIMINADO
+                |--------------------------------------------------------------------------
+                |
+                | La clave única de la BD utiliza:
+                |
+                | profesor_id
+                | dia_semana
+                | hora_inicio
+                | institucion
+                |
+                | Por eso debemos revisar también los registros
+                | eliminados mediante SoftDeletes.
+                |
+                */
+
+                $registroEliminado =
+                    DisponibilidadProfesor::withTrashed()
+                        ->where(
+                            'profesor_id',
+                            $data['profesor_id']
+                        )
+                        ->where(
+                            'dia_semana',
+                            $data['dia_semana']
+                        )
+                        ->where(
+                            'hora_inicio',
+                            $data['hora_inicio']
+                        )
+                        ->where(
+                            'institucion',
+                            $data['institucion']
+                        )
+                        ->whereNotNull(
+                            'deleted_at'
+                        )
+                        ->first();
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SI EXISTÍA ELIMINADO: RESTAURAR
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    $registroEliminado
+                ) {
+
+                    /*
+                    | Comprobar que el nuevo rango no choque
+                    | con otras disponibilidades activas.
+                    */
+
+                    $this->verificarSolapamientos(
+                        $data['profesor_id'],
+                        $data['dia_semana'],
+                        $data['hora_inicio'],
+                        $data['hora_fin'],
+                        $data['institucion'],
+                        $registroEliminado->id
+                    );
+
+
+                    /*
+                    | Restauramos primero.
+                    */
+
+                    $registroEliminado
+                        ->restore();
+
+
+                    /*
+                    | Actualizamos todos los datos.
+                    */
+
+                    $registroEliminado
+                        ->update(
+                            $data
+                        );
+
+
+                    /*
+                    | Refrescar modelo.
+                    */
+
+                    $registroEliminado
+                        ->refresh();
+
+
+                    /*
+                    | Cargar profesor.
+                    */
+
+                    $registroEliminado
+                        ->load(
+                            'profesor'
+                        );
+
+                    $this->registrarAuditoriaDisponibilidad(
+                        'restaurar',
+                        null,
+                        $registroEliminado,
+                        'Disponibilidad restaurada'
+                    );
+
+
+                    return
+                        $registroEliminado;
+                }
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | SI NO EXISTÍA ELIMINADO
+                |--------------------------------------------------------------------------
+                */
+
+                $this
+                    ->validarUnicidadYSolapamiento(
+                        $data
+                    );
+
+
+                $disponibilidad =
+                    DisponibilidadProfesor::create(
+                        $data
+                    );
+
+
+                $disponibilidad
+                    ->load(
+                        'profesor'
+                    );
+
+                $this->registrarAuditoriaDisponibilidad(
+                    'crear',
+                    null,
+                    $disponibilidad,
+                    'Disponibilidad creada'
+                );
+
+                return
+                    $disponibilidad;
+            }
+        );
+    }
+
+    /**
+     * Actualizar disponibilidad.
+     */
+    public function update(
+        int $id,
+        array $data
+    ): DisponibilidadProfesor {
+
+        return DB::transaction(
+            function () use (
+                $id,
+                $data
+            ) {
+                app(RecuperacionHorarioService::class)->bloquearAgenda();
+
+                $disponibilidad =
+                    DisponibilidadProfesor::findOrFail(
+                        $id
+                    );
+
+                $anteriores = DisponibilidadProfesor::where('profesor_id', $disponibilidad->profesor_id)->get();
+
+                $datosAnteriores =
+                    $this->snapshotDisponibilidad(
+                        $disponibilidad
+                    );
+
+                if (
+                    isset(
+                        $data['profesor_id']
+                    ) &&
+                    $data['profesor_id'] !=
+                        $disponibilidad
+                            ->profesor_id
+                ) {
+
+                    Profesor::findOrFail(
+                        $data['profesor_id']
+                    );
+                }
+
+
+                $mergedData =
+                    array_merge(
+                        $disponibilidad
+                            ->toArray(),
+                        $data
+                    );
+
+
+                if (
+                    isset(
+                        $data['hora_inicio']
+                    ) ||
+                    isset(
+                        $data['hora_fin']
+                    )
+                ) {
+
+                    $this->validarRangoHorario(
+                        $mergedData
+                    );
+                }
+
+
+                $this
+                    ->validarUnicidadYSolapamiento(
+                        $mergedData,
+                        $id
+                    );
+
+
+                $disponibilidad
+                    ->update(
+                        $data
+                    );
+
+                $this->validarHorariosGuardados((int) $datosAnteriores['profesor_id'], $datosAnteriores['institucion'], $anteriores);
+
+
+                $disponibilidad
+                    ->load(
+                        'profesor'
+                    );
+
+                $this->registrarAuditoriaDisponibilidad(
+                    'actualizar',
+                    $datosAnteriores,
+                    $disponibilidad,
+                    'Disponibilidad actualizada'
+                );
+
+                return
+                    $disponibilidad;
+            }
+        );
+    }
+
+    /**
+     * Eliminar disponibilidad.
+     *
+     * Se mantiene SoftDelete.
+     */
+    public function delete(
+        int $id
+    ): bool {
+
+        return DB::transaction(function () use ($id) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $disponibilidad =
+                DisponibilidadProfesor::findOrFail(
+                    $id
+                );
+
+            $anteriores = DisponibilidadProfesor::where('profesor_id', $disponibilidad->profesor_id)->get();
+
+            $datosAnteriores =
+                $this->snapshotDisponibilidad(
+                    $disponibilidad
+                );
+
+            $resultado =
+                $disponibilidad
+                    ->delete();
+
+            $this->validarHorariosGuardados($disponibilidad->profesor_id, $disponibilidad->institucion, $anteriores);
+
+            $this->historialService->registrarEvento(
+                'disponibilidad',
+                'eliminar',
+                $datosAnteriores,
+                null,
+                'Disponibilidad eliminada'
+            );
+
+            return
+                $resultado;
         });
     }
 
     /**
-     * Actualizar una disponibilidad existente
+     * Eliminar disponibilidades de profesor.
      */
-    public function update(int $id, array $data): DisponibilidadProfesor
-    {
-        return DB::transaction(function () use ($id, $data) {
-            $disponibilidad = DisponibilidadProfesor::findOrFail($id);
+    public function deleteByProfesor(
+        int $profesorId
+    ): int {
 
-            // Validar que el profesor existe (si se está cambiando)
-            if (isset($data['profesor_id']) && $data['profesor_id'] != $disponibilidad->profesor_id) {
-                $profesor = Profesor::findOrFail($data['profesor_id']);
+        $profesor =
+            Profesor::findOrFail(
+                $profesorId
+            );
+
+        return DB::transaction(function () use ($profesor) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $disponibilidades =
+                $profesor
+                    ->disponibilidades()
+                    ->get();
+
+            foreach (
+                $disponibilidades as
+                $disponibilidad
+            ) {
+                $datosAnteriores =
+                    $this->snapshotDisponibilidad(
+                        $disponibilidad
+                    );
+
+                $disponibilidad->delete();
+
+                $this->historialService->registrarEvento(
+                    'disponibilidad',
+                    'eliminar',
+                    $datosAnteriores,
+                    null,
+                    'Disponibilidad eliminada por profesor'
+                );
             }
 
-            // Validar rango horario (si se está cambiando)
-            if (isset($data['hora_inicio']) || isset($data['hora_fin'])) {
-                $mergedData = array_merge($disponibilidad->toArray(), $data);
-                $this->validarRangoHorario($mergedData);
-            }
-
-            // Validar unicidad y solapamientos (excluyendo el registro actual)
-            $mergedData = array_merge($disponibilidad->toArray(), $data);
-            $this->validarUnicidadYSolapamiento($mergedData, $id);
-
-            // Actualizar
-            $disponibilidad->update($data);
-            $disponibilidad->load('profesor');
-
-            return $disponibilidad;
+            $this->validarHorariosGuardados($profesor->id, null, $disponibilidades);
+            return
+                $disponibilidades->count();
         });
     }
 
     /**
-     * Eliminar una disponibilidad (soft delete)
+     * Eliminar disponibilidades por institución.
      */
-    public function delete(int $id): bool
-    {
-        $disponibilidad = DisponibilidadProfesor::findOrFail($id);
-        return $disponibilidad->delete();
+    public function deleteByInstitucion(
+        int $profesorId,
+        string $institucion,
+        bool $validarHorarios = true
+    ): int {
+
+        return DB::transaction(function () use (
+            $profesorId,
+            $institucion,
+            $validarHorarios
+        ) {
+            app(RecuperacionHorarioService::class)->bloquearAgenda();
+            $disponibilidades =
+                DisponibilidadProfesor::where(
+                    'profesor_id',
+                    $profesorId
+                )
+                    ->where(
+                        'institucion',
+                        $institucion
+                    )
+                    ->get();
+
+            foreach (
+                $disponibilidades as
+                $disponibilidad
+            ) {
+                $datosAnteriores =
+                    $this->snapshotDisponibilidad(
+                        $disponibilidad
+                    );
+
+                $disponibilidad->delete();
+
+                $this->historialService->registrarEvento(
+                    'disponibilidad',
+                    'eliminar',
+                    $datosAnteriores,
+                    null,
+                    'Disponibilidad eliminada por institución'
+                );
+            }
+
+            if ($validarHorarios) {
+                $this->validarHorariosGuardados($profesorId, $institucion, $disponibilidades);
+            }
+            return
+                $disponibilidades->count();
+        });
     }
 
-    /**
-     * Eliminar todas las disponibilidades de un profesor
-     */
-    public function deleteByProfesor(int $profesorId): int
-    {
-        $profesor = Profesor::findOrFail($profesorId);
-        return $profesor->disponibilidades()->delete();
+    private function registrarAuditoriaDisponibilidad(
+        string $accion,
+        ?array $datosAnteriores,
+        DisponibilidadProfesor $disponibilidad,
+        string $motivo
+    ): void {
+
+        $this->historialService->registrarEvento(
+            'disponibilidad',
+            $accion,
+            $datosAnteriores,
+            $this->snapshotDisponibilidad($disponibilidad),
+            $motivo
+        );
     }
 
-    /**
-     * Eliminar disponibilidades por institución
-     */
-    public function deleteByInstitucion(int $profesorId, string $institucion): int
-    {
-        return DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('institucion', $institucion)
-            ->delete();
+    private function snapshotDisponibilidad(
+        DisponibilidadProfesor $disponibilidad
+    ): array {
+
+        $disponibilidad
+            ->loadMissing(
+                'profesor'
+            );
+
+        return array_merge(
+            $disponibilidad->toArray(),
+            [
+                'modulo' =>
+                    'disponibilidad',
+
+                'tipo_registro' =>
+                    'disponibilidad',
+
+                'profesor_nombre' =>
+                    $disponibilidad
+                        ->profesor
+                        ?->nombre_completo,
+
+                'curso_nombre' =>
+                    'Disponibilidad',
+
+                'grado_nombre' =>
+                    ucfirst((string) ($disponibilidad->dia_semana ?? '')),
+
+                'aula_nombre' =>
+                    trim(
+                        ($disponibilidad->hora_inicio ?? '') .
+                        ' - ' .
+                        ($disponibilidad->hora_fin ?? '')
+                    ),
+
+                'institucion' =>
+                    $disponibilidad->institucion ?? 'colegio',
+            ]
+        );
     }
 
-    /**
-     * ========================================
-     * MÉTODOS DE CONSULTA Y BLOQUES
-     * ========================================
-     */
+    // =========================================================
+    // CONSULTAS
+    // =========================================================
 
     /**
-     * Verificar si un profesor tiene disponibilidad en un día y hora específicos
+     * Verificar disponibilidad puntual.
      */
     public function verificarDisponibilidadPuntual(
         int $profesorId,
@@ -372,17 +1089,38 @@ class DisponibilidadService
         string $hora,
         string $institucion = 'colegio'
     ): bool {
-        return DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
-            ->where('hora_inicio', '<=', $hora)
-            ->where('hora_fin', '>=', $hora)
-            ->where('tipo', 'disponible')
+
+        return DisponibilidadProfesor::where(
+            'profesor_id',
+            $profesorId
+        )
+            ->where(
+                'dia_semana',
+                $dia
+            )
+            ->where(
+                'institucion',
+                $institucion
+            )
+            ->where(
+                'hora_inicio',
+                '<=',
+                $hora
+            )
+            ->where(
+                'hora_fin',
+                '>=',
+                $hora
+            )
+            ->where(
+                'tipo',
+                'disponible'
+            )
             ->exists();
     }
 
     /**
-     * Obtener bloques disponibles para un profesor en un día específico
+     * Obtener bloques disponibles.
      */
     public function obtenerBloquesDisponibles(
         int $profesorId,
@@ -390,68 +1128,148 @@ class DisponibilidadService
         string $institucion = 'colegio',
         ?int $duracionMinutos = null
     ): array {
-        // Obtener disponibilidad del profesor
-        $disponibilidades = DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
-            ->where('tipo', 'disponible')
-            ->orderBy('hora_inicio')
-            ->get();
 
-        if ($disponibilidades->isEmpty()) {
+        $disponibilidades =
+            DisponibilidadProfesor::where(
+                'profesor_id',
+                $profesorId
+            )
+                ->where(
+                    'dia_semana',
+                    $dia
+                )
+                ->where(
+                    'institucion',
+                    $institucion
+                )
+                ->where(
+                    'tipo',
+                    'disponible'
+                )
+                ->orderBy(
+                    'hora_inicio'
+                )
+                ->get();
+
+        if (
+            $disponibilidades->isEmpty()
+        ) {
             return [];
         }
 
-        // Obtener la configuración de bloques de la BD
-        // (usa el primer grado del profesor como referencia para nivel/turno)
-        $bloques = [];
+        $bloques =
+            [];
 
-        foreach ($disponibilidades as $disponibilidad) {
+        foreach (
+            $disponibilidades
+            as $disponibilidad
+        ) {
+
             $bloques[] = [
-                'hora_inicio' => $disponibilidad->hora_inicio,
-                'hora_fin' => $disponibilidad->hora_fin,
-                'disponibilidad_id' => $disponibilidad->id,
+                'hora_inicio' =>
+                    $disponibilidad
+                        ->hora_inicio,
+
+                'hora_fin' =>
+                    $disponibilidad
+                        ->hora_fin,
+
+                'disponibilidad_id' =>
+                    $disponibilidad
+                        ->id,
             ];
         }
 
-        return $bloques;
+        return
+            $bloques;
     }
 
     /**
-     * Obtener disponibilidades agrupadas por día para un profesor
-     * (Útil para el frontend)
+     * Disponibilidades agrupadas por día.
      */
-    public function getAgrupadoPorDia(int $profesorId, string $institucion = 'colegio'): array
-    {
-        $disponibilidades = DisponibilidadProfesor::where('profesor_id', $profesorId)
-            ->where('institucion', $institucion)
-            ->where('tipo', 'disponible')
-            ->orderBy('dia_semana')
-            ->orderBy('hora_inicio')
-            ->get();
+    public function getAgrupadoPorDia(
+        int $profesorId,
+        string $institucion = 'colegio'
+    ): array {
 
-        $agrupado = [];
+        $disponibilidades =
+            DisponibilidadProfesor::where(
+                'profesor_id',
+                $profesorId
+            )
+                ->where(
+                    'institucion',
+                    $institucion
+                )
+                ->where(
+                    'tipo',
+                    'disponible'
+                )
+                ->orderBy(
+                    'dia_semana'
+                )
+                ->orderBy(
+                    'hora_inicio'
+                )
+                ->get();
 
-        foreach ($disponibilidades as $disp) {
-            $dia = $disp->dia_semana;
-            if (!isset($agrupado[$dia])) {
-                $agrupado[$dia] = [];
+        $agrupado =
+            [];
+
+        foreach (
+            $disponibilidades
+            as $disp
+        ) {
+
+            $dia =
+                $disp->dia_semana;
+
+
+            if (
+                !isset(
+                    $agrupado[
+                        $dia
+                    ]
+                )
+            ) {
+
+                $agrupado[
+                    $dia
+                ] =
+                    [];
             }
-            $agrupado[$dia][] = [
-                'id' => $disp->id,
-                'hora_inicio' => $disp->hora_inicio,
-                'hora_fin' => $disp->hora_fin,
-                'turno' => $disp->turno,
-                'tipo' => $disp->tipo,
-                'observacion' => $disp->observacion
+
+
+            $agrupado[
+                $dia
+            ][] = [
+
+                'id' =>
+                    $disp->id,
+
+                'hora_inicio' =>
+                    $disp->hora_inicio,
+
+                'hora_fin' =>
+                    $disp->hora_fin,
+
+                'turno' =>
+                    $disp->turno,
+
+                'tipo' =>
+                    $disp->tipo,
+
+                'observacion' =>
+                    $disp->observacion,
             ];
         }
 
-        return $agrupado;
+        return
+            $agrupado;
     }
 
     /**
-     * Verificar si hay conflictos con horarios existentes
+     * Verificar conflictos con horarios existentes.
      */
     public function verificarConflictosConHorarios(
         int $profesorId,
@@ -461,67 +1279,170 @@ class DisponibilidadService
         string $institucion,
         ?int $excludeHorarioId = null
     ): bool {
-        $query = \App\Models\Horario::where('profesor_id', $profesorId)
-            ->where('dia_semana', $dia)
-            ->where('institucion', $institucion)
-            ->where('estado', 'activo');
 
-        if ($excludeHorarioId) {
-            $query->where('id', '!=', $excludeHorarioId);
+        $query =
+            \App\Models\Horario::where(
+                'profesor_id',
+                $profesorId
+            )
+                ->where(
+                    'dia_semana',
+                    $dia
+                )
+                ->where(
+                    'institucion',
+                    $institucion
+                )
+                ->where(
+                    'estado',
+                    'activo'
+                );
+
+
+        if (
+            $excludeHorarioId
+        ) {
+
+            $query->where(
+                'id',
+                '!=',
+                $excludeHorarioId
+            );
         }
 
-        $horariosExistentes = $query->get();
 
-        $nuevoInicio = Carbon::parse($horaInicio);
-        $nuevoFin = Carbon::parse($horaFin);
+        $horariosExistentes =
+            $query->get();
 
-        foreach ($horariosExistentes as $horario) {
-            $horarioInicio = Carbon::parse($horario->hora_inicio);
-            $horarioFin = Carbon::parse($horario->hora_fin);
 
-            // Verificar solapamiento REAL
-            if ($nuevoInicio->lt($horarioFin) && $nuevoFin->gt($horarioInicio)) {
+        $nuevoInicio =
+            Carbon::parse(
+                $horaInicio
+            );
+
+        $nuevoFin =
+            Carbon::parse(
+                $horaFin
+            );
+
+
+        foreach (
+            $horariosExistentes
+            as $horario
+        ) {
+
+            $horarioInicio =
+                Carbon::parse(
+                    $horario
+                        ->hora_inicio
+                );
+
+            $horarioFin =
+                Carbon::parse(
+                    $horario
+                        ->hora_fin
+                );
+
+
+            if (
+                $nuevoInicio->lt(
+                    $horarioFin
+                ) &&
+                $nuevoFin->gt(
+                    $horarioInicio
+                )
+            ) {
+
                 throw ValidationException::withMessages([
-                    'conflicto' => "El horario {$horaInicio} - {$horaFin} se solapa con una clase existente ({$horario->hora_inicio} - {$horario->hora_fin})"
+                    'conflicto' =>
+                        "El horario {$horaInicio} - {$horaFin} se solapa con una clase existente ({$horario->hora_inicio} - {$horario->hora_fin})",
                 ]);
             }
         }
 
+
         return true;
     }
 
-    /**
-     * ========================================
-     * MÉTODOS DE ESTADÍSTICAS
-     * ========================================
-     */
+    // =========================================================
+    // ESTADÍSTICAS
+    // =========================================================
 
     /**
-     * Obtener estadísticas de disponibilidad
-     * (Para dashboards)
+     * Obtener estadísticas.
      */
     public function getEstadisticas(): array
     {
-        $total = DisponibilidadProfesor::count();
-        $disponibles = DisponibilidadProfesor::where('tipo', 'disponible')->count();
-        $noDisponibles = DisponibilidadProfesor::where('tipo', 'no_disponible')->count();
+        $total =
+            DisponibilidadProfesor::count();
 
-        $porInstitucion = DisponibilidadProfesor::select('institucion', DB::raw('count(*) as total'))
-            ->groupBy('institucion')
-            ->get();
 
-        $porDia = DisponibilidadProfesor::select('dia_semana', DB::raw('count(*) as total'))
-            ->groupBy('dia_semana')
-            ->orderBy('dia_semana')
-            ->get();
+        $disponibles =
+            DisponibilidadProfesor::where(
+                'tipo',
+                'disponible'
+            )
+                ->count();
+
+
+        $noDisponibles =
+            DisponibilidadProfesor::where(
+                'tipo',
+                'no_disponible'
+            )
+                ->count();
+
+
+        $porInstitucion =
+            DisponibilidadProfesor::select(
+                'institucion',
+                DB::raw(
+                    'count(*) as total'
+                )
+            )
+                ->groupBy(
+                    'institucion'
+                )
+                ->get();
+
+
+        $porDia =
+            DisponibilidadProfesor::select(
+                'dia_semana',
+                DB::raw(
+                    'count(*) as total'
+                )
+            )
+                ->groupBy(
+                    'dia_semana'
+                )
+                ->orderBy(
+                    'dia_semana'
+                )
+                ->get();
+
 
         return [
-            'total' => $total,
-            'disponibles' => $disponibles,
-            'no_disponibles' => $noDisponibles,
-            'por_institucion' => $porInstitucion,
-            'por_dia' => $porDia,
-            'profesores_con_disponibilidad' => DisponibilidadProfesor::distinct('profesor_id')->count()
+            'total' =>
+                $total,
+
+            'disponibles' =>
+                $disponibles,
+
+            'no_disponibles' =>
+                $noDisponibles,
+
+            'por_institucion' =>
+                $porInstitucion,
+
+            'por_dia' =>
+                $porDia,
+
+            'profesores_con_disponibilidad' =>
+                DisponibilidadProfesor::distinct(
+                    'profesor_id'
+                )
+                    ->count(),
         ];
     }
 }

@@ -34,6 +34,7 @@ class ExportController extends Controller
             'tipo',
             'fecha_inicio',
             'fecha_fin',
+            'semana_inicio',
             'search',
             'sort_by',
             'sort_order',

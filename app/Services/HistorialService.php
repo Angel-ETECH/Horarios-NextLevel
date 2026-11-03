@@ -3,8 +3,16 @@
 
 namespace App\Services;
 
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\DisponibilidadProfesor;
+use App\Models\Grado;
 use App\Models\HistorialCambio;
 use App\Models\Horario;
+use Carbon\Carbon;
+use App\Models\Profesor;
+use App\Models\ProfesorCurso;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -14,7 +22,7 @@ class HistorialService
      * Registrar un cambio en el historial
      */
     public function registrarCambio(
-        int $horarioId,
+        ?int $horarioId,
         string $accion,
         ?array $datosAnteriores = null,
         ?array $datosNuevos = null,
@@ -33,6 +41,42 @@ class HistorialService
             'ip_usuario' => $ip ?? request()->ip(),
             'user_agent' => $userAgent ?? request()->userAgent(),
         ]);
+    }
+
+    /**
+     * Registrar eventos generales del sistema en el mismo historial.
+     */
+    public function registrarEvento(
+        string $modulo,
+        string $accion,
+        ?array $datosAnteriores = null,
+        ?array $datosNuevos = null,
+        ?string $motivo = null,
+        ?int $usuarioId = null
+    ): HistorialCambio {
+        $datosAnteriores = $this->prepararSnapshotEvento($modulo, $datosAnteriores);
+        $datosNuevos = $this->prepararSnapshotEvento($modulo, $datosNuevos);
+
+        return $this->registrarCambio(
+            null,
+            $accion,
+            $datosAnteriores,
+            $datosNuevos,
+            $motivo ?? "Evento de {$modulo}",
+            $usuarioId
+        );
+    }
+
+    private function prepararSnapshotEvento(string $modulo, ?array $datos): ?array
+    {
+        if ($datos === null) {
+            return null;
+        }
+
+        $datos['modulo'] = $datos['modulo'] ?? $modulo;
+        $datos['tipo_registro'] = $datos['tipo_registro'] ?? $modulo;
+
+        return $datos;
     }
 
     /**
@@ -81,6 +125,10 @@ class HistorialService
             $query->porGrado($filtros['grado_id']);
         }
 
+        if (!empty($filtros['curso_id'])) {
+            $query->porCurso($filtros['curso_id']);
+        }
+
         if (!empty($filtros['aula_id'])) {
             $query->porAula($filtros['aula_id']);
         }
@@ -99,23 +147,52 @@ class HistorialService
     }
 
     /**
-     * Revertir un horario a una versión anterior
+     * Revertir un cambio registrado en el historial.
+     *
+     * Los eventos de horarios restauran la clase; los eventos de otros módulos
+     * (profesores, cursos, grados, aulas, disponibilidad y asignaciones)
+     * restauran los valores anteriores o reactivan el registro.
      */
-    public function revertirCambio(int $historialId, ?string $motivo = null): Horario
+    public function revertirCambio(int $historialId, ?string $motivo = null): object
     {
         return DB::transaction(function () use ($historialId, $motivo) {
-            $registro = HistorialCambio::findOrFail($historialId);
-            $horario = Horario::withTrashed()->findOrFail($registro->horario_id);
+            $registro = HistorialCambio::lockForUpdate()->findOrFail($historialId);
+            if (($registro->datos_nuevos['solo_auditoria'] ?? $registro->datos_anteriores['solo_auditoria'] ?? false) === true) {
+                throw ValidationException::withMessages([
+                    'historial' => 'Este evento solo registra una correccion calculada y no se puede revertir.',
+                ]);
+            }
+            $modulo = $registro->datos_nuevos['modulo']
+                ?? $registro->datos_anteriores['modulo']
+                ?? null;
+            $snapshot = $registro->datos_anteriores ?? $registro->datos_nuevos;
+            if ($modulo === 'horarios' || $registro->horario_id !== null
+                || ($modulo === null && $this->esSnapshotHorario($snapshot))) {
+                return $this->revertirHorario($registro, $motivo);
+            }
+            return $this->revertirEventoModulo($registro, $modulo, $motivo);
+        });
+    }
 
-            // Guardar el estado actual antes de revertir
-            $estadoActual = $horario->toArray();
+    private function revertirHorario(HistorialCambio $registro, ?string $motivo): Horario
+    {
+            $snapshot = $registro->accion === HistorialCambio::ACCION_CREAR
+                ? $registro->datos_nuevos
+                : $registro->datos_anteriores;
+            $horarioId = $this->validarRegistroHorario($registro, $snapshot);
+            $horario = Horario::withTrashed()->lockForUpdate()->find($horarioId);
+            $estadoActual = $horario?->toArray();
 
             // Si es una eliminación, restaurar
             if ($registro->accion === HistorialCambio::ACCION_ELIMINAR) {
-                if ($horario->trashed()) {
-                    $horario->restore();
+                if ($horario && !$horario->trashed()) {
+                    throw ValidationException::withMessages([
+                        'horario' => 'El horario no esta eliminado.',
+                    ]);
                 }
-                $horario->update(['estado' => 'activo']);
+
+                $snapshot['estado'] = 'activo';
+                $horario = $this->guardarHorarioValidado($horario, $snapshot, $horarioId);
 
                 $this->registrarCambio(
                     $horario->id,
@@ -131,21 +208,10 @@ class HistorialService
             // Si es una actualización o creación, restaurar datos anteriores
             if ($registro->accion === HistorialCambio::ACCION_ACTUALIZAR && $registro->datos_anteriores) {
 
-                // Si el horario está eliminado, restaurarlo primero
-                if ($horario->trashed()) {
-                    $horario->restore();
+                if (!$horario || $horario->trashed()) {
+                    $snapshot['estado'] = 'activo';
                 }
-
-                // Limpiar campos que no deben actualizarse
-                $datosAnteriores = $registro->datos_anteriores;
-                unset(
-                    $datosAnteriores['id'],
-                    $datosAnteriores['created_at'],
-                    $datosAnteriores['updated_at'],
-                    $datosAnteriores['deleted_at']
-                );
-
-                $horario->update($datosAnteriores);
+                $horario = $this->guardarHorarioValidado($horario, $snapshot, $horarioId);
 
                 $this->registrarCambio(
                     $horario->id,
@@ -158,9 +224,13 @@ class HistorialService
                 return $horario->fresh();
             }
 
-            // Si es una creación, eliminar (soft delete)
+            // Si es una creación, eliminar y liberar el bloque horario
             if ($registro->accion === HistorialCambio::ACCION_CREAR) {
-                $horario->delete();
+                if (!$horario) {
+                    throw ValidationException::withMessages([
+                        'horario' => 'El horario ya fue eliminado.',
+                    ]);
+                }
 
                 $this->registrarCambio(
                     $horario->id,
@@ -170,13 +240,205 @@ class HistorialService
                     $motivo ?? 'Revertido desde historial (creación)'
                 );
 
+                $horario->forceDelete();
+
                 return $horario;
             }
 
             throw ValidationException::withMessages([
                 'historial' => 'No se puede revertir esta acción'
             ]);
-        });
+    }
+
+    /**
+     * Revertir un evento de los módulos de catálogo.
+     */
+    private function revertirEventoModulo(HistorialCambio $registro, ?string $modulo, ?string $motivo): object
+    {
+        $clase = $this->modeloDelModulo($modulo);
+
+        if (!$clase) {
+            throw ValidationException::withMessages([
+                'historial' => 'Este registro no se puede revertir desde el historial.'
+            ]);
+        }
+
+        if ($registro->accion === HistorialCambio::ACCION_CREAR) {
+            throw ValidationException::withMessages([
+                'historial' => 'Una creación de este módulo se deshace desde su propia pantalla, no desde el historial.'
+            ]);
+        }
+
+        $id = $registro->datos_nuevos['id']
+            ?? $registro->datos_anteriores['id']
+            ?? null;
+
+        $modelo = $id ? $this->buscarRegistro($clase, (int) $id) : null;
+
+        if (!$modelo) {
+            throw ValidationException::withMessages([
+                'historial' => 'El registro original ya no existe, así que no hay nada que revertir.'
+            ]);
+        }
+
+        $estadoActual = $modelo->toArray();
+
+        if ($registro->accion === HistorialCambio::ACCION_ACTUALIZAR && $registro->datos_anteriores) {
+
+            $this->guardarEventoValidado($modelo, $this->datosRestaurables($registro->datos_anteriores));
+
+        } elseif ($registro->accion === HistorialCambio::ACCION_ELIMINAR) {
+
+            $this->reactivarRegistro($modelo);
+
+        } else {
+
+            throw ValidationException::withMessages([
+                'historial' => 'No se puede revertir esta acción.'
+            ]);
+        }
+
+        $modelo->refresh();
+
+        $this->registrarEvento(
+            (string) $modulo,
+            HistorialCambio::ACCION_REVERTIR,
+            $estadoActual,
+            $modelo->toArray(),
+            $motivo ?? 'Revertido desde historial'
+        );
+
+        return $modelo;
+    }
+
+    /**
+     * Modelo Eloquent asociado a cada módulo del historial.
+     */
+    private function modeloDelModulo(?string $modulo): ?string
+    {
+        return match ($modulo) {
+            'profesores' => Profesor::class,
+            'cursos' => Curso::class,
+            'grados' => Grado::class,
+            'aulas' => Aula::class,
+            'asignaciones' => ProfesorCurso::class,
+            'disponibilidad' => DisponibilidadProfesor::class,
+            default => null,
+        };
+    }
+
+    /**
+     * Buscar el registro incluso si está eliminado (soft delete).
+     */
+    private function buscarRegistro(string $clase, int $id): ?object
+    {
+        $consulta = in_array(SoftDeletes::class, class_uses_recursive($clase), true)
+            ? $clase::withTrashed()
+            : $clase::query();
+
+        return $consulta->lockForUpdate()->find($id);
+    }
+
+    /**
+     * Campos del snapshot que sí se pueden volver a escribir.
+     */
+    private function datosRestaurables(array $datos): array
+    {
+        $excluidos = [
+            'id',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+            'modulo',
+            'tipo_registro',
+            'profesor_nombre',
+            'curso_nombre',
+            'grado_nombre',
+            'aula_nombre',
+            'aula_codigo',
+            'carga_horaria_actual',
+        ];
+
+        return array_diff_key($datos, array_flip($excluidos));
+    }
+
+    /**
+     * Reactivar un registro eliminado o desactivado.
+     */
+    private function reactivarRegistro(object $modelo): void
+    {
+        $datos = [];
+        if (array_key_exists('activo', $modelo->getAttributes())) {
+            $datos['activo'] = true;
+        }
+        $this->guardarEventoValidado($modelo, $datos);
+    }
+
+    private function guardarEventoValidado(object $modelo, array $datos): void
+    {
+        $datos = array_intersect_key($datos, array_flip($modelo->getFillable()));
+        if ($modelo instanceof ProfesorCurso) {
+            if (array_key_exists('aula_id', $datos) && !$datos['aula_id']) {
+                throw ValidationException::withMessages(['aula_id' => 'Selecciona un aula desde Asignaciones antes de revertir.']);
+            }
+            $asignacion = app(AsignacionService::class)->update($modelo->id, $datos);
+            if ($asignacion->activo) {
+                $resultado = app(HorarioGeneratorService::class)->generarHorarios([
+                    'profesor_id' => $asignacion->profesor_id,
+                    'institucion' => $asignacion->institucion,
+                    'respetar_existentes' => true,
+                ]);
+                if (!($resultado['success'] ?? false) || !empty($resultado['asignaciones_incompletas'])) {
+                    throw ValidationException::withMessages(['historial' => 'No se pudo recuperar toda la carga horaria. No se guardaron cambios.']);
+                }
+            }
+            return;
+        }
+        if ($modelo instanceof DisponibilidadProfesor) {
+            $datos = array_merge(array_intersect_key($modelo->toArray(), array_flip($modelo->getFillable())), $datos);
+            foreach (['hora_inicio', 'hora_fin'] as $campo) {
+                $datos[$campo] = Carbon::parse($datos[$campo])->format('H:i');
+            }
+            if ($modelo->trashed()) {
+                app(DisponibilidadService::class)->create($datos);
+            } else {
+                app(DisponibilidadService::class)->update($modelo->id, $datos);
+            }
+            return;
+        }
+        if ($modelo instanceof Aula && !$modelo->trashed()) {
+            app(AulaService::class)->update($modelo->id, $datos);
+            return;
+        }
+        if ($modelo instanceof Profesor) {
+            $institucion = $datos['institucion'] ?? $modelo->institucion;
+            if ($institucion !== 'ambos' && ProfesorCurso::where('profesor_id', $modelo->id)
+                ->where('activo', true)->where('institucion', '!=', $institucion)->exists()) {
+                throw ValidationException::withMessages(['historial' => 'El profesor tiene asignaciones en otra institucion.']);
+            }
+            if (($datos['carga_horaria_maxima'] ?? $modelo->carga_horaria_maxima)
+                < ProfesorCurso::where('profesor_id', $modelo->id)->where('activo', true)->sum('horas_asignadas')) {
+                throw ValidationException::withMessages(['historial' => 'La carga actual supera el limite que deseas restaurar.']);
+            }
+        }
+        if ($modelo instanceof Curso || $modelo instanceof Grado) {
+            $campo = $modelo instanceof Curso ? 'curso_id' : 'grado_id';
+            $tieneUso = ProfesorCurso::where($campo, $modelo->id)->where('activo', true)->exists()
+                || Horario::where($campo, $modelo->id)->where('estado', 'activo')->exists();
+            $cambiaBase = (array_key_exists('activo', $datos) && !$datos['activo'])
+                || (isset($datos['nivel']) && $datos['nivel'] !== $modelo->nivel)
+                || ($modelo instanceof Grado && isset($datos['turno']) && $datos['turno'] !== $modelo->turno);
+            if ($tieneUso && $cambiaBase) {
+                throw ValidationException::withMessages(['historial' => 'Desactiva las asignaciones antes de restaurar el nivel, turno o estado.']);
+            }
+        }
+        if (method_exists($modelo, 'trashed') && $modelo->trashed()) {
+            $modelo->restore();
+        }
+        $modelo->update($datos);
+        if ($modelo instanceof Profesor && $modelo->estado !== 'activo') {
+            app(AsignacionService::class)->deleteByProfesor($modelo->id);
+        }
     }
 
     /**
@@ -227,17 +489,41 @@ class HistorialService
     public function restaurarHorario(int $horarioId, ?string $motivo = null): Horario
     {
         return DB::transaction(function () use ($horarioId, $motivo) {
-            $horario = Horario::withTrashed()->findOrFail($horarioId);
+            $horario = Horario::withTrashed()->lockForUpdate()->find($horarioId);
 
-            if (!$horario->trashed()) {
+            if ($horario && !$horario->trashed()) {
                 throw ValidationException::withMessages([
                     'horario' => 'El horario no está eliminado'
                 ]);
             }
 
-            $estadoAnterior = $horario->toArray();
-            $horario->restore();
-            $horario->update(['estado' => 'activo']);
+            $estadoAnterior = $horario?->toArray();
+            $snapshot = $estadoAnterior;
+
+            if (!$horario) {
+                $registro = HistorialCambio::porHorario($horarioId)
+                    ->where('accion', HistorialCambio::ACCION_ELIMINAR)
+                    ->orderByDesc('id')
+                    ->lockForUpdate()
+                    ->get()
+                    ->first(fn ($registro) => $this->esSnapshotHorario($registro->datos_anteriores));
+
+                if (!$registro) {
+                    throw ValidationException::withMessages([
+                        'horario' => 'No existe un snapshot de horario eliminado para restaurar.',
+                    ]);
+                }
+
+                $snapshot = $registro->datos_anteriores;
+                if ($this->validarRegistroHorario($registro, $snapshot) !== $horarioId) {
+                    throw ValidationException::withMessages([
+                        'historial' => 'El snapshot no corresponde al horario solicitado.',
+                    ]);
+                }
+            }
+
+            $snapshot['estado'] = 'activo';
+            $horario = $this->guardarHorarioValidado($horario, $snapshot, $horarioId);
 
             $this->registrarCambio(
                 $horario->id,
@@ -249,6 +535,111 @@ class HistorialService
 
             return $horario->fresh();
         });
+    }
+
+    private function esSnapshotHorario(?array $snapshot): bool
+    {
+        if (!$snapshot
+            || (isset($snapshot['modulo']) && $snapshot['modulo'] !== 'horarios')
+            || (isset($snapshot['tipo_registro'])
+                && !in_array($snapshot['tipo_registro'], ['horario', 'horarios'], true))) {
+            return false;
+        }
+
+        foreach (['profesor_id', 'curso_id', 'grado_id', 'aula_id', 'dia_semana',
+            'hora_inicio', 'hora_fin', 'periodo_academico', 'institucion', 'turno'] as $campo) {
+            if (!isset($snapshot[$campo]) || $snapshot[$campo] === '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function validarRegistroHorario(HistorialCambio $registro, ?array $snapshot): int
+    {
+        foreach ([$registro->datos_anteriores, $registro->datos_nuevos] as $datos) {
+            if ($datos && ((isset($datos['modulo']) && $datos['modulo'] !== 'horarios')
+                || (isset($datos['tipo_registro'])
+                    && !in_array($datos['tipo_registro'], ['horario', 'horarios'], true)))) {
+                throw ValidationException::withMessages([
+                    'historial' => 'Solo se pueden revertir o restaurar registros de horarios.',
+                ]);
+            }
+        }
+
+        $horarioId = (int) ($registro->horario_id ?? ($snapshot['id'] ?? 0));
+        if (!$this->esSnapshotHorario($snapshot) || $horarioId <= 0
+            || (isset($snapshot['id']) && (int) $snapshot['id'] !== $horarioId)) {
+            throw ValidationException::withMessages([
+                'historial' => 'El registro no contiene un snapshot valido del horario.',
+            ]);
+        }
+
+        return $horarioId;
+    }
+
+    private function guardarHorarioValidado(?Horario $horario, array $snapshot, int $horarioId): Horario
+    {
+        if (!$this->esSnapshotHorario($snapshot)) {
+            throw ValidationException::withMessages([
+                'historial' => 'El snapshot del horario esta incompleto.',
+            ]);
+        }
+
+        $datos = array_intersect_key($snapshot, array_flip((new Horario())->getFillable()));
+        $datos['dia_semana'] = match (strtolower(trim($datos['dia_semana']))) {
+            'miercoles' => 'miércoles',
+            'sabado' => 'sábado',
+            default => strtolower(trim($datos['dia_semana'])),
+        };
+
+        try {
+            foreach (['hora_inicio', 'hora_fin'] as $campo) {
+                $datos[$campo] = Carbon::parse($datos[$campo])->format('H:i');
+            }
+        } catch (\Throwable $e) {
+            throw ValidationException::withMessages([
+                'historial' => 'El snapshot contiene horas invalidas.',
+            ]);
+        }
+
+        app(HorarioService::class)->validarParaRestaurar($datos, $horario?->id);
+
+        // Las claves unicas tambien incluyen horarios cancelados o con soft delete.
+        $ocupados = Horario::withTrashed()
+            ->where('dia_semana', $datos['dia_semana'])
+            ->where('hora_inicio', $datos['hora_inicio'])
+            ->where('periodo_academico', $datos['periodo_academico'])
+            ->where(function ($query) use ($datos) {
+                $query->where('profesor_id', $datos['profesor_id'])
+                    ->orWhere('aula_id', $datos['aula_id'])
+                    ->orWhere('grado_id', $datos['grado_id']);
+            });
+
+        if ($horario) {
+            $ocupados->where('id', '!=', $horario->id);
+        }
+
+        if ($ocupados->exists()) {
+            throw ValidationException::withMessages([
+                'horario' => 'El bloque esta ocupado por otro horario, incluso cancelado o eliminado.',
+            ]);
+        }
+
+        if (!$horario) {
+            $horario = new Horario();
+            $horario->forceFill(['id' => $horarioId]);
+        }
+
+        $horario->fill($datos);
+        if ($horario->trashed()) {
+            $horario->restore();
+        } else {
+            $horario->save();
+        }
+
+        return $horario->fresh();
     }
 
     /**
@@ -282,7 +673,7 @@ class HistorialService
 
         $cambiosPorInstitucion = HistorialCambio::with('horario')
             ->get()
-            ->groupBy(fn($c) => $c->horario?->institucion ?? 'desconocido')
+            ->groupBy(fn($c) => $this->obtenerInstitucionRegistro($c))
             ->map(fn($group) => $group->count())
             ->toArray();
 
@@ -299,5 +690,13 @@ class HistorialService
             'cambios_por_institucion' => $cambiosPorInstitucion,
             'ultimos_cambios' => $ultimosCambios,
         ];
+    }
+
+    private function obtenerInstitucionRegistro(HistorialCambio $registro): string
+    {
+        return $registro->horario?->institucion
+            ?? ($registro->datos_nuevos['institucion'] ?? null)
+            ?? ($registro->datos_anteriores['institucion'] ?? null)
+            ?? 'desconocido';
     }
 }
