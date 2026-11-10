@@ -38,6 +38,21 @@
             min-height: 44px;
         }
 
+        :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+            outline: 2px solid #4F46E5;
+            outline-offset: 2px;
+        }
+
+        #sidebar :where(a, button):focus-visible {
+            outline-color: #C7D2FE;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #sidebar {
+                transition-duration: 0s;
+            }
+        }
+
         @media (min-width: 1024px) {
             #sidebar-nav {
                 overflow-y: auto;
@@ -136,7 +151,7 @@
                 id="close-sidebar"
                 type="button"
                 class="
-                    flex h-9 w-9 shrink-0
+                    flex h-11 w-11 shrink-0
                     items-center justify-center
                     rounded-lg
                     text-slate-400
@@ -185,7 +200,7 @@
                     mb-2 px-3
                     text-[11px] font-medium
                     uppercase tracking-[0.14em]
-                    text-slate-500
+                    text-slate-400
                 "
             >
                 Principal
@@ -377,7 +392,7 @@
                     mb-2 mt-5 px-3
                     text-[11px] font-medium
                     uppercase tracking-[0.14em]
-                    text-slate-500
+                    text-slate-400
                 "
             >
                 Gestión
@@ -691,7 +706,7 @@
                     id="open-sidebar"
                     type="button"
                     class="
-                        flex h-10 w-10
+                        flex h-11 w-11
                         items-center justify-center
                         rounded-lg
                         text-slate-700

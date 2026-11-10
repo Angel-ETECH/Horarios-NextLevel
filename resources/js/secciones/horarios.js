@@ -3346,7 +3346,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             .horario-timeline-grid{
                 width:100%;
-                min-width:760px;
+                min-width:934px;
+                --horario-ancho-eje:94px;
                 background:#FFFFFF;
             }
 
@@ -3408,56 +3409,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 font-size:13px;
                 font-weight:900;
                 line-height:1.1;
-            }
-
-            .horario-timeline-head-day::before{
-                content:"▦";
-                display:flex;
-                width:28px;
-                height:28px;
-                align-items:center;
-                justify-content:center;
-                margin-bottom:5px;
-                border-radius:9px;
-                background:rgba(59,130,246,.12);
-                color:#2563EB;
-                font-size:17px;
-                font-weight:900;
-                box-shadow:inset 0 0 0 1px rgba(59,130,246,.08);
-            }
-
-            .horario-timeline-head-day:nth-child(3)::before{
-                background:rgba(16,185,129,.14);
-            }
-
-            .horario-timeline-head-day:nth-child(4)::before{
-                background:rgba(245,158,11,.16);
-            }
-
-            .horario-timeline-head-day:nth-child(5)::before{
-                background:rgba(124,58,237,.14);
-            }
-
-            .horario-timeline-head-day:nth-child(6)::before{
-                background:rgba(236,72,153,.14);
-            }
-
-            .horario-timeline-head-day:nth-child(7)::before{
-                background:rgba(59,130,246,.12);
-            }
-
-            .horario-timeline-head-day strong,
-            .horario-timeline-head-day span{
-                position:relative;
-                z-index:1;
-            }
-
-            .horario-timeline-head-day span{
-                margin-top:5px;
-                color:#94A3B8;
-                font-size:9px;
-                font-weight:800;
-                letter-spacing:.06em;
             }
 
             /* ================================================
@@ -3598,20 +3549,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 box-shadow:0 3px 10px rgba(185,28,28,.05);
             }
 
-            .horario-timeline-receso::before{
-                content:"☕";
-                display:inline-flex;
-                width:24px;
-                height:24px;
-                align-items:center;
-                justify-content:center;
-                margin-right:7px;
-                border-radius:8px;
-                background:rgba(255,255,255,.58);
-                font-size:13px;
-                text-transform:none;
-            }
-
             /* ================================================
                POSICIÓN CLASE
             ================================================= */
@@ -3677,25 +3614,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     42px;
             }
 
-            .horario-card-symbol{
-                position:absolute;
-                top:10px;
-                left:14px;
-                display:flex;
-                width:25px;
-                height:25px;
-                align-items:center;
-                justify-content:center;
-                border-radius:8px;
-                background:rgba(255,255,255,.62);
-                color:inherit;
-            }
-
-            .horario-card-symbol svg{
-                width:15px;
-                height:15px;
-            }
-
             .horario-grupo-cabecera{
                 display:flex;
                 flex-wrap:wrap;
@@ -3748,20 +3666,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 color:#0F2749;
                 font-size:12px;
                 letter-spacing:0;
-            }
-
-            .horario-timeline-head-time::before{
-                content:"◷";
-                display:flex;
-                width:28px;
-                height:28px;
-                align-items:center;
-                justify-content:center;
-                border-radius:9px;
-                background:#EFF6FF;
-                color:#1D4ED8;
-                font-size:19px;
-                font-weight:700;
             }
 
             .horario-card-title{
@@ -3899,17 +3803,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 font-size:8px;
             }
 
-            @container (max-width:1050px){
-                .horario-card-symbol{display:none;}
-                .horario-card-content{padding:8px 31px 7px 8px;}
-                .horario-card-title{font-size:10px;line-height:1.2;}
-                .horario-clase-timeline .btn-eliminar-horario{width:24px;height:24px;right:4px;top:6px;}
-                .horario-card-time{padding:3px 4px;font-size:8px;}
-                .horario-timeline-head-day strong{font-size:11px;}
-                .horario-timeline-receso{font-size:8px;white-space:normal;line-height:1.2;text-align:center;}
-                .horario-timeline-receso::before{display:none;}
-            }
-
             /* ================================================
                DRAG
             ================================================= */
@@ -3968,13 +3861,134 @@ document.addEventListener('DOMContentLoaded', () => {
                 background:#DB0808;
             }
 
-            @media(
-                max-width:900px
-            ){
-                .horario-timeline-head-time,
-                .horario-timeline-axis{
-                    min-width:82px;
-                }
+            .horario-timeline-head-time,
+            .horario-timeline-head-day{
+                min-height:48px;
+                padding:0 12px;
+            }
+            .horario-timeline-head-time{
+                justify-content:flex-end;
+                text-transform:none;
+                font-weight:700;
+            }
+            .horario-timeline-head-day{
+                align-items:flex-start;
+                margin:0;
+                border:0;
+                border-right:1px solid #DCE4EE;
+                border-radius:0;
+            }
+            .horario-timeline-head-day strong{font-size:14px;font-weight:800;}
+
+            .horario-timeline-axis{background:#F8FAFC;}
+            .horario-timeline-axis-label,
+            .horario-card-time,
+            .horario-timeline-receso{font-variant-numeric:tabular-nums;}
+            .horario-timeline-axis-label{color:#64748B;font-size:11px;font-weight:600;}
+            .horario-timeline-axis-label.major{font-size:13px;font-weight:800;}
+            .horario-timeline-day::before{
+                background-image:
+                    repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--timeline-hour) - 1px), #DCE4EE calc(var(--timeline-hour) - 1px), #DCE4EE var(--timeline-hour)),
+                    repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--timeline-step) - 1px), #EEF2F7 calc(var(--timeline-step) - 1px), #EEF2F7 var(--timeline-step));
+            }
+            .horario-timeline-empty{
+                left:12px;
+                transform:none;
+                color:#64748B;
+                font-size:11px;
+                font-weight:600;
+                letter-spacing:0;
+                text-transform:none;
+            }
+            .horario-timeline-receso{
+                inset-inline:5px;
+                flex-direction:column;
+                align-items:flex-start;
+                padding-inline:6px;
+                border-radius:6px;
+                color:#991B1B;
+                font-size:10px;
+                font-weight:600;
+                line-height:1.15;
+                letter-spacing:0;
+                text-align:left;
+                text-transform:none;
+                box-shadow:none;
+            }
+            .horario-timeline-receso strong{font-weight:800;}
+            .horario-clase-timeline,
+            .horario-clase-timeline:hover{
+                border-radius:8px;
+                box-shadow:none;
+                transform:none;
+            }
+            .horario-clase-timeline[draggable="true"]{cursor:grab;}
+            .horario-card-accent{flex:0 0 1px;}
+            .horario-card-content{gap:2px;padding:5px 7px;}
+            .horario-card-title,
+            .horario-card-secondary{
+                display:-webkit-box;
+                -webkit-box-orient:vertical;
+                -webkit-line-clamp:2;
+                overflow-wrap:anywhere;
+                white-space:normal;
+                flex-shrink:0;
+            }
+            .horario-card-title{font-size:13px;font-weight:800;line-height:1.12;}
+            .horario-card-secondary{font-size:11px;font-weight:600;line-height:1.15;}
+            .horario-clase-timeline .btn-eliminar-horario{top:auto;right:3px;bottom:3px;width:24px;height:24px;}
+            .horario-clase-timeline:has(.btn-eliminar-horario) .horario-card-time{padding-right:24px;}
+            .horario-card-third{display:flex;flex-wrap:wrap;gap:1px 5px;color:inherit;font-size:10px;}
+            .horario-card-location{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+            .horario-card-recovery-label{font-weight:800;}
+            .horario-clase-timeline.es-recuperacion{border-style:dashed;}
+            .horario-clase-timeline.compacta .horario-card-content{gap:1px;padding-block:3px;}
+            .horario-clase-timeline.compacta .horario-card-third{display:flex;}
+            .horario-clase-timeline.compacta .horario-card-location{display:none;}
+            .horario-clase-timeline.muy-compacta .horario-card-title,
+            .horario-clase-timeline.muy-compacta .horario-card-secondary{-webkit-line-clamp:1;}
+            .horario-clase-timeline.muy-compacta .horario-card-content{padding-block:2px;}
+            .horario-clase-timeline.muy-compacta.es-recuperacion .horario-card-secondary{display:none;}
+            .horario-card-time,
+            .horario-clase-timeline.muy-compacta .horario-card-time{
+                display:flex;
+                gap:5px;
+                justify-content:flex-start;
+                width:auto;
+                border:0;
+                padding:0;
+                background:none;
+                box-shadow:none;
+                font-size:10px;
+                line-height:1.15;
+            }
+            .horario-card-day{display:none;}
+            .horario-timeline-scroll:focus-visible{outline:2px solid #4F46E5;outline-offset:-2px;}
+            .horario-leyenda{
+                display:flex;
+                flex-wrap:wrap;
+                gap:6px 16px;
+                padding:8px 12px;
+                border-top:1px solid #DCE4EE;
+                color:#475569;
+                font-size:11px;
+            }
+            .horario-leyenda span{display:inline-flex;align-items:center;gap:6px;}
+            .horario-leyenda span::before{
+                content:"";
+                width:12px;
+                height:10px;
+                border:1px solid #64748B;
+                border-radius:2px;
+                background:#EEF2FF;
+            }
+            .horario-leyenda .leyenda-libre::before{background:#FFFFFF;}
+            .horario-leyenda .leyenda-receso::before{border-style:dashed;background:#FEE2E2;}
+            .horario-leyenda .leyenda-recuperacion::before{border-style:dashed;background:#EFF6FF;}
+            @container (max-width:760px){
+                .horario-timeline-grid{--horario-ancho-eje:62px;min-width:1294px;}
+                .horario-timeline-axis-label{padding-right:10px;}
+                .horario-card-day{display:inline;}
             }
         `;
 
@@ -4359,7 +4373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
         return (
-            `${TIMELINE.anchoHora}px `
+            `var(--horario-ancho-eje, ${TIMELINE.anchoHora}px) `
             +
             columnas.join(
                 ' '
@@ -4443,6 +4457,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 class="
                     horario-clase
                     horario-clase-timeline
+                    ${bloque.recuperacion_id ? 'es-recuperacion' : ''}
                     ${
                         compacta
                             ? 'compacta'
@@ -4480,23 +4495,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     "
                 ></div>
 
-                <span
-                    class="horario-card-symbol"
-                    aria-hidden="true"
-                >
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.9"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5A2.5 2.5 0 0 0 17.5 16H4z" />
-                        <path d="M4 5.5V19a2 2 0 0 0 2 2h11.5A2.5 2.5 0 0 0 20 18.5" />
-                    </svg>
-                </span>
-
                 ${eliminar}
 
                 <div
@@ -4509,15 +4507,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             horario-card-title
                         "
                     >
-                        ${bloque.recuperacion_id ? 'Recuperación · ' : ''}${esc(datos.principal)}
+                        ${esc(datos.principal)}
                     </div>
 
                     <div
                         class="
                             horario-card-secondary
-                        "
-                        style="
-                            color:${color.acento};
                         "
                     >
                         ${esc(
@@ -4530,9 +4525,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             horario-card-third
                         "
                     >
-                        ${esc(
-                            datos.tercero
-                        )}
+                        ${bloque.recuperacion_id ? '<span class="horario-card-recovery-label">Recuperación</span>' : ''}
+                        <span class="horario-card-location">${esc(datos.tercero)}</span>
                     </div>
 
                     <div
@@ -4540,15 +4534,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             horario-card-time
                         "
                     >
-                        ${esc(
-                            bloque.hora_inicio
-                        )}
-
-                        &nbsp;–&nbsp;
-
-                        ${esc(
-                            bloque.hora_fin
-                        )}
+                        <span class="horario-card-day">${esc(DIAS.find(dia => dia.numero === diaANumero(bloque.dia_semana))?.texto || '')}</span>
+                        <span>${esc(bloque.hora_inicio)}–${esc(bloque.hora_fin)}</span>
                     </div>
                 </div>
             </article>
@@ -4692,7 +4679,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                     height:${alto}px;
                                 "
                             >
-                                ${esc(receso.nombre)} · ${esc(receso.hora_inicio)} - ${esc(receso.hora_fin)}
+                                <strong>${esc(receso.nombre)}</strong>
+                                <span>${esc(receso.hora_inicio)}–${esc(receso.hora_fin)}</span>
                             </div>
                         `;
                     }
@@ -4700,11 +4688,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 .join(
                     ''
                 );
-
-        const tieneRecesos =
-            Boolean(
-                recesos.trim()
-            );
 
         const items =
             calcularDistribucionDia(
@@ -4805,8 +4788,6 @@ document.addEventListener('DOMContentLoaded', () => {
             >
                 ${
                     bloquesDia.length
-                    ||
-                    tieneRecesos
                         ? ''
                         : `
                             <span
@@ -4855,9 +4836,6 @@ document.addEventListener('DOMContentLoaded', () => {
                                     ${dia.texto}
                                 </strong>
 
-                                <span>
-                                    ${dia.corto}
-                                </span>
                             </div>
                         `
                 )
@@ -5020,11 +4998,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
-                <div
-                    class="
-                        horario-timeline-scroll
-                    "
-                >
+                <div class="horario-leyenda">
+                    <span>Clase</span>
+                    <span class="leyenda-receso">Receso</span>
+                    <span class="leyenda-libre">Espacio libre</span>
+                    <span class="leyenda-recuperacion">Recuperación</span>
+                </div>
+                <div class="horario-timeline-scroll" tabindex="0" role="region" aria-label="Cuadrícula semanal">
                     <div
                         class="
                             horario-timeline-grid

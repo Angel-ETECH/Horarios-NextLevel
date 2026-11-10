@@ -559,28 +559,25 @@
 
                     <div
                         class="
-                            mb-8
+                            mb-6
                             flex
                             items-center
-                            justify-center
                             lg:hidden
                         "
                     >
 
-                        <div class="text-center">
+                        <div class="flex items-center gap-3">
 
                             <div
                                 class="
-                                    mx-auto
                                     flex
-                                    h-20
-                                    w-20
+                                    h-12
+                                    w-12
                                     items-center
                                     justify-center
                                     rounded-2xl
                                     bg-white
                                     p-2
-                                    shadow-lg
                                     ring-1
                                     ring-slate-200
                                 "
@@ -588,7 +585,7 @@
 
                                 <img
                                     src="{{ asset('images/logo-next-level.png') }}"
-                                    alt="Next Level School"
+                                    alt=""
                                     class="
                                         h-full
                                         w-full
@@ -601,8 +598,7 @@
 
                             <h1
                                 class="
-                                    mt-4
-                                    text-2xl
+                                    text-lg
                                     font-extrabold
                                 "
                                 style="color:#0F2749;"
@@ -620,42 +616,7 @@
                          ENCABEZADO
                     ================================================== --}}
 
-                    <div class="mb-8">
-
-                        <div
-                            class="
-                                mb-4
-                                flex
-                                items-center
-                                gap-3
-                            "
-                        >
-
-                            <span
-                                class="
-                                    h-1
-                                    w-9
-                                    rounded-full
-                                "
-                                style="background:#DB0808;"
-                            ></span>
-
-
-                            <span
-                                class="
-                                    text-xs
-                                    font-bold
-                                    uppercase
-                                    tracking-[0.20em]
-                                "
-                                style="color:#DB0808;"
-                            >
-                                Bienvenido
-                            </span>
-
-                        </div>
-
-
+                    <div class="mb-6">
                         <h2
                             class="
                                 text-3xl
@@ -842,6 +803,7 @@
                                         pl-12
                                         pr-4
                                         text-sm
+                                        placeholder:text-slate-500
                                         text-slate-800
                                         outline-none
                                         transition
@@ -869,9 +831,11 @@
                                 class="
                                     mb-2
                                     flex
+                                    flex-wrap
                                     items-center
                                     justify-between
-                                    gap-3
+                                    gap-x-3
+                                    gap-y-1
                                     text-sm
                                 "
                             >
@@ -958,6 +922,7 @@
                                         pl-12
                                         pr-12
                                         text-sm
+                                        placeholder:text-slate-500
                                         text-slate-800
                                         outline-none
                                         transition
@@ -980,7 +945,11 @@
                                         flex
                                         items-center
                                         px-4
-                                        text-slate-400
+                                        rounded-r-xl
+                                        text-slate-500
+                                        focus-visible:outline-2
+                                        focus-visible:-outline-offset-2
+                                        focus-visible:outline-blue-800
                                         transition
                                         hover:text-slate-700
                                     "
