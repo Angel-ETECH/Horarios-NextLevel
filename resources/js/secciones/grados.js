@@ -903,7 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         )}
                         ${escaparHTML(
                             grado.seccion
-                                ? `· Sección ${grado.seccion}`
+                                ? `· ${grado.nivel === 'academia' ? 'Nivel' : 'Sección'} ${grado.seccion}`
                                 : ''
                         )}
                     </p>
@@ -1574,6 +1574,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             : 'Grado creado correctamente.',
                         'success'
                     );
+                    paginaActual = 1;
                 }
 
 
@@ -1896,6 +1897,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function sincronizarFiltrosVisuales() {
+        actualizarEtiquetasAcademia();
 
         document
             .querySelectorAll('.grado-filter-select')
@@ -1903,6 +1905,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 sincronizarFiltroVisual
             );
     }
+
+    function actualizarEtiquetasAcademia() {
+        const academia = nivelInput.value === 'academia';
+        document.getElementById('grado-etiqueta').textContent = academia ? 'Aula' : 'Grado';
+        document.getElementById('seccion-etiqueta').textContent = academia ? 'Nivel' : 'Sección';
+        gradoInput.placeholder = academia ? 'Ej. Aula 1' : 'Ej. 1ro';
+        seccionInput.placeholder = academia ? 'Ej. A1' : 'Ej. A';
+    }
+
+    nivelInput.addEventListener('change', actualizarEtiquetasAcademia);
+    actualizarEtiquetasAcademia();
 
 
     document

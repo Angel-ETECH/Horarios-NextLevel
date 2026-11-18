@@ -1012,7 +1012,7 @@
                 grid
                 grid-cols-1
                 gap-3
-                lg:grid-cols-[minmax(260px,1fr)_210px_210px_210px]
+                lg:grid-cols-[minmax(260px,1fr)_210px_210px]
             "
         >
 
@@ -1138,7 +1138,7 @@
 
             {{-- NIVEL --}}
 
-            <div>
+            <div hidden>
 
                 <select
                     id="filtro-aula-nivel"
@@ -1273,9 +1273,7 @@
                             Tipo
                         </th>
 
-                        <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
-                            Nivel
-                        </th>
+                        <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-[#1B3A6B]" hidden>Nivel</th>
 
                         <th class="px-5 py-4 text-left text-xs font-bold uppercase tracking-wider text-[#1B3A6B]">
                             Estado
@@ -1532,6 +1530,8 @@
 
                         <input
                             id="aula-codigo"
+                        readonly
+                        data-codigo-automatico
                             type="text"
                             readonly
                             placeholder="Se genera automáticamente"
@@ -1661,7 +1661,7 @@
 
                     {{-- NIVEL --}}
 
-                    <div>
+                    <div hidden>
 
                         <label class="mb-2 block text-sm font-semibold text-[#0F2749]">
                             Nivel

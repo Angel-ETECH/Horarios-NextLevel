@@ -26,10 +26,6 @@ class AulaService
     public function getByNivel(string $nivel): Collection
     {
         return Aula::where('activo', true)
-            ->where(function ($query) use ($nivel) {
-                $query->where('nivel', $nivel)
-                      ->orWhere('nivel', 'todos');
-            })
             ->orderBy('codigo')
             ->orderBy('nombre')
             ->get();
@@ -42,10 +38,6 @@ class AulaService
     {
         return Aula::where('activo', true)
             ->where('tipo', $tipo)
-            ->where(function ($query) use ($nivel) {
-                $query->where('nivel', $nivel)
-                      ->orWhere('nivel', 'todos');
-            })
             ->orderBy('nombre')
             ->get();
     }
@@ -188,17 +180,15 @@ class AulaService
      */
     public function create(array $data): Aula
     {
-        return \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($data) {
-            return DB::transaction(function () use ($data) {
-                unset($data['codigo']);
+        return DB::transaction(function () use ($data) {
+            unset($data['codigo']);
 
-                // Normalizar institución por defecto
-                if (!isset($data['institucion'])) {
-                    $data['institucion'] = 'ambos';
-                }
+            // Normalizar institución por defecto
+            if (!isset($data['institucion'])) {
+                $data['institucion'] = 'ambos';
+            }
 
-                return Aula::create($data);
-            });
+            return Aula::create($data);
         });
     }
 
@@ -239,6 +229,7 @@ class AulaService
                 $this->validarCapacidadVsHorarios($id, $data['capacidad']);
             }
 
+            $data['nivel'] = 'todos';
             $aula->update($data);
             return $aula->fresh();
         });

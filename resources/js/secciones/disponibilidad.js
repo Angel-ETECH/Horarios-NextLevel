@@ -161,6 +161,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let recesosInstitucion =
         [];
 
+    let reservasOtraInstitucion = [];
+    let reservasCargadas = false;
+
+    function reservaQueCruza(dia, inicio, fin) {
+        return reservasOtraInstitucion.find(reserva =>
+            Number(reserva.dia) === Number(dia) &&
+            rangosSeCruzan(inicio, fin, reserva.hora_inicio, reserva.hora_fin));
+    }
+
+    function mensajeReserva(reserva) {
+        const nombre = reserva.institucion === 'academia' ? 'Academia' : 'Colegio';
+        return `Reservado para ${nombre}: ${reserva.hora_inicio}–${reserva.hora_fin}`;
+    }
+
 
     // =========================================================
     // UTILIDADES
@@ -1686,9 +1700,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
         if (
             seleccionado &&
-            slot.classList.contains(
-                'receso-slot'
-            )
+            (slot.classList.contains('receso-slot') || slot.classList.contains('reservado-slot'))
         ) {
             return;
         }
@@ -1849,6 +1861,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     slot.removeAttribute(
                         'title'
                     );
+                }
+
+                const reserva = disponibles.map(rango => reservaQueCruza(slot.dataset.dia,
+                    rango.hora_inicio, rango.hora_fin)).find(Boolean);
+                slot.classList.toggle('reservado-slot', Boolean(reserva));
+                slot.disabled = Boolean(reserva);
+                slot.querySelector('[data-reserva-texto]')?.remove();
+                slot.setAttribute('aria-label', inicio);
+                if (reserva) {
+                    const mensaje = mensajeReserva(reserva);
+                    slot.title = mensaje;
+                    slot.setAttribute('aria-label', `${inicio}. ${mensaje}`);
+                    const texto = document.createElement('span');
+                    texto.dataset.reservaTexto = '';
+                    texto.textContent = mensaje;
+                    slot.appendChild(texto);
                 }
             }
         );
@@ -2107,6 +2135,9 @@ document.addEventListener('DOMContentLoaded', () => {
             institucionSelect.value ||
             'colegio';
 
+        reservasOtraInstitucion = [];
+        reservasCargadas = false;
+
 
         limpiarGrid();
 
@@ -2136,6 +2167,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 await obtenerDisponibilidadesProfesor(
                     profesorId
                 );
+
+            if (String(profesorSelect.value) !== String(profesorId) || institucionSelect.value !== institucion) return;
+            reservasOtraInstitucion = todas.filter(item =>
+                (!item.tipo || item.tipo === 'disponible') && item.institucion !== institucion)
+                .map(item => ({ dia: nombreDiaANumero(item.dia_semana), institucion: item.institucion,
+                    hora_inicio: horaCorta(item.hora_inicio), hora_fin: horaCorta(item.hora_fin) }));
+            reservasCargadas = true;
 
 
             const filtradas =
@@ -3078,6 +3116,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            if (minutosEntre(horaInicio, horaFin) < 30) {
+                alert('El bloque de disponibilidad debe tener al menos 30 minutos de duración.');
+                return;
+            }
+
+            if (!reservasCargadas) {
+                alert('Espera a que se cargue la disponibilidad del profesor.');
+                return;
+            }
+            const reserva = reservaQueCruza(dia, horaInicio, horaFin);
+            if (reserva) {
+                alert(`${mensajeReserva(reserva)}. Selecciona otro rango o retira primero esa disponibilidad.`);
+                return;
+            }
+
             const receso =
                 recesoQueCruza(
                     horaInicio,
@@ -3499,6 +3552,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 )
             ];
+
+            if (!reservasCargadas) {
+                alert('No se pudo comprobar la reserva de la otra institución. Vuelve a seleccionar el profesor.');
+                return;
+            }
+            const cruceReservado = todasLasFranjas.map(franja => reservaQueCruza(franja.dia_semana,
+                franja.hora_inicio, franja.hora_fin)).find(Boolean);
+            if (cruceReservado) {
+                alert(`${mensajeReserva(cruceReservado)}. No se guardaron cambios.`);
+                return;
+            }
 
 
             if (

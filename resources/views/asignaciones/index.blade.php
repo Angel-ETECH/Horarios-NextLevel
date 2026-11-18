@@ -849,7 +849,7 @@
                     "
                     style="color:#0F2749;"
                 >
-                    Grado / Sección
+                    <span id="asignacion-grado-etiqueta">Grado / Sección</span>
                     <span class="text-red-600">*</span>
                 </label>
 

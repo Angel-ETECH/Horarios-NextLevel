@@ -8,6 +8,7 @@ use Illuminate\Support\Carbon;
 
 class GradoRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CodigoGeneradoPorServidor;
     public function authorize(): bool
     {
         return true;

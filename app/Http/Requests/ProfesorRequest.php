@@ -7,6 +7,7 @@ use Illuminate\Validation\Rule;
 
 class ProfesorRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CodigoGeneradoPorServidor;
     public function authorize(): bool
     {
         return true; // Cambiar cuando tengas autenticación

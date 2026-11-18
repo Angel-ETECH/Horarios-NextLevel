@@ -225,7 +225,7 @@ class AsignacionService
         }
 
         // Validar compatibilidad de nivel (si el curso tiene nivel específico)
-        if ($curso->nivel && $curso->nivel !== 'todos' && $curso->nivel !== $grado->nivel) {
+        if (!$curso->admiteNivel($grado->nivel)) {
             throw ValidationException::withMessages([
                 'curso_id' => "El curso es de nivel '{$curso->nivel}' pero el grado es de nivel '{$grado->nivel}'"
             ]);
@@ -238,7 +238,6 @@ class AsignacionService
 
     private function validateInstitucionAcademica(string $institucion, Curso $curso, Grado $grado): void
     {
-        $cursoNivel = strtolower((string) ($curso->nivel ?? ''));
         $gradoNivel = strtolower((string) ($grado->nivel ?? ''));
 
         if ($institucion === 'academia') {
@@ -248,7 +247,7 @@ class AsignacionService
                 ]);
             }
 
-            if (!in_array($cursoNivel, ['academia', 'todos'], true)) {
+            if (!$curso->admiteNivel('academia')) {
                 throw ValidationException::withMessages([
                     'curso_id' => 'Para Academia solo puedes seleccionar cursos de Academia.'
                 ]);
@@ -264,7 +263,7 @@ class AsignacionService
                 ]);
             }
 
-            if (!in_array($cursoNivel, ['primaria', 'secundaria', 'todos'], true)) {
+            if (!($curso->admiteNivel('primaria') || $curso->admiteNivel('secundaria'))) {
                 throw ValidationException::withMessages([
                     'curso_id' => 'Para Colegio solo puedes seleccionar cursos de Primaria o Secundaria.'
                 ]);

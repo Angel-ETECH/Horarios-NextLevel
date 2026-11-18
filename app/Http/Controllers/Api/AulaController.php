@@ -70,9 +70,6 @@ class AulaController extends Controller
             ]);
 
             $query = Aula::query();
-            if ($request->filled('nivel')) {
-                $query->whereIn('nivel', [$request->nivel, 'todos']);
-            }
             foreach (['tipo', 'edificio', 'piso'] as $campo) {
                 if ($request->filled($campo)) {
                     $query->where($campo, $request->input($campo));
@@ -89,7 +86,7 @@ class AulaController extends Controller
             if ($request->has('activo')) {
                 $query->where('activo', $request->boolean('activo'));
             }
-            $aulas = $query->orderBy('codigo')->orderBy('nombre')->get();
+            $aulas = $query->orderByDesc('created_at')->orderByDesc('id')->get();
 
             return response()->json([
                 'success' => true,
@@ -325,8 +322,7 @@ class AulaController extends Controller
     public function store(AulaRequest $request): JsonResponse
     {
         try {
-            $aula = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
-                return DB::transaction(function () use ($request) {
+            $aula = DB::transaction(function () use ($request) {
                     $aula = $this->aulaService->create($request->validated());
 
                     $this->historialService->registrarEvento(
@@ -338,7 +334,6 @@ class AulaController extends Controller
                     );
 
                     return $aula;
-                });
             });
 
             return response()->json([

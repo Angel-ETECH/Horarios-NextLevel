@@ -9,3 +9,32 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+input[data-codigo-automatico]:disabled {
+    background: #F1F5F9;
+    color: #0F2749;
+    -webkit-text-fill-color: #0F2749;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    cursor: default;
+    pointer-events: none;
+    caret-color: transparent;
+    opacity: 1;
+    outline: none;
+    box-shadow: none;
+}
+/* Las reservas se distinguen por texto y borde, además del color. */
+.availability-slot.reservado-slot {
+    background: #fff7ed !important;
+    border: 1px dashed #b45309 !important;
+    color: #92400e !important;
+    cursor: not-allowed;
+}
+.availability-slot [data-reserva-texto] {
+    display: block;
+    padding: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: normal;
+}

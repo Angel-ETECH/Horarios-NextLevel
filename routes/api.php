@@ -114,6 +114,9 @@ Route::prefix('publico')->group(function () {
 // ============================================
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/codigos/{catalogo}/siguiente', function (string $catalogo) {
+        return response()->json(['codigo' => app(\App\Services\CodigoSecuencialService::class)->siguiente($catalogo)]);
+    });
     Route::get('/recuperaciones', [\App\Http\Controllers\Api\RecuperacionHorarioController::class, 'index']);
     Route::post('/recuperaciones/opciones', [\App\Http\Controllers\Api\RecuperacionHorarioController::class, 'opciones'])->middleware('throttle:60,1');
     Route::post('/recuperaciones', [\App\Http\Controllers\Api\RecuperacionHorarioController::class, 'store']);

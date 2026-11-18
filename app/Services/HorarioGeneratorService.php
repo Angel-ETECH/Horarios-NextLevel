@@ -4,6 +4,7 @@
 namespace App\Services;
 
 use App\Models\Horario;
+use App\Models\Curso;
 use App\Models\ProfesorCurso;
 use App\Models\Aula;
 use App\Models\DisponibilidadProfesor;
@@ -170,6 +171,8 @@ class HorarioGeneratorService
         $periodo = $data['periodo_academico'] ?? (date('Y').'-'.(date('Y') + 1));
         $this->configuracionesCache = [];
         $configs = $this->obtenerConfiguracionesCandidatas($data['institucion'], $grado->nivel, $grado->turno);
+        $curso = Curso::findOrFail($data['curso_id']);
+        $configs = $configs->map(fn ($config) => $this->configuracionParaCurso($config, $curso));
         $disponibilidad = $this->obtenerDisponibilidadProfesor($data['profesor_id'], $data['institucion']);
         $existentes = Horario::where('estado', 'activo')->where('periodo_academico', $periodo)->get();
         $asignacion = !empty($data['asignacion_id']) ? ProfesorCurso::find($data['asignacion_id']) : null;
@@ -335,6 +338,7 @@ class HorarioGeneratorService
         $horasPendientes = $horasNecesarias;
 
         foreach ($configuraciones as $config) {
+            $config = $this->configuracionParaCurso($config, $asignacion->curso);
             $bloquesConfig = $this->asignarBloquesConConfiguracion(
                 $asignacion,
                 $config,
@@ -484,6 +488,15 @@ class HorarioGeneratorService
             ->where('tipo', 'clase')->values();
     }
 
+    private function configuracionParaCurso(ConfiguracionHorario $config, Curso $curso): ConfiguracionHorario
+    {
+        $config = clone $config;
+        if ($curso->usar_duracion_curso) {
+            $config->duracion_bloque_minutos = $curso->duracion_minutos;
+        }
+        return $config;
+    }
+
     /**
      * Verificar disponibilidad del profesor en un bloque
      */
@@ -555,10 +568,7 @@ class HorarioGeneratorService
     {
         return Aula::where('activo', true)
             ->where('capacidad', '>=', $grado->numero_estudiantes ?? 0)
-            ->where(function ($q) use ($grado) {
-                $q->where('nivel', 'todos')
-                  ->orWhere('nivel', $grado->nivel);
-            })
+            ->whereIn('institucion', [$institucion, 'ambos'])
             ->orderBy('capacidad', 'asc')
             ->get();
     }

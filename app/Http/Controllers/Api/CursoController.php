@@ -21,7 +21,7 @@ class CursoController extends Controller
         $query = Curso::query();
 
         if ($request->has('nivel')) {
-            $query->whereIn('nivel', [$request->nivel, 'todos']);
+            $query->nivel($request->nivel);
         }
 
         if ($request->has('tipo')) {
@@ -41,7 +41,7 @@ class CursoController extends Controller
             });
         }
 
-        $cursos = $query->orderBy('nombre')
+        $cursos = $query->orderByDesc('created_at')->orderByDesc('id')
                        ->paginate($request->per_page ?? 15);
 
         return response()->json([
@@ -63,12 +63,14 @@ class CursoController extends Controller
     public function store(CursoRequest $request)
     {
         try {
-            $curso = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
-                return DB::transaction(function () use ($request) {
-                    $data = $request->validated();
-                    unset($data['codigo']);
-
-                    $curso = Curso::create($data);
+            $curso = DB::transaction(function () use ($request) {
+            $data = $request->validated();
+            unset($data['codigo']);
+            $data['usar_duracion_curso'] = true;
+            if (isset($data['niveles'])) {
+                $data['nivel'] = count($data['niveles']) === 1 ? $data['niveles'][0] : 'todos';
+            }
+            $curso = Curso::create($data);
 
                     $this->historialService->registrarEvento(
                         'cursos',
@@ -79,7 +81,6 @@ class CursoController extends Controller
                     );
 
                     return $curso;
-                });
             });
 
             return response()->json([
@@ -105,10 +106,28 @@ class CursoController extends Controller
             $datosAnteriores = $this->snapshotCurso($curso);
             $data = $request->validated();
             unset($data['codigo']);
+            $data['usar_duracion_curso'] = (int) $data['duracion_minutos'] !== (int) $curso->duracion_minutos
+                || (bool) $curso->usar_duracion_curso;
+            if (($data['niveles'] ?? null) === null) {
+                unset($data['niveles']);
+            }
+            if (!isset($data['niveles']) && $data['nivel'] !== $curso->nivel) {
+                $data['niveles'] = $data['nivel'] === 'todos'
+                    ? ['primaria', 'secundaria', 'academia'] : [$data['nivel']];
+            }
+            if (isset($data['niveles'])) {
+                $data['nivel'] = count($data['niveles']) === 1 ? $data['niveles'][0] : 'todos';
+                $nivelesUsados = $curso->grados()->wherePivot('activo', true)->pluck('grados.nivel')->unique()->all();
+                if (array_diff($nivelesUsados, $data['niveles'])) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Los niveles seleccionados deben conservar los usados por las asignaciones activas.'], 422);
+                }
+            }
             $tieneAsignaciones = $curso->profesores()->wherePivot('activo', true)->exists();
             if ($tieneAsignaciones && (
                 (array_key_exists('activo', $data) && !$data['activo']) ||
-                ($data['nivel'] ?? $curso->nivel) !== $curso->nivel
+                (!isset($data['niveles']) && ($data['nivel'] ?? $curso->nivel) !== $curso->nivel) ||
+                (int) $data['duracion_minutos'] !== (int) $curso->duracion_minutos
             )) {
                 DB::rollBack();
                 return response()->json([

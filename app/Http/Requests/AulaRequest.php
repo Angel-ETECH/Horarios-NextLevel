@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 
 class AulaRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CodigoGeneradoPorServidor;
     public function authorize(): bool
     {
         return true;
@@ -19,7 +20,7 @@ class AulaRequest extends FormRequest
             'nombre' => 'required|string|max:50',
             'capacidad' => 'required|integer|min:1|max:200',
             'tipo' => ['required', Rule::in(['aula_normal', 'taller', 'auditorio', 'virtual'])],
-            'nivel' => ['required', Rule::in(['primaria', 'secundaria', 'academia', 'todos'])],
+            'nivel' => ['sometimes', Rule::in(['primaria', 'secundaria', 'academia', 'todos'])],
             'institucion' => ['nullable', Rule::in(['colegio', 'academia', 'ambos'])],
             'edificio' => 'nullable|string|max:50',
             'piso' => 'nullable|string|max:10',

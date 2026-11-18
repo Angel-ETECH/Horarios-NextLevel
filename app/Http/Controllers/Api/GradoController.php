@@ -48,9 +48,7 @@ class GradoController extends Controller
             });
         }
 
-        $grados = $query->orderBy('nivel')
-                       ->orderBy('grado')
-                       ->orderBy('seccion')
+        $grados = $query->orderByDesc('created_at')->orderByDesc('id')
                        ->paginate($request->per_page ?? 15);
 
         return response()->json([
@@ -72,8 +70,7 @@ class GradoController extends Controller
     public function store(GradoRequest $request)
     {
         try {
-            $grado = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
-                return DB::transaction(function () use ($request) {
+            $grado = DB::transaction(function () use ($request) {
                     // Generar nombre completo automáticamente
                     $data = $request->validated();
                     unset($data['codigo']);
@@ -90,7 +87,6 @@ class GradoController extends Controller
                     );
 
                     return $grado;
-                });
             });
 
             return response()->json([

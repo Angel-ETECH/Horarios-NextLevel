@@ -1352,7 +1352,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 )}
             </td>
 
-            <td class="whitespace-nowrap px-5 py-4">
+            <td hidden class="whitespace-nowrap px-5 py-4">
 
                 <span
                     class="

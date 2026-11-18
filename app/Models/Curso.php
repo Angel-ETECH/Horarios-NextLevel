@@ -3,16 +3,14 @@
 
 namespace App\Models;
 
-use App\Traits\GeneraCodigoAutomatico;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Curso extends Model
 {
-    use HasFactory, SoftDeletes, GeneraCodigoAutomatico;
-
-    protected string $prefijoCodigo = 'CUR';
+    use HasFactory, SoftDeletes;
+    use \App\Models\Concerns\GeneraCodigoAutomatico;
 
     protected $table = 'cursos';
 
@@ -23,6 +21,8 @@ class Curso extends Model
         'horas_semanales',
         'duracion_minutos',
         'nivel',
+        'niveles',
+        'usar_duracion_curso',
         'tipo',
         'color',
         'activo',
@@ -30,6 +30,8 @@ class Curso extends Model
     ];
 
     protected $casts = [
+        'niveles' => 'array',
+        'usar_duracion_curso' => 'boolean',
         'horas_semanales' => 'integer',
         'duracion_minutos' => 'integer',
         'activo' => 'boolean',
@@ -88,7 +90,23 @@ class Curso extends Model
      */
     public function scopeNivel($query, $nivel)
     {
-        return $query->where('nivel', $nivel);
+        return $query->where(function ($query) use ($nivel) {
+            $query->whereJsonContains('niveles', $nivel)
+                ->orWhere(function ($query) use ($nivel) {
+                    $query->whereNull('niveles')->whereIn('nivel', [$nivel, 'todos']);
+                });
+        });
+    }
+
+    public function nivelesPermitidos(): array
+    {
+        return $this->niveles ?? ($this->nivel === 'todos'
+            ? ['primaria', 'secundaria', 'academia'] : [$this->nivel]);
+    }
+
+    public function admiteNivel(string $nivel): bool
+    {
+        return in_array($nivel, $this->nivelesPermitidos(), true);
     }
 
     /**

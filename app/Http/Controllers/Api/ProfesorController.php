@@ -45,8 +45,7 @@ class ProfesorController extends Controller
             });
         }
 
-        $profesores = $query->orderBy('apellido_paterno')
-                           ->orderBy('nombre')
+        $profesores = $query->orderByDesc('created_at')->orderByDesc('id')
                            ->paginate($request->per_page ?? 15);
 
         return response()->json([
@@ -74,8 +73,7 @@ class ProfesorController extends Controller
     public function store(ProfesorRequest $request)
     {
         try {
-            $profesor = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
-                return DB::transaction(function () use ($request) {
+            $profesor = DB::transaction(function () use ($request) {
                     $data = $request->validated();
                     unset($data['codigo']);
 
@@ -94,7 +92,6 @@ class ProfesorController extends Controller
                     );
 
                     return $profesor;
-                });
             });
 
             return response()->json([

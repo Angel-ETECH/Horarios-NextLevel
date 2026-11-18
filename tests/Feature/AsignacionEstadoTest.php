@@ -58,6 +58,8 @@ class AsignacionEstadoTest extends TestCase
             '2026_09_22_091535_create_personal_access_tokens_table.php',
             '2026_10_05_000002_add_aula_to_profesor_curso_table.php',
             '2026_10_12_000001_add_institucion_to_aulas_table.php',
+            '2026_11_17_000001_add_niveles_compartidos_to_cursos.php',
+            '2026_11_17_000002_create_secuencias_codigos.php',
         ] as $migration) {
             (require database_path('migrations/'.$migration))->up();
         }

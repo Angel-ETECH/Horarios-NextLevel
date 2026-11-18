@@ -706,6 +706,8 @@
 
                         <input
                             id="codigo"
+                            readonly
+                            data-codigo-automatico
                             type="text"
                             readonly
                             placeholder="Se genera automáticamente"

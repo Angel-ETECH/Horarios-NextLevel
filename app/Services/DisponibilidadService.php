@@ -12,6 +12,30 @@ use Illuminate\Validation\ValidationException;
 
 class DisponibilidadService
 {
+    private function validarReservaOtraInstitucion(array $data, ?int $excludeId = null): void
+    {
+        if (($data['tipo'] ?? 'disponible') !== 'disponible') return;
+
+        $institucion = $data['institucion'] ?? 'colegio';
+        $inicio = Carbon::parse($data['hora_inicio'])->format('H:i:s');
+        $fin = Carbon::parse($data['hora_fin'])->format('H:i:s');
+        $reserva = DisponibilidadProfesor::where('profesor_id', $data['profesor_id'])
+            ->where('institucion', $institucion === 'colegio' ? 'academia' : 'colegio')
+            ->where('dia_semana', $data['dia_semana'])->where('tipo', 'disponible')
+            ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->whereTime('hora_inicio', '<', $fin)->whereTime('hora_fin', '>', $inicio)
+            ->orderBy('hora_inicio')->first();
+
+        if ($reserva) {
+            $nombre = $reserva->institucion === 'academia' ? 'Academia' : 'Colegio';
+            throw ValidationException::withMessages([
+                'reserva' => 'Reservado para '.$nombre.': '.ucfirst($reserva->dia_semana).' '
+                    .$reserva->hora_inicio->format('H:i').'–'.$reserva->hora_fin->format('H:i')
+                    .'. Retira primero esa disponibilidad si deseas cambiarla de institución.',
+            ]);
+        }
+    }
+
     public function reemplazar(int $profesorId, string $institucion, array $franjas): Collection
     {
         return DB::transaction(function () use ($profesorId, $institucion, $franjas) {
@@ -526,6 +550,7 @@ class DisponibilidadService
         array $data,
         ?int $excludeId = null
     ): void {
+        $this->validarReservaOtraInstitucion($data, $excludeId);
 
         $query =
             DisponibilidadProfesor::where(
@@ -627,6 +652,8 @@ class DisponibilidadService
                 $this->validarRangoHorario(
                     $data
                 );
+
+                $this->validarReservaOtraInstitucion($data);
 
 
                 /*
