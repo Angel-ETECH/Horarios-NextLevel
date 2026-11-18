@@ -438,6 +438,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         formulario.reset();
 
+        codigoInput.value = '';
+        codigoInput.placeholder = 'Se genera automáticamente';
+        codigoInput.readOnly = true;
+        codigoInput.classList.add('bg-slate-100', 'cursor-not-allowed', 'text-slate-500');
 
         capacidadInput.value =
             '30';
@@ -478,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setTimeout(
             () => {
-                codigoInput?.focus();
+                nivelInput?.focus();
             },
             80
         );
@@ -500,6 +504,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         codigoInput.value =
             grado.codigo ?? '';
+        codigoInput.readOnly = true;
+        codigoInput.classList.add('bg-slate-100', 'cursor-not-allowed', 'text-slate-500');
 
         nivelInput.value =
             grado.nivel ?? '';
@@ -1408,7 +1414,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         if (
-            !codigoInput.value.trim() ||
             !nivelInput.value ||
             !gradoInput.value.trim() ||
             !seccionInput.value.trim() ||
@@ -1495,10 +1500,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const payload = {
 
-                codigo:
-                    codigoInput.value
-                        .trim(),
-
                 nivel:
                     nivelInput.value,
 
@@ -1561,14 +1562,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 } else {
 
-                    await window.axios.post(
+                    const respuesta = await window.axios.post(
                         '/api/grados',
                         payload
                     );
 
-
+                    const codigoGenerado = respuesta?.data?.data?.codigo;
                     mostrarMensaje(
-                        'Grado creado correctamente.',
+                        codigoGenerado
+                            ? `Grado creado con código ${codigoGenerado}`
+                            : 'Grado creado correctamente.',
                         'success'
                     );
                 }

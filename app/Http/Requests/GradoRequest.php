@@ -19,7 +19,6 @@ class GradoRequest extends FormRequest
         $currentYear = Carbon::now()->year;
 
         return [
-            'codigo' => ['required', 'string', 'max:20', Rule::unique('grados')->ignore($gradoId)],
             'nivel' => 'required|in:primaria,secundaria,academia',
             'grado' => 'required|string|max:20',
             'seccion' => 'required|string|max:5',
@@ -39,7 +38,6 @@ class GradoRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'codigo.unique' => 'El código del grado ya está registrado',
             'numero_estudiantes.max' => 'El número de estudiantes no puede exceder la capacidad máxima del grado',
             'año_academico.min' => 'El año académico debe ser 2020 o posterior'
         ];

@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('nombre', 100);
             $table->text('descripcion')->nullable();
             $table->integer('horas_semanales')->default(4);
-            $table->integer('duracion_minutos')->default(60);
+            $table->integer('duracion_minutos')->default(45);
             $table->enum('nivel', ['primaria', 'secundaria', 'academia', 'todos'])->default('todos');
             $table->enum('tipo', ['obligatorio', 'electivo', 'taller'])->default('obligatorio');
             $table->string('color', 7)->default('#3490dc');

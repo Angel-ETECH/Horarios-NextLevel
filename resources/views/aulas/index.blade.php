@@ -1528,24 +1528,24 @@
 
                         <label class="mb-2 block text-sm font-semibold text-[#0F2749]">
                             Código
-                            <span class="text-red-500">*</span>
                         </label>
 
                         <input
                             id="aula-codigo"
                             type="text"
-                            maxlength="20"
-                            placeholder="Ej. AUL-001"
+                            readonly
+                            placeholder="Se genera automáticamente"
                             class="
-                                aulas-input
                                 w-full
+                                cursor-not-allowed
                                 rounded-xl
                                 border
                                 border-slate-200
+                                bg-slate-100
                                 px-4
                                 py-2.5
                                 text-sm
-                                uppercase
+                                text-slate-500
                                 outline-none
                             "
                         >

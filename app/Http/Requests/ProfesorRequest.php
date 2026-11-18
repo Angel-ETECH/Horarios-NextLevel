@@ -17,7 +17,6 @@ class ProfesorRequest extends FormRequest
         $profesorId = $this->route('id');
 
         return [
-            'codigo' => ['required', 'string', 'max:20', Rule::unique('profesores')->ignore($profesorId)],
             'nombre' => 'required|string|max:100',
             'apellido_paterno' => 'required|string|max:50',
             'apellido_materno' => 'nullable|string|max:50',
@@ -37,7 +36,6 @@ class ProfesorRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'codigo.unique' => 'El código ya está registrado',
             'dni.unique' => 'El DNI ya está registrado',
             'email.unique' => 'El email ya está registrado',
             'dni.size' => 'El DNI debe tener 8 dígitos'

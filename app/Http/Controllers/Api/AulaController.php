@@ -325,18 +325,21 @@ class AulaController extends Controller
     public function store(AulaRequest $request): JsonResponse
     {
         try {
-            DB::beginTransaction();
-            $aula = $this->aulaService->create($request->validated());
+            $aula = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
+                return DB::transaction(function () use ($request) {
+                    $aula = $this->aulaService->create($request->validated());
 
-            $this->historialService->registrarEvento(
-                'aulas',
-                'crear',
-                null,
-                $this->snapshotAula($aula),
-                'Aula creada'
-            );
+                    $this->historialService->registrarEvento(
+                        'aulas',
+                        'crear',
+                        null,
+                        $this->snapshotAula($aula),
+                        'Aula creada'
+                    );
 
-            DB::commit();
+                    return $aula;
+                });
+            });
 
             return response()->json([
                 'success' => true,

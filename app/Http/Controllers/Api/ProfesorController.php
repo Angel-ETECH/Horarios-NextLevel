@@ -74,23 +74,28 @@ class ProfesorController extends Controller
     public function store(ProfesorRequest $request)
     {
         try {
-            DB::beginTransaction();
+            $profesor = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
+                return DB::transaction(function () use ($request) {
+                    $data = $request->validated();
+                    unset($data['codigo']);
 
-            $profesor = Profesor::create($request->validated());
+                    $profesor = Profesor::create($data);
 
-            // Calcular carga horaria inicial
-            $profesor->carga_horaria_actual = 0;
-            $profesor->save();
+                    // Calcular carga horaria inicial
+                    $profesor->carga_horaria_actual = 0;
+                    $profesor->save();
 
-            $this->historialService->registrarEvento(
-                'profesores',
-                'crear',
-                null,
-                $this->snapshotProfesor($profesor),
-                'Profesor creado'
-            );
+                    $this->historialService->registrarEvento(
+                        'profesores',
+                        'crear',
+                        null,
+                        $this->snapshotProfesor($profesor),
+                        'Profesor creado'
+                    );
 
-            DB::commit();
+                    return $profesor;
+                });
+            });
 
             return response()->json([
                 'status' => 'success',
@@ -99,7 +104,6 @@ class ProfesorController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al crear el profesor: ' . $e->getMessage()
@@ -118,6 +122,8 @@ class ProfesorController extends Controller
             $profesor = Profesor::findOrFail($id);
             $datosAnteriores = $this->snapshotProfesor($profesor);
             $data = $request->validated();
+            unset($data['codigo']);
+
             $cargaAsignada = \App\Models\ProfesorCurso::where('profesor_id', $id)
                 ->where('activo', true)->sum('horas_asignadas');
             if ($data['estado'] === 'activo' && $data['carga_horaria_maxima'] < $cargaAsignada) {
@@ -128,7 +134,7 @@ class ProfesorController extends Controller
                     'errors' => ['carga_horaria_maxima' => ["El profesor tiene {$cargaAsignada} horas asignadas activas."]],
                 ], 422);
             }
-            $institucionNueva = $request->validated()['institucion'];
+            $institucionNueva = $data['institucion'];
             if ($institucionNueva !== 'ambos' && \App\Models\ProfesorCurso::where('profesor_id', $id)
                 ->where('activo', true)->where('institucion', '!=', $institucionNueva)->exists()) {
                 DB::rollBack();
@@ -137,7 +143,7 @@ class ProfesorController extends Controller
                     'message' => 'Desactiva primero las asignaciones de la otra institucion antes de cambiar al profesor.',
                 ], 422);
             }
-            $profesor->update($request->validated());
+            $profesor->update($data);
 
             if ($profesor->estado !== 'activo') {
                 app(AsignacionService::class)->deleteByProfesor($profesor->id);

@@ -133,6 +133,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // MENSAJES
     // =========================================================
 
+    function mostrarToast(mensaje, tipo = 'info') {
+        let toast = document.getElementById('aula-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'aula-toast';
+            toast.className = 'fixed bottom-5 right-5 z-[500] hidden max-w-sm rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-xl transition-all duration-300';
+            document.body.appendChild(toast);
+        }
+
+        toast.textContent = mensaje;
+        toast.classList.remove('hidden', 'bg-slate-900', 'bg-emerald-600', 'bg-red-600');
+
+        if (tipo === 'success') {
+            toast.classList.add('bg-emerald-600');
+        } else if (tipo === 'error') {
+            toast.classList.add('bg-red-600');
+        } else {
+            toast.classList.add('bg-slate-900');
+        }
+
+        setTimeout(() => {
+            toast.classList.add('hidden');
+        }, 3000);
+    }
+
     function mostrarMensajeError(mensaje) {
         alert(mensaje);
     }
@@ -857,6 +882,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         formulario.reset();
 
+        codigoInput.value = '';
+        codigoInput.placeholder = 'Se genera automáticamente';
+        codigoInput.readOnly = true;
+        codigoInput.classList.add('bg-slate-100', 'cursor-not-allowed', 'text-slate-500');
+
         nivelInput.value = 'todos';
         institucionInput.value = 'ambos';
         estadoInput.value = '1';
@@ -890,7 +920,7 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         setTimeout(
-            () => codigoInput.focus(),
+            () => nombreInput.focus(),
             100
         );
     }
@@ -947,11 +977,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             event.preventDefault();
 
-            const codigo =
-                codigoInput.value
-                    .trim()
-                    .toUpperCase();
-
             const nombre =
                 nombreInput.value.trim();
 
@@ -981,7 +1006,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 observacionesInput.value.trim();
 
             if (
-                !codigo ||
                 !nombre ||
                 !capacidad ||
                 !tipo
@@ -1009,7 +1033,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const aulaData = {
-                codigo,
                 nombre,
                 capacidad,
                 tipo,
@@ -1041,18 +1064,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
 
+                let respuesta;
+
                 if (aulaEditandoId) {
 
-                    await axios.put(
+                    respuesta = await axios.put(
                         `${API_URL}/${aulaEditandoId}`,
                         aulaData
                     );
 
+                    mostrarToast(
+                        respuesta?.data?.message || 'Aula actualizada exitosamente',
+                        'success'
+                    );
+
                 } else {
 
-                    await axios.post(
+                    respuesta = await axios.post(
                         API_URL,
                         aulaData
+                    );
+
+                    const codigoGenerado = respuesta?.data?.data?.codigo;
+                    mostrarToast(
+                        codigoGenerado
+                            ? `Aula creada con código ${codigoGenerado}`
+                            : (respuesta?.data?.message || 'Aula creada exitosamente'),
+                        'success'
                     );
                 }
 
@@ -1740,6 +1778,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 codigoInput.value =
                     aula.codigo ?? '';
+                codigoInput.readOnly = true;
+                codigoInput.classList.add('bg-slate-100', 'cursor-not-allowed', 'text-slate-500');
 
                 nombreInput.value =
                     aula.nombre ?? '';

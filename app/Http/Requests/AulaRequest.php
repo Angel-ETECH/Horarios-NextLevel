@@ -16,7 +16,6 @@ class AulaRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'codigo' => 'required|string|max:20|unique:aulas,codigo',
             'nombre' => 'required|string|max:50',
             'capacidad' => 'required|integer|min:1|max:200',
             'tipo' => ['required', Rule::in(['aula_normal', 'taller', 'auditorio', 'virtual'])],
@@ -29,10 +28,8 @@ class AulaRequest extends FormRequest
             'observaciones' => 'nullable|string|max:255'
         ];
 
-        // Para actualización, hacer campos opcionales y excluir el código actual
+        // Para actualización, hacer campos opcionales
         if ($this->isMethod('put') || $this->isMethod('patch')) {
-            $id = $this->route('id') ?? $this->route('aula');
-            $rules['codigo'] = 'sometimes|string|max:20|unique:aulas,codigo,' . $id;
             $rules['capacidad'] = 'sometimes|integer|min:1|max:200';
             $rules['tipo'] = ['sometimes', Rule::in(['aula_normal', 'taller', 'auditorio', 'virtual'])];
             $rules['nivel'] = ['sometimes', Rule::in(['primaria', 'secundaria', 'academia', 'todos'])];
@@ -46,8 +43,6 @@ class AulaRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'codigo.required' => 'El código del aula es obligatorio',
-            'codigo.unique' => 'Ya existe un aula con este código',
             'nombre.required' => 'El nombre del aula es obligatorio',
             'capacidad.required' => 'La capacidad del aula es obligatoria',
             'capacidad.min' => 'La capacidad mínima es 1 estudiante',

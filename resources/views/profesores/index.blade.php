@@ -701,15 +701,15 @@
 
                     <div>
                         <label class="mb-2 block text-sm font-semibold text-[#0F2749]">
-                            Código <span class="text-red-500">*</span>
+                            Código
                         </label>
 
                         <input
                             id="codigo"
                             type="text"
-                            maxlength="20"
-                            placeholder="Ej. PROF-001"
-                            class="profesor-input w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                            readonly
+                            placeholder="Se genera automáticamente"
+                            class="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm text-slate-500"
                         >
                     </div>
 

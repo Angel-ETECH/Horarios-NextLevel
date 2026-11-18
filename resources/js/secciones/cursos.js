@@ -1041,13 +1041,19 @@ document.addEventListener('DOMContentLoaded', () => {
         formulario.reset();
 
 
+        codigoInput.value = '';
+
+        codigoInput.placeholder =
+            'Se genera automáticamente';
+
         codigoInput.readOnly =
-            false;
+            true;
 
 
-        codigoInput.classList.remove(
+        codigoInput.classList.add(
             'bg-slate-100',
-            'cursor-not-allowed'
+            'cursor-not-allowed',
+            'text-slate-500'
         );
 
 
@@ -1117,12 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setTimeout(
             () => {
-
-                if (!editar) {
-                    codigoInput.focus();
-                } else {
-                    nombreInput.focus();
-                }
+                nombreInput.focus();
             },
             100
         );
@@ -1192,7 +1193,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
 
         if (
-            !datos.codigo ||
             !datos.nombre ||
             !datos.nivel ||
             !datos.tipo
@@ -1268,11 +1268,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function obtenerDatosFormulario() {
 
         return {
-
-            codigo:
-                codigoInput.value
-                    .trim()
-                    .toUpperCase(),
 
             nombre:
                 nombreInput.value
@@ -1376,13 +1371,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cerrarCursoModal();
 
 
+                const codigoGenerado = respuesta.data?.data?.codigo;
                 mostrarToast(
-                    respuesta.data?.message ||
-                    (
-                        cursoEditandoId
-                            ? 'Curso actualizado correctamente.'
-                            : 'Curso creado correctamente.'
-                    ),
+                    (!cursoEditandoId && codigoGenerado)
+                        ? `Curso creado con código ${codigoGenerado}`
+                        : (respuesta.data?.message || (cursoEditandoId ? 'Curso actualizado correctamente.' : 'Curso creado correctamente.')),
                     'success'
                 );
 
@@ -2599,7 +2592,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     codigoInput.classList.add(
                         'bg-slate-100',
-                        'cursor-not-allowed'
+                        'cursor-not-allowed',
+                        'text-slate-500'
                     );
 
 
@@ -2631,7 +2625,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     duracionInput.value =
                         String(
                             curso.duracion_minutos ??
-                            60
+                            45
                         );
 
 

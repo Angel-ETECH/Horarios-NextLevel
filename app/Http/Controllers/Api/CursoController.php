@@ -63,19 +63,24 @@ class CursoController extends Controller
     public function store(CursoRequest $request)
     {
         try {
-            DB::beginTransaction();
+            $curso = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
+                return DB::transaction(function () use ($request) {
+                    $data = $request->validated();
+                    unset($data['codigo']);
 
-            $curso = Curso::create($request->validated());
+                    $curso = Curso::create($data);
 
-            $this->historialService->registrarEvento(
-                'cursos',
-                'crear',
-                null,
-                $this->snapshotCurso($curso),
-                'Curso creado'
-            );
+                    $this->historialService->registrarEvento(
+                        'cursos',
+                        'crear',
+                        null,
+                        $this->snapshotCurso($curso),
+                        'Curso creado'
+                    );
 
-            DB::commit();
+                    return $curso;
+                });
+            });
 
             return response()->json([
                 'status' => 'success',
@@ -84,7 +89,6 @@ class CursoController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al crear el curso: ' . $e->getMessage()
@@ -100,6 +104,7 @@ class CursoController extends Controller
             $curso = Curso::findOrFail($id);
             $datosAnteriores = $this->snapshotCurso($curso);
             $data = $request->validated();
+            unset($data['codigo']);
             $tieneAsignaciones = $curso->profesores()->wherePivot('activo', true)->exists();
             if ($tieneAsignaciones && (
                 (array_key_exists('activo', $data) && !$data['activo']) ||

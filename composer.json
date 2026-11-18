@@ -15,6 +15,7 @@
         "spatie/laravel-permission": "^6.25"
     },
     "require-dev": {
+        "baer-software/larabeacon": "^3.4",
         "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.24",

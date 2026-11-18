@@ -3,13 +3,16 @@
 
 namespace App\Models;
 
+use App\Traits\GeneraCodigoAutomatico;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Aula extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, GeneraCodigoAutomatico;
+
+    protected string $prefijoCodigo = 'AUL';
 
     protected $table = 'aulas';
 

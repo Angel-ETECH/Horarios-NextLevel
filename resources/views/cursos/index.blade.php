@@ -1043,24 +1043,24 @@
 
                         <label class="mb-2 block text-sm font-semibold text-[#0F2749]">
                             Código
-                            <span class="text-red-500">*</span>
                         </label>
 
                         <input
                             id="curso-codigo"
                             type="text"
-                            maxlength="20"
-                            placeholder="Ej. MAT-001"
+                            readonly
+                            placeholder="Se genera automáticamente"
                             class="
-                                curso-input
                                 w-full
+                                cursor-not-allowed
                                 rounded-xl
                                 border
                                 border-slate-200
+                                bg-slate-100
                                 px-4
                                 py-2.5
                                 text-sm
-                                uppercase
+                                text-slate-500
                                 outline-none
                             "
                         >
@@ -1226,8 +1226,8 @@
                                 class="curso-native-select"
                             >
                                 <option value="30">30 minutos</option>
-                                <option value="45">45 minutos</option>
-                                <option value="60" selected>60 minutos</option>
+                                <option value="45" selected>45 minutos</option>
+                                <option value="60">60 minutos</option>
                                 <option value="90">90 minutos</option>
                                 <option value="120">120 minutos</option>
                             </select>
@@ -1236,7 +1236,7 @@
                                 class="curso-custom-select"
                                 data-curso-select="curso-duracion"
                                 data-label="Duración"
-                                data-placeholder="60 minutos"
+                                data-placeholder="45 minutos"
                                 data-icon="tiempo"
                             ></div>
 

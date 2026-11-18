@@ -188,20 +188,17 @@ class AulaService
      */
     public function create(array $data): Aula
     {
-        return DB::transaction(function () use ($data) {
-            // Validar código único
-            if (Aula::where('codigo', $data['codigo'])->exists()) {
-                throw ValidationException::withMessages([
-                    'codigo' => 'Ya existe un aula con este código'
-                ]);
-            }
+        return \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($data) {
+            return DB::transaction(function () use ($data) {
+                unset($data['codigo']);
 
-            // Normalizar institución por defecto
-            if (!isset($data['institucion'])) {
-                $data['institucion'] = 'ambos';
-            }
+                // Normalizar institución por defecto
+                if (!isset($data['institucion'])) {
+                    $data['institucion'] = 'ambos';
+                }
 
-            return Aula::create($data);
+                return Aula::create($data);
+            });
         });
     }
 
@@ -214,6 +211,9 @@ class AulaService
             app(RecuperacionHorarioService::class)->bloquearAgenda();
             app(RecuperacionHorarioService::class)->protegerAula($id, $data);
             $aula = Aula::findOrFail($id);
+
+            // El código no se puede modificar por update
+            unset($data['codigo']);
 
             if (isset($data['institucion']) && $data['institucion'] !== 'ambos' && (
                 $aula->horarios()->where('estado', 'activo')->where('institucion', '!=', $data['institucion'])->exists() ||
@@ -232,17 +232,6 @@ class AulaService
                 throw ValidationException::withMessages([
                     'activo' => 'Desactiva primero las asignaciones que utilizan esta aula.',
                 ]);
-            }
-
-            // Validar código único (si cambia)
-            if (isset($data['codigo']) && $data['codigo'] !== $aula->codigo) {
-                if (Aula::where('codigo', $data['codigo'])
-                    ->where('id', '!=', $id)
-                    ->exists()) {
-                    throw ValidationException::withMessages([
-                        'codigo' => 'Ya existe un aula con este código'
-                    ]);
-                }
             }
 
             // Si se reduce la capacidad, verificar que no afecte horarios activos

@@ -974,6 +974,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         profesorForm.reset();
 
+        if (codigoInput) {
+            codigoInput.value = '';
+        }
+
         cargaHorariaInput.value =
             '30';
 
@@ -998,6 +1002,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.add(
             'overflow-hidden'
         );
+
+        setTimeout(() => nombreInput?.focus(), 100);
     }
 
 
@@ -1045,7 +1051,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
 
         if (
-            !datos.codigo ||
             !datos.nombre ||
             !datos.apellido_paterno ||
             !datos.email ||
@@ -1119,11 +1124,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             const datos = {
-
-                codigo:
-                    codigoInput.value
-                        .trim()
-                        .toUpperCase(),
 
                 nombre:
                     nombreInput.value
@@ -1206,9 +1206,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cerrarProfesorModal();
 
 
+                const codigoGenerado = respuesta.data?.data?.codigo;
                 mostrarToast(
-                    respuesta.data?.message ||
-                    'Profesor creado correctamente.',
+                    codigoGenerado
+                        ? `Profesor creado con código ${codigoGenerado}`
+                        : (respuesta.data?.message || 'Profesor creado correctamente.'),
                     'success'
                 );
 
@@ -1929,9 +1931,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
             const datos = {
-
-                codigo:
-                    editCodigo.value,
 
                 nombre:
                     editNombre.value.trim(),

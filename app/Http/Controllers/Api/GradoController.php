@@ -72,23 +72,26 @@ class GradoController extends Controller
     public function store(GradoRequest $request)
     {
         try {
-            DB::beginTransaction();
+            $grado = \App\Traits\GeneraCodigoAutomatico::ejecutarConReintento(function () use ($request) {
+                return DB::transaction(function () use ($request) {
+                    // Generar nombre completo automáticamente
+                    $data = $request->validated();
+                    unset($data['codigo']);
+                    $data['nombre_completo'] = $this->generarNombreCompleto($data);
 
-            // Generar nombre completo automáticamente
-            $data = $request->validated();
-            $data['nombre_completo'] = $this->generarNombreCompleto($data);
+                    $grado = Grado::create($data);
 
-            $grado = Grado::create($data);
+                    $this->historialService->registrarEvento(
+                        'grados',
+                        'crear',
+                        null,
+                        $this->snapshotGrado($grado),
+                        'Grado creado'
+                    );
 
-            $this->historialService->registrarEvento(
-                'grados',
-                'crear',
-                null,
-                $this->snapshotGrado($grado),
-                'Grado creado'
-            );
-
-            DB::commit();
+                    return $grado;
+                });
+            });
 
             return response()->json([
                 'status' => 'success',
@@ -97,7 +100,6 @@ class GradoController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
-            DB::rollBack();
             return response()->json([
                 'status' => 'error',
                 'message' => 'Error al crear el grado: ' . $e->getMessage()
@@ -114,6 +116,7 @@ class GradoController extends Controller
             $datosAnteriores = $this->snapshotGrado($grado);
 
             $data = $request->validated();
+            unset($data['codigo']);
             $data['nombre_completo'] = $this->generarNombreCompleto($data);
 
             $cambiaBaseAcademica =
