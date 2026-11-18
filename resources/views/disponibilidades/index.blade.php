@@ -1007,7 +1007,7 @@
 
 
                 <p class="mt-2 text-xs text-slate-400">
-                    La disponibilidad se guarda por separado para cada institución.
+                    Las horas guardadas quedan reservadas para esta institución y se bloquean en la otra.
                 </p>
 
             </div>
