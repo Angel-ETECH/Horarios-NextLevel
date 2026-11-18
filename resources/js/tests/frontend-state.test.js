@@ -121,6 +121,18 @@ function gridAvailabilityFixture(recesos) {
     });
 }
 
+test('institutional reservations reject partial overlap but allow adjacent times and other weekdays', () => {
+    const c = loadFunctions(disponibilidadSource, ['reservaQueCruza', 'rangosSeCruzan', 'minutosHora', 'mensajeReserva'], {
+        reservasOtraInstitucion: [{dia: 1, institucion: 'academia', hora_inicio: '08:00', hora_fin: '09:00'}],
+    });
+    assert.equal(c.reservaQueCruza(1, '07:30', '08:30').institucion, 'academia');
+    assert.equal(c.reservaQueCruza(1, '08:30', '09:30').institucion, 'academia');
+    assert.equal(c.reservaQueCruza(1, '07:00', '08:00'), undefined);
+    assert.equal(c.reservaQueCruza(1, '09:00', '10:00'), undefined);
+    assert.equal(c.reservaQueCruza(2, '08:00', '09:00'), undefined);
+    assert.match(c.mensajeReserva(c.reservaQueCruza(1, '08:00', '09:00')), /Reservado para Academia/);
+});
+
 test('availability form sends canonical weekday names for every grid day', () => {
     const mapping = disponibilidadSource.match(/const diasBackend\s*=\s*(\{[\s\S]*?\});/);
     assert.ok(mapping, 'The form must define its backend weekday mapping');
