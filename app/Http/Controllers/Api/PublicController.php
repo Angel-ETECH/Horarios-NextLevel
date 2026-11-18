@@ -135,7 +135,7 @@ class PublicController extends Controller
      *
      * Ejemplo:
      * ?institucion=colegio
-     * ?search=DOC-002
+     * ?search=PROF-002
      */
     public function listarProfesores(
         Request $request

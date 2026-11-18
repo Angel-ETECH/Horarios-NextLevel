@@ -593,7 +593,7 @@ class HistorialCambio extends Model
         if ($c === 'profesor' || $c === 'profesor_id' || str_contains($c, 'profesor')
             || isset($obj['apellido_paterno']) || isset($obj['apellido_materno'])
             || isset($obj['carga_horaria_maxima']) || isset($obj['carga_horaria_actual'])
-            || (isset($obj['codigo']) && str_starts_with((string)$obj['codigo'], 'DOC-'))) {
+            || (isset($obj['codigo']) && str_starts_with((string)$obj['codigo'], 'PROF-'))) {
             return $this->formatearProfesor($obj);
         }
 

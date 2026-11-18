@@ -8,7 +8,7 @@ use Illuminate\Validation\ValidationException;
 class CodigoSecuencialService
 {
     public const CATALOGOS = [
-        'profesores' => 'DOC', 'cursos' => 'CUR', 'aulas' => 'AUL', 'grados' => 'GRA',
+        'profesores' => 'PROF', 'cursos' => 'CUR', 'aulas' => 'AUL', 'grados' => 'GRA',
     ];
 
     public function siguiente(string $tabla, bool $reservar = false): string

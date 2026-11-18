@@ -12,7 +12,7 @@ class ProfesorSeeder extends Seeder
     {
         $profesores = [
             [
-                'codigo' => 'DOC-001',
+                'codigo' => 'PROF-001',
                 'nombre' => 'Carlos',
                 'apellido_paterno' => 'García',
                 'apellido_materno' => 'Pérez',
@@ -28,7 +28,7 @@ class ProfesorSeeder extends Seeder
                 'observaciones' => 'Profesor con 10 años de experiencia'
             ],
             [
-                'codigo' => 'DOC-002',
+                'codigo' => 'PROF-002',
                 'nombre' => 'María',
                 'apellido_paterno' => 'Rodríguez',
                 'apellido_materno' => 'López',
@@ -44,7 +44,7 @@ class ProfesorSeeder extends Seeder
                 'observaciones' => 'Especialista en lingüística'
             ],
             [
-                'codigo' => 'DOC-003',
+                'codigo' => 'PROF-003',
                 'nombre' => 'Juan',
                 'apellido_paterno' => 'Martínez',
                 'apellido_materno' => 'Sánchez',
@@ -60,7 +60,7 @@ class ProfesorSeeder extends Seeder
                 'observaciones' => 'Biólogo con maestría'
             ],
             [
-                'codigo' => 'DOC-004',
+                'codigo' => 'PROF-004',
                 'nombre' => 'Ana',
                 'apellido_paterno' => 'Torres',
                 'apellido_materno' => 'Flores',
@@ -76,7 +76,7 @@ class ProfesorSeeder extends Seeder
                 'observaciones' => 'Certificada en Cambridge'
             ],
             [
-                'codigo' => 'DOC-005',
+                'codigo' => 'PROF-005',
                 'nombre' => 'Luis',
                 'apellido_paterno' => 'Ramírez',
                 'apellido_materno' => 'Gómez',
