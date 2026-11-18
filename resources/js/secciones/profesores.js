@@ -1045,7 +1045,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
 
         if (
-            !datos.codigo ||
+
             !datos.nombre ||
             !datos.apellido_paterno ||
             !datos.email ||

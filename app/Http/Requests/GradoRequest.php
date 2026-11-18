@@ -8,6 +8,7 @@ use Illuminate\Support\Carbon;
 
 class GradoRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CodigoGeneradoPorServidor;
     public function authorize(): bool
     {
         return true;
@@ -19,7 +20,7 @@ class GradoRequest extends FormRequest
         $currentYear = Carbon::now()->year;
 
         return [
-            'codigo' => ['required', 'string', 'max:20', Rule::unique('grados')->ignore($gradoId)],
+            'codigo' => ['sometimes', 'string', 'max:20', Rule::unique('grados')->ignore($gradoId)],
             'nivel' => 'required|in:primaria,secundaria,academia',
             'grado' => 'required|string|max:20',
             'seccion' => 'required|string|max:5',

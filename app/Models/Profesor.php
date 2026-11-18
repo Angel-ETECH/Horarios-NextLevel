@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Profesor extends Model
 {
     use HasFactory, SoftDeletes;
+    use \App\Models\Concerns\GeneraCodigoAutomatico;
 
     protected $table = 'profesores';
 

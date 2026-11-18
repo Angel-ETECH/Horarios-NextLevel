@@ -45,8 +45,7 @@ class ProfesorController extends Controller
             });
         }
 
-        $profesores = $query->orderBy('apellido_paterno')
-                           ->orderBy('nombre')
+        $profesores = $query->orderByDesc('created_at')->orderByDesc('id')
                            ->paginate($request->per_page ?? 15);
 
         return response()->json([

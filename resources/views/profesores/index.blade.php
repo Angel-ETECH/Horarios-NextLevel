@@ -706,6 +706,8 @@
 
                         <input
                             id="codigo"
+                            readonly
+                            data-codigo-automatico
                             type="text"
                             maxlength="20"
                             placeholder="Ej. PROF-001"

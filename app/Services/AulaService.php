@@ -26,10 +26,6 @@ class AulaService
     public function getByNivel(string $nivel): Collection
     {
         return Aula::where('activo', true)
-            ->where(function ($query) use ($nivel) {
-                $query->where('nivel', $nivel)
-                      ->orWhere('nivel', 'todos');
-            })
             ->orderBy('codigo')
             ->orderBy('nombre')
             ->get();
@@ -42,10 +38,6 @@ class AulaService
     {
         return Aula::where('activo', true)
             ->where('tipo', $tipo)
-            ->where(function ($query) use ($nivel) {
-                $query->where('nivel', $nivel)
-                      ->orWhere('nivel', 'todos');
-            })
             ->orderBy('nombre')
             ->get();
     }
@@ -190,7 +182,7 @@ class AulaService
     {
         return DB::transaction(function () use ($data) {
             // Validar código único
-            if (Aula::where('codigo', $data['codigo'])->exists()) {
+            if (!empty($data['codigo']) && Aula::where('codigo', $data['codigo'])->exists()) {
                 throw ValidationException::withMessages([
                     'codigo' => 'Ya existe un aula con este código'
                 ]);
@@ -201,6 +193,7 @@ class AulaService
                 $data['institucion'] = 'ambos';
             }
 
+            $data['nivel'] = 'todos';
             return Aula::create($data);
         });
     }
@@ -250,6 +243,7 @@ class AulaService
                 $this->validarCapacidadVsHorarios($id, $data['capacidad']);
             }
 
+            $data['nivel'] = 'todos';
             $aula->update($data);
             return $aula->fresh();
         });

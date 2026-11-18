@@ -1395,6 +1395,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function actualizarCustomSelect(select) {
+        if (select === gradoSelect) {
+            const academia = institucionSelect.value === 'academia';
+            const etiqueta = academia ? 'Aula / Nivel' : 'Grado / Sección';
+            const placeholder = academia ? 'Seleccionar aula / nivel' : 'Seleccionar grado';
+            const label = document.getElementById('asignacion-grado-etiqueta');
+            if (label) label.textContent = etiqueta;
+            const wrapperGrado = obtenerWrapperSelect(gradoSelect);
+            if (wrapperGrado) {
+                wrapperGrado.dataset.label = etiqueta;
+                wrapperGrado.dataset.placeholder = placeholder;
+                const titulo = wrapperGrado.querySelector('.nl-select-label');
+                if (titulo) titulo.textContent = etiqueta;
+            }
+            const opcionVacia = gradoSelect.querySelector('option[value=""]');
+            if (opcionVacia) opcionVacia.textContent = placeholder;
+        }
 
         if (!select) {
             return;
@@ -2025,10 +2041,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
 
-                    const nivel =
-                        normalizarTexto(
-                            curso.nivel
-                        );
+                    const nivel = normalizarTexto(curso.nivel);
+                    const niveles = curso.niveles ?? (nivel === 'todos' ? ['primaria', 'secundaria', 'academia'] : [nivel]);
 
 
                     if (
@@ -2037,8 +2051,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ) {
 
                         return (
-                            nivel === 'academia' ||
-                            nivel === 'todos'
+                            niveles.includes('academia')
                         );
                     }
 
@@ -2048,13 +2061,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         'colegio'
                     ) {
 
-                        return [
-                            'primaria',
-                            'secundaria',
-                            'todos'
-                        ].includes(
-                            nivel
-                        );
+                        return niveles.some(nivel => ['primaria', 'secundaria'].includes(nivel));
                     }
 
 
@@ -2224,18 +2231,9 @@ document.addEventListener('DOMContentLoaded', () => {
          * mostramos solamente grados compatibles.
          */
 
-        if (
-            nivelCurso &&
-            nivelCurso !== 'todos'
-        ) {
-
-            filtrados =
-                filtrados.filter(
-                    grado =>
-                        normalizarTexto(
-                            grado.nivel
-                        ) === nivelCurso
-                );
+        const nivelesCurso = curso?.niveles ?? (nivelCurso === 'todos' ? ['primaria', 'secundaria', 'academia'] : [nivelCurso]);
+        if (curso) {
+            filtrados = filtrados.filter(grado => nivelesCurso.includes(normalizarTexto(grado.nivel)));
         }
 
 

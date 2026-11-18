@@ -721,6 +721,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Array.from(
                 select.options
             )
+                .filter(option => !option.hidden || option.selected)
                 .map(
                     option => {
 
@@ -1042,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         codigoInput.readOnly =
-            false;
+            true;
 
 
         codigoInput.classList.remove(
@@ -1053,6 +1054,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         nivelInput.value =
             'todos';
+        document.querySelectorAll('[name="curso-niveles"]').forEach(input => input.checked = true);
 
 
         tipoInput.value =
@@ -1192,8 +1194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ) {
 
         if (
-            !datos.codigo ||
-            !datos.nombre ||
+                        !datos.nombre ||
             !datos.nivel ||
             !datos.tipo
         ) {
@@ -1222,13 +1223,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
         const duraciones =
-            [
-                30,
-                45,
-                60,
-                90,
-                120
-            ];
+            [30, 35, 40, 45, 50, 55, 60];
+        const cursoAnterior = cursosPagina.find(curso => String(curso.id) === String(cursoEditandoId));
+        if (cursoAnterior && [90, 120].includes(Number(cursoAnterior.duracion_minutos))) {
+            duraciones.push(Number(cursoAnterior.duracion_minutos));
+        }
 
 
         if (
@@ -1238,7 +1237,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ) {
 
             mostrarToast(
-                'La duración debe ser 30, 45, 60, 90 o 120 minutos.',
+                'Elige una duración entre 30 y 60 minutos en pasos de 5.',
                 'error'
             );
 
@@ -1293,6 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     duracionInput.value
                 ),
 
+            niveles: Array.from(document.querySelectorAll('[name="curso-niveles"]:checked'), input => input.value),
             nivel:
                 nivelInput.value,
 
@@ -1588,9 +1588,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     "
                 >
                     ${esc(
-                        labelNivel(
-                            curso.nivel
-                        )
+                        (curso.niveles ?? (curso.nivel === 'todos' ? ['primaria', 'secundaria', 'academia'] : [curso.nivel])).map(labelNivel).join(', ')
                     )}
                 </span>
 
@@ -2613,6 +2611,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         '';
 
 
+                    document.querySelectorAll('[name="curso-niveles"]').forEach(input => {
+                        input.checked = (curso.niveles ?? (curso.nivel === 'todos' ? ['primaria', 'secundaria', 'academia'] : [curso.nivel])).includes(input.value);
+                    });
                     nivelInput.value =
                         curso.nivel ??
                         'todos';

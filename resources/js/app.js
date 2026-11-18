@@ -639,3 +639,38 @@ window.addEventListener(
         }
     }
 );
+
+document.addEventListener('DOMContentLoaded', () => {
+    const catalogos = {
+        codigo: 'profesores',
+        'curso-codigo': 'cursos',
+        'aula-codigo': 'aulas',
+        'grado-codigo': 'grados',
+    };
+    document.querySelectorAll('[data-codigo-automatico]').forEach(input => {
+        input.readOnly = true;
+        input.disabled = true;
+        input.required = false;
+        input.tabIndex = -1;
+        const etiqueta = input.closest('div')?.querySelector('label');
+        if (etiqueta) etiqueta.textContent = 'Código';
+        let solicitud = 0;
+        async function mostrarSiguienteCodigo() {
+            const actual = ++solicitud;
+            const valorAnterior = input.value;
+            input.placeholder = 'Consultando código…';
+            try {
+                const respuesta = await window.axios.get('/api/codigos/' + catalogos[input.id] + '/siguiente');
+                if (actual === solicitud && input.value === valorAnterior) {
+                    input.value = respuesta.data.codigo;
+                }
+            } catch {
+                if (actual === solicitud) input.placeholder = 'Se asignará al guardar';
+            }
+        }
+        input.form?.addEventListener('reset', () => {
+            queueMicrotask(mostrarSiguienteCodigo);
+        });
+        mostrarSiguienteCodigo();
+    });
+});

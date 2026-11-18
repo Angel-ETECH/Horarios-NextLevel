@@ -1118,17 +1118,16 @@
 
                     <input
                         id="grado-codigo"
+                        readonly
+                        data-codigo-automatico
                         name="codigo"
                         type="text"
                         maxlength="20"
                         placeholder="Ej. GR-PRI-1A"
-                        required
+
                         class="grado-input w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none"
                     >
 
-                    <p class="mt-1 text-xs text-slate-400">
-                        Máximo 20 caracteres.
-                    </p>
 
                 </div>
 
@@ -1215,7 +1214,7 @@
                         for="grado-grado"
                         class="mb-2 block text-sm font-medium text-slate-700"
                     >
-                        Grado
+                        <span id="grado-etiqueta">Grado</span>
                         <span class="text-red-500">*</span>
                     </label>
 
@@ -1239,7 +1238,7 @@
                         for="grado-seccion"
                         class="mb-2 block text-sm font-medium text-slate-700"
                     >
-                        Sección
+                        <span id="seccion-etiqueta">Sección</span>
                         <span class="text-red-500">*</span>
                     </label>
 

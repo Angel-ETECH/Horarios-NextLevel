@@ -48,9 +48,7 @@ class GradoController extends Controller
             });
         }
 
-        $grados = $query->orderBy('nivel')
-                       ->orderBy('grado')
-                       ->orderBy('seccion')
+        $grados = $query->orderByDesc('created_at')->orderByDesc('id')
                        ->paginate($request->per_page ?? 15);
 
         return response()->json([

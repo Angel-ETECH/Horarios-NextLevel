@@ -1048,6 +1048,8 @@
 
                         <input
                             id="curso-codigo"
+                        readonly
+                        data-codigo-automatico
                             type="text"
                             maxlength="20"
                             placeholder="Ej. MAT-001"
@@ -1125,35 +1127,13 @@
                     </div>
 
 
-                    {{-- NIVEL --}}
-                    <div>
-
-                        <label class="mb-2 block text-sm font-semibold text-[#0F2749]">
-                            Nivel
-                            <span class="text-red-500">*</span>
-                        </label>
-
-                        <select
-                            id="curso-nivel"
-                            class="curso-native-select"
-                        >
-                            <option value="todos">Todos</option>
-                            <option value="primaria">Primaria</option>
-                            <option value="secundaria">Secundaria</option>
-                            <option value="academia">Academia</option>
-                        </select>
-
-                        <div
-                            class="curso-custom-select"
-                            data-curso-select="curso-nivel"
-                            data-label="Nivel"
-                            data-placeholder="Todos"
-                            data-icon="nivel"
-                        ></div>
-
-                    </div>
-
-
+                    <fieldset>
+                        <legend class="mb-2 text-sm font-semibold">Niveles del curso</legend>
+                        <label class="mr-3 inline-flex items-center gap-2"><input type="checkbox" name="curso-niveles" value="primaria" checked> Primaria</label>
+                        <label class="mr-3 inline-flex items-center gap-2"><input type="checkbox" name="curso-niveles" value="secundaria" checked> Secundaria</label>
+                        <label class="mr-3 inline-flex items-center gap-2"><input type="checkbox" name="curso-niveles" value="academia" checked> Academia</label>
+                        <select id="curso-nivel" hidden><option value="todos">Todos</option><option value="primaria">Primaria</option><option value="secundaria">Secundaria</option><option value="academia">Academia</option></select>
+                    </fieldset>
                     {{-- TIPO --}}
                     <div>
 
@@ -1226,10 +1206,14 @@
                                 class="curso-native-select"
                             >
                                 <option value="30">30 minutos</option>
+                                <option value="35">35 minutos</option>
+                                <option value="40">40 minutos</option>
                                 <option value="45">45 minutos</option>
+                                <option value="50">50 minutos</option>
+                                <option value="55">55 minutos</option>
                                 <option value="60" selected>60 minutos</option>
-                                <option value="90">90 minutos</option>
-                                <option value="120">120 minutos</option>
+                                <option value="90" hidden>90 minutos (anterior)</option>
+                                <option value="120" hidden>120 minutos (anterior)</option>
                             </select>
 
                             <div

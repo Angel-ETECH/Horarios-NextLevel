@@ -7,6 +7,7 @@ use Illuminate\Validation\Rule;
 
 class ProfesorRequest extends FormRequest
 {
+    use \App\Http\Requests\Concerns\CodigoGeneradoPorServidor;
     public function authorize(): bool
     {
         return true; // Cambiar cuando tengas autenticación
@@ -17,7 +18,7 @@ class ProfesorRequest extends FormRequest
         $profesorId = $this->route('id');
 
         return [
-            'codigo' => ['required', 'string', 'max:20', Rule::unique('profesores')->ignore($profesorId)],
+            'codigo' => ['sometimes', 'string', 'max:20', Rule::unique('profesores')->ignore($profesorId)],
             'nombre' => 'required|string|max:100',
             'apellido_paterno' => 'required|string|max:50',
             'apellido_materno' => 'nullable|string|max:50',

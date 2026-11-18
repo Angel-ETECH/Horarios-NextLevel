@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Grado extends Model
 {
     use HasFactory, SoftDeletes;
+    use \App\Models\Concerns\GeneraCodigoAutomatico;
 
     protected $table = 'grados';
 
